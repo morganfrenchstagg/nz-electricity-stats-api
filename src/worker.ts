@@ -1,12 +1,16 @@
 import { Hono } from "hono";
+import { cors } from "hono/cors";
 
 const app = new Hono();
 
+app.get("/", async (c) => {
+  return c.redirect("https://electricitymap.frenchsta.gg/");
+});
+
 app.get("ping", async (c) => {
-  // Do something and return an HTTP response
-  // Optionally, do something with `c.req.param("slug")`
   return c.text("pong");
 });
 
+app.use(cors());
 
 export default app;
