@@ -1,0 +1,16 @@
+{
+	"compatibility_date": "2025-10-08",
+	"main": "src/index.ts",
+	"name": "nz-electricity-stats-api",
+	"upload_source_maps": true,
+	"d1_databases": [
+		{
+			"binding": "DB",
+			"database_id": "a22ee39f-3b36-449a-995c-62e417e6f2ea",
+			"database_name": "nz-electricity-stats"
+		}
+	],
+	"observability": {
+		"enabled": true
+	}
+}
