@@ -1,5 +1,7 @@
 import { Hono } from "hono";
 import { cors } from "hono/cors";
+import { syncOffers } from "./Offers/syncOffers";
+import { syncDispatch } from "./Dispatch/syncDispatch";
 
 const app = new Hono();
 
@@ -14,7 +16,14 @@ app.get("ping", async (c) => {
 app.use(cors());
 
 function scheduled(controller: ScheduledController) {
-  console.log("Scheduled task executed");
+  switch (controller.cron) {
+    case "*/2 * * * *":
+      syncDispatch();
+      break;
+    case "8 * * * *":
+      syncOffers();
+      break;
+  }
 }
 
 export default {
