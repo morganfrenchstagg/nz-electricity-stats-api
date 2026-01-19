@@ -13,4 +13,11 @@ app.get("ping", async (c) => {
 
 app.use(cors());
 
-export default app;
+function scheduled(controller: ScheduledController) {
+  console.log("Scheduled task executed");
+}
+
+export default {
+  fetch: app.fetch,
+  scheduled: scheduled,
+}
