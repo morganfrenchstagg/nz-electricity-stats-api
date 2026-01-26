@@ -16,15 +16,14 @@ export async function syncDispatch() {
 }
 
 function isSyncNeeded(lastSynced: Date){
-  const now = new Date();
+  const now = new Date(new Date().toLocaleString("en-US", { timeZone: "Pacific/Auckland" }));
   const diff = now.getTime() - lastSynced.getTime();
-
   return diff / 1000 / 60 > 5;
 }
 
 async function getLastSynced(): Promise<Date>{
   const lastSynced = await env.DB.prepare(`SELECT MAX(FiveMinuteIntervalDatetime) FROM real_time_dispatch`).first("MAX(FiveMinuteIntervalDatetime)");
-  console.log("Last synced: " + lastSynced);
+  console.log("Last synced: " + new Date(lastSynced as string));
   return new Date(lastSynced as string);
 }
 
