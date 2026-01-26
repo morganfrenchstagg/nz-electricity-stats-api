@@ -36,7 +36,7 @@ async function fetchFromEmiRtdApi(lastSynced?: Date){
   })
 
   if(response.status === 200){
-    var data = await response.json();
+    var data = await response.json() as any[];
 
     console.log("Response date time: " + data[0].FiveMinuteIntervalDatetime);
     var responseDateTime = new Date(data[0].FiveMinuteIntervalDatetime);

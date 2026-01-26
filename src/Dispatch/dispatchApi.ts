@@ -1,12 +1,41 @@
 import { env } from "cloudflare:workers";
 import { Hono } from "hono";
+import { cors } from "hono/cors";
+import { Dispatch } from "./model";
 
 const app = new Hono();
+app.use(cors());
 
 app.get("/", async (c) => {
 	const dispatch = await env.DB.prepare(`SELECT * FROM real_time_dispatch WHERE FiveMinuteIntervalDateTime >= DATE('now', '-1 day')`).all();
 	return c.json(dispatch.results);
 });
+
+app.get("/legacy/generators", async (c) => {
+	const list = await fetch('https://raw.githubusercontent.com/morganfrenchstagg/nz-electricity-map/refs/heads/main/backend/data/generators.json');
+	const generatorListJson = await list.json();
+
+	const lastSynced = await env.DB.prepare(`SELECT MAX(FiveMinuteIntervalDatetime) FROM real_time_dispatch`).first("MAX(FiveMinuteIntervalDatetime)");
+
+	const dispatchAtLastSynced = await env.DB.prepare(`SELECT * FROM real_time_dispatch WHERE FiveMinuteIntervalDatetime = ?`).bind(lastSynced).all();
+
+	const nodes: Record<string, number> = {};
+	for(const unit of dispatchAtLastSynced.results as Dispatch[]){
+		nodes[unit.PointOfConnectionCode] = unit.SPDGenerationMegawatt;
+	}
+
+	for(const generator of generatorListJson as any[]){
+		for(const unit of generator.units){
+			unit.generation = nodes[unit.node] ?? 0;
+			// todo add outages
+		}
+	}
+
+	return c.json({
+		generators: generatorListJson,
+		lastUpdate: lastSynced,
+	});
+})
 
 app.get("/delta", async (c) => {
 	const list = await fetch('https://raw.githubusercontent.com/morganfrenchstagg/nz-electricity-map/refs/heads/main/backend/data/generators.json');
@@ -21,7 +50,7 @@ app.get("/delta", async (c) => {
 	const unitsUnaccountedForInDispatchList = dispatchListResult;
 	const unitsMissingInDispatchList = [];
 
-	for(const generator of generationListJson){
+	for(const generator of generationListJson as any[]){
 		for(const unit of generator.units){
 			if(!dispatchListResult.includes(unit.node)){
 				unitsMissingInDispatchList.push(unit.node);
