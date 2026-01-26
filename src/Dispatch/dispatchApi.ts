@@ -2,7 +2,7 @@ import { env } from "cloudflare:workers";
 import { Hono } from "hono";
 import { cors } from "hono/cors";
 import { Dispatch } from "./model";
-import { getGeneratorUnits } from "./generators";
+import { getGenerators, getGeneratorUnits } from "./generators";
 
 const app = new Hono();
 app.use(cors());
@@ -13,8 +13,7 @@ app.get("/", async (c) => {
 });
 
 app.get("/legacy/generators", async (c) => {
-	const list = await fetch('https://raw.githubusercontent.com/morganfrenchstagg/nz-electricity-map/refs/heads/main/backend/data/generators.json');
-	const generatorListJson = await list.json();
+	const generators = await getGenerators();
 
 	const lastSynced = await env.DB.prepare(`SELECT MAX(FiveMinuteIntervalDatetime) FROM real_time_dispatch`).first("MAX(FiveMinuteIntervalDatetime)");
 
@@ -25,7 +24,7 @@ app.get("/legacy/generators", async (c) => {
 		nodes[unit.PointOfConnectionCode] = unit.SPDGenerationMegawatt;
 	}
 
-	for(const generator of generatorListJson as any[]){
+	for(const generator of generators as any[]){
 		for(const unit of generator.units){
 			unit.generation = nodes[unit.node] ?? 0;
 			// todo add outages
@@ -33,7 +32,7 @@ app.get("/legacy/generators", async (c) => {
 	}
 
 	return c.json({
-		generators: generatorListJson,
+		generators: generators,
 		lastUpdate: lastSynced,
 	});
 })
@@ -84,8 +83,9 @@ app.get("/legacy/generator-history/:date", async (c) => {
 		}
 		dispatchMap[dateTime] = dispatchMap[dateTime] || [];
 
-		if(dispatchMap[dateTime].find(element => element.site === unit.site && element.fuel === unit.fuelCode)){
-			dispatchMap[dateTime].find(element => element.site === unit.site && element.fuel === unit.fuelCode).gen += dispatch.SPDGenerationMegawatt - dispatch.SPDLoadMegawatt;
+		const existingElement = dispatchMap[dateTime].find(element => element.site === unit.site && element.fuel === unit.fuelCode);
+		if(existingElement){
+			existingElement.gen += dispatch.SPDGenerationMegawatt - dispatch.SPDLoadMegawatt;
 		} else {
 			dispatchMap[dateTime].push(element);
 		}
@@ -95,19 +95,18 @@ app.get("/legacy/generator-history/:date", async (c) => {
 })
 
 app.get("/delta", async (c) => {
-	const list = await fetch('https://raw.githubusercontent.com/morganfrenchstagg/nz-electricity-map/refs/heads/main/backend/data/generators.json');
-	const generationListJson = await list.json();
+	const generators = await getGenerators();
 
 	const lastSynced = await env.DB.prepare(`SELECT MAX(FiveMinuteIntervalDatetime) FROM real_time_dispatch`).first("MAX(FiveMinuteIntervalDatetime)");
 
-	const dispatchList = await env.DB.prepare(`SELECT DISTINCT PointOfConnectionCode FROM real_time_dispatch`).all();
+	const dispatchList = await env.DB.prepare(`SELECT DISTINCT PointOfConnectionCode FROM real_time_dispatch WHERE FiveMinuteIntervalDatetime = ?`).bind(lastSynced).all();
 
 	const dispatchListResult = dispatchList.results.map(dispatch => dispatch.PointOfConnectionCode);
 
 	const unitsUnaccountedForInDispatchList = dispatchListResult;
 	const unitsMissingInDispatchList = [];
 
-	for(const generator of generationListJson as any[]){
+	for(const generator of generators){
 		for(const unit of generator.units){
 			if(!dispatchListResult.includes(unit.node)){
 				unitsMissingInDispatchList.push(unit.node);
