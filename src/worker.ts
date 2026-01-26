@@ -2,17 +2,19 @@ import { Hono } from "hono";
 import { cors } from "hono/cors";
 import { syncOffers } from "./Offers/syncOffers";
 import { syncDispatch } from "./Dispatch/syncDispatch";
+import dispatchApi from "./Dispatch/dispatchApi";
 
 const app = new Hono();
 
-app.get("/", async (c) => {
+app.get('/', async (c) => {
   return c.redirect("https://electricitymap.frenchsta.gg/");
 });
 
-app.get("ping", async (c) => {
+app.get('ping', async (c) => {
   return c.text("pong");
 });
 
+app.route('/v1/dispatch', dispatchApi);
 app.use(cors());
 
 async function scheduled(controller: ScheduledController) {
