@@ -59,9 +59,12 @@ async function fetchFromEmiRtdApi(lastSynced?: Date){
 }
 
 async function processEmiRtdData(data: any){
+  const insert = env.DB.prepare(`INSERT INTO real_time_dispatch (PointOfConnectionCode, FiveMinuteIntervalDatetime, SPDLoadMegawatt, SPDGenerationMegawatt, DollarsPerMegawattHour) VALUES (?, ?, ?, ?, ?)`);
+  const batch = [];
   for(var item of data){
-    await env.DB.prepare(`INSERT INTO real_time_dispatch (PointOfConnectionCode, FiveMinuteIntervalDatetime, SPDLoadMegawatt, SPDGenerationMegawatt, DollarsPerMegawattHour) VALUES (?, ?, ?, ?, ?)`).bind(item.PointOfConnectionCode, item.FiveMinuteIntervalDatetime, item.SPDLoadMegawatt, item.SPDGenerationMegawatt, item.DollarsPerMegawattHour).run();
+    batch.push(insert.bind(item.PointOfConnectionCode, item.FiveMinuteIntervalDatetime, item.SPDLoadMegawatt, item.SPDGenerationMegawatt, item.DollarsPerMegawattHour));
   }
+  env.DB.batch(batch);
   console.log("Processed " + data.length + " items");
 }
 
