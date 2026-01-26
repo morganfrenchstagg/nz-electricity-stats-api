@@ -64,7 +64,7 @@ app.get("/delta", async (c) => {
 	return c.json({
 		lastSynced: lastSynced,
 		unitsMissingInDispatchList: unitsMissingInDispatchList,
-		unitsUnaccountedForInDispatchList: unitsUnaccountedForInDispatchList.filter(unit => unit.split(' ').length > 1)
+		unitsUnaccountedForInDispatchList: unitsUnaccountedForInDispatchList.filter(unit => (unit as string).split(' ').length > 1)
 	});
 })
 
