@@ -15,13 +15,13 @@ app.get("ping", async (c) => {
 
 app.use(cors());
 
-function scheduled(controller: ScheduledController) {
+async function scheduled(controller: ScheduledController) {
   switch (controller.cron) {
     case "*/2 * * * *":
-      syncDispatch();
+      await syncDispatch();
       break;
     case "8 * * * *":
-      syncOffers();
+      await syncOffers();
       break;
   }
 }

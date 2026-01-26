@@ -16,6 +16,7 @@
 		"publish": true
 	},
 	"devDependencies": {
+		"@types/papaparse": "^5.5.2",
 		"typescript": "5.9.3",
 		"wrangler": "4.56.0"
 	},
@@ -29,6 +30,9 @@
 		"seedLocalD1": "wrangler d1 migrations apply DB --local"
 	},
 	"dependencies": {
-		"hono": "^4.11.4"
+		"domutils": "^3.2.2",
+		"hono": "^4.11.4",
+		"htmlparser2": "^10.0.0",
+		"papaparse": "^5.5.3"
 	}
 }
