@@ -38,6 +38,22 @@ app.get("/legacy/generators", async (c) => {
 	});
 })
 
+app.get("/legacy/price-history/:date", async (c) => {
+	const date = c.req.param('date');
+	const dispatch = await env.DB.prepare(`SELECT * FROM real_time_dispatch WHERE FiveMinuteIntervalDatetime like ? AND PointOfConnectionCode in ('OTA2201', 'BEN2201') `).bind(date + '%').all();
+	const dispatchResults = dispatch.results as Dispatch[];
+
+	var priceMap: Record<string, any> = {};
+	for(const dispatch of dispatchResults){
+		const dateTime = dispatch.FiveMinuteIntervalDatetime || dispatch['FiveMinuteIntervalDateTime'];
+		
+		priceMap[dateTime] = priceMap[dateTime] || {};
+		priceMap[dateTime][dispatch.PointOfConnectionCode] = dispatch.DollarsPerMegawattHour;
+	}
+
+	return c.json(priceMap);
+})
+
 app.get("/legacy/generator-history/:date", async (c) => {
 	const date = c.req.param('date');
 	const dispatch = await env.DB.prepare(`SELECT * FROM real_time_dispatch WHERE FiveMinuteIntervalDatetime like ?`).bind(date + '%').all();
