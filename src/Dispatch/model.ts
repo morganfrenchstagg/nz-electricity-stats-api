@@ -1,6 +1,6 @@
 export type Dispatch = {
 	PointOfConnectionCode: string;
-	FiveMinuteIntervalDatetime: Date;
+	FiveMinuteIntervalDatetime: string;
 	SPDLoadMegawatt: number;
 	SPDGenerationMegawatt: number;
 	DollarsPerMegawattHour: number;

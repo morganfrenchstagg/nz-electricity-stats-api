@@ -2,6 +2,7 @@ import { env } from "cloudflare:workers";
 import { Hono } from "hono";
 import { cors } from "hono/cors";
 import { Dispatch } from "./model";
+import { getGeneratorUnits } from "./generators";
 
 const app = new Hono();
 app.use(cors());
@@ -35,6 +36,47 @@ app.get("/legacy/generators", async (c) => {
 		generators: generatorListJson,
 		lastUpdate: lastSynced,
 	});
+})
+
+app.get("/legacy/generator-history/:date", async (c) => {
+	const date = c.req.param('date');
+	const dispatch = await env.DB.prepare(`SELECT * FROM real_time_dispatch WHERE FiveMinuteIntervalDatetime like ?`).bind(date + '%').all();
+	var dispatchResults = dispatch.results as Dispatch[];
+
+	const generatorUnits = await getGeneratorUnits();
+	
+	var dispatchMap: Record<string, any[]> = {};
+	for(const dispatch of dispatchResults){
+		if(dispatch.PointOfConnectionCode.split(' ').length === 1){
+			continue;
+		}
+
+		const dateTime = dispatch.FiveMinuteIntervalDatetime || dispatch['FiveMinuteIntervalDateTime'];
+
+		const unit = generatorUnits[dispatch.PointOfConnectionCode];
+		console.log(unit);
+
+		const generation = dispatch.SPDGenerationMegawatt - dispatch.SPDLoadMegawatt;
+
+		if(generation === 0){
+			continue;
+		}
+
+		const element = {
+			site: unit.site,
+			fuel: unit.fuelCode,
+			gen: dispatch.SPDGenerationMegawatt - dispatch.SPDLoadMegawatt
+		}
+		dispatchMap[dateTime] = dispatchMap[dateTime] || [];
+
+		if(dispatchMap[dateTime].find(element => element.site === unit.site && element.fuel === unit.fuelCode)){
+			dispatchMap[dateTime].find(element => element.site === unit.site && element.fuel === unit.fuelCode).gen += dispatch.SPDGenerationMegawatt - dispatch.SPDLoadMegawatt;
+		} else {
+			dispatchMap[dateTime].push(element);
+		}
+
+	}
+	return c.json(dispatchMap);
 })
 
 app.get("/delta", async (c) => {
