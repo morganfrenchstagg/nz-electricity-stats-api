@@ -62,8 +62,12 @@ async function processEmiRtdData(data: any){
   const insert = env.DB.prepare(`INSERT INTO real_time_dispatch (PointOfConnectionCode, FiveMinuteIntervalDatetime, SPDLoadMegawatt, SPDGenerationMegawatt, DollarsPerMegawattHour) VALUES (?, ?, ?, ?, ?)`);
   const batch = [];
   for(var item of data){
+    if(item.SPDLoadMegawatt === 0 && item.SPDGenerationMegawatt === 0){
+      continue;
+    }
     batch.push(insert.bind(item.PointOfConnectionCode, item.FiveMinuteIntervalDatetime, item.SPDLoadMegawatt, item.SPDGenerationMegawatt, item.DollarsPerMegawattHour));
   }
+  console.log("Batch size: " + batch.length);
   env.DB.batch(batch);
   console.log("Processed " + data.length + " items");
 }
