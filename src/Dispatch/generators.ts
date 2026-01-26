@@ -8,7 +8,6 @@ export async function getGenerators() {
 export async function getGeneratorUnits() {
 	const generators = await getGenerators();
 
-	//const units = generators.flatMap(generator => generator.units);
 	const unitMap: Record<string, any> = {};
 	for(const generator of generators){
 		for(const unit of generator.units){

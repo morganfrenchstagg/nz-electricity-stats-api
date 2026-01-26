@@ -54,7 +54,6 @@ app.get("/legacy/generator-history/:date", async (c) => {
 		const dateTime = dispatch.FiveMinuteIntervalDatetime || dispatch['FiveMinuteIntervalDateTime'];
 
 		const unit = generatorUnits[dispatch.PointOfConnectionCode];
-		console.log(unit);
 
 		const generation = dispatch.SPDGenerationMegawatt - dispatch.SPDLoadMegawatt;
 
