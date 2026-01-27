@@ -55,17 +55,13 @@ app.get("/legacy/price-history/:date", async (c) => {
 
 app.get("/legacy/generator-history/:date", async (c) => {
 	const date = c.req.param('date');
-	const dispatch = await env.DB.prepare(`SELECT * FROM real_time_dispatch WHERE FiveMinuteIntervalDatetime like ?`).bind(date + '%').all();
+	const dispatch = await env.DB.prepare(`SELECT * FROM real_time_dispatch WHERE FiveMinuteIntervalDatetime > ? and FiveMinuteIntervalDatetime < ? and PointOfConnectionCode like '% %' and NOT (SPDLoadMegawatt == 0 and SPDGenerationMegawatt == 0)`).bind(date, date + 'T23:59:00').all();
 	var dispatchResults = dispatch.results as Dispatch[];
 
 	const generatorUnits = await getGeneratorUnits();
 	
 	var dispatchMap: Record<string, any[]> = {};
 	for(const dispatch of dispatchResults){
-		if(dispatch.PointOfConnectionCode.split(' ').length === 1){
-			continue;
-		}
-
 		const dateTime = dispatch.FiveMinuteIntervalDatetime || dispatch['FiveMinuteIntervalDateTime'];
 
 		const unit = generatorUnits[dispatch.PointOfConnectionCode];
