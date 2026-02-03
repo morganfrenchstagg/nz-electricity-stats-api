@@ -93,9 +93,11 @@ app.get("/legacy/generator-history/:date", async (c) => {
 app.get("/delta", async (c) => {
 	const generators = await getGenerators();
 
-	const lastSynced = await env.DB.prepare(`SELECT MAX(FiveMinuteIntervalDatetime) FROM real_time_dispatch`).first("MAX(FiveMinuteIntervalDatetime)");
+	const lastSynced = await env.DB.prepare(`SELECT MAX(FiveMinuteIntervalDatetime) FROM real_time_dispatch`).first("MAX(FiveMinuteIntervalDatetime)") as string;
 
-	const dispatchList = await env.DB.prepare(`SELECT DISTINCT PointOfConnectionCode FROM real_time_dispatch WHERE FiveMinuteIntervalDatetime = ?`).bind(lastSynced).all();
+	const date = lastSynced.toString().split('T')[0];
+
+	const dispatchList = await env.DB.prepare(`SELECT DISTINCT PointOfConnectionCode FROM real_time_dispatch WHERE FiveMinuteIntervalDatetime >= ?`).bind(date).all();
 
 	const dispatchListResult = dispatchList.results.map(dispatch => dispatch.PointOfConnectionCode);
 
@@ -104,10 +106,10 @@ app.get("/delta", async (c) => {
 
 	for(const generator of generators){
 		for(const unit of generator.units){
-			if(!dispatchListResult.includes(unit.node)){
-				unitsMissingInDispatchList.push(unit.node);
-			} else {
+			if(dispatchListResult.includes(unit.node)){
 				unitsUnaccountedForInDispatchList.splice(unitsUnaccountedForInDispatchList.indexOf(unit.node), 1);
+			} else if(unit.active === undefined || unit.active === true) {
+				unitsMissingInDispatchList.push(unit.node);
 			}
 		}
 	}
