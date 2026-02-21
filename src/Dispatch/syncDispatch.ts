@@ -52,7 +52,7 @@ async function fetchFromEmiRtdApi(lastSynced?: Date){
     }
 
     await processEmiRtdData(data);
-    await checkForMissingUnits(data[0].FiveMinuteIntervalDatetime);
+    await checkForMissingUnits();
   } else {
     throw new Error(`Failed to fetch from EMI RTD API: ${response.statusText}`);
   }
@@ -72,9 +72,9 @@ async function processEmiRtdData(data: any){
   console.log("Processed " + data.length + " items");
 }
 
-async function checkForMissingUnits(lastSynced: string){
+async function checkForMissingUnits(){
   const generators = await getGenerators();
-  const dispatchList = await env.DB.prepare(`SELECT DISTINCT PointOfConnectionCode FROM real_time_dispatch WHERE FiveMinuteIntervalDatetime = ?`).bind(lastSynced).all();
+  const dispatchList = await env.DB.prepare(`SELECT DISTINCT PointOfConnectionCode FROM real_time_dispatch`).all();
   const dispatchListResult = dispatchList.results.map(dispatch => dispatch.PointOfConnectionCode).filter(unit => (unit as string).split(' ').length > 1);
 
   const unitsUnaccountedForInDispatchList = dispatchListResult;
