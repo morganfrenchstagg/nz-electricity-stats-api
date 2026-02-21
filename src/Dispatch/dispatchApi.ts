@@ -95,9 +95,7 @@ app.get("/delta", async (c) => {
 
 	const lastSynced = await env.DB.prepare(`SELECT MAX(FiveMinuteIntervalDatetime) FROM real_time_dispatch`).first("MAX(FiveMinuteIntervalDatetime)") as string;
 
-	const date = lastSynced.toString().split('T')[0];
-
-	const dispatchList = await env.DB.prepare(`SELECT DISTINCT PointOfConnectionCode FROM real_time_dispatch WHERE FiveMinuteIntervalDatetime >= ?`).bind(date).all();
+	const dispatchList = await env.DB.prepare(`SELECT DISTINCT PointOfConnectionCode FROM real_time_dispatch`).all();
 
 	const dispatchListResult = dispatchList.results.map(dispatch => dispatch.PointOfConnectionCode);
 
