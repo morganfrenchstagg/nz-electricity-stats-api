@@ -62,7 +62,8 @@ async function processEmiRtdData(data: any){
   const insert = env.DB.prepare(`INSERT INTO real_time_dispatch (PointOfConnectionCode, FiveMinuteIntervalDatetime, SPDLoadMegawatt, SPDGenerationMegawatt, DollarsPerMegawattHour) VALUES (?, ?, ?, ?, ?)`);
   const batch = [];
   for(var item of data){
-    if(item.SPDLoadMegawatt === 0 && item.SPDGenerationMegawatt === 0){
+    const firstTradingPeriodOfTheDay = item.FiveMinuteIntervalDatetime.split("T")[1] === "00:00:00";
+    if(item.SPDLoadMegawatt === 0 && item.SPDGenerationMegawatt === 0 && !firstTradingPeriodOfTheDay){
       continue;
     }
     batch.push(insert.bind(item.PointOfConnectionCode, item.FiveMinuteIntervalDatetime, item.SPDLoadMegawatt, item.SPDGenerationMegawatt, item.DollarsPerMegawattHour));
