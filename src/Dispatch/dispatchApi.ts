@@ -7,10 +7,10 @@ import { getGenerators, getGeneratorUnits } from "./generators";
 const app = new Hono();
 app.use(cors());
 
-app.get("/", async (c) => {
+/*app.get("/", async (c) => {
 	const dispatch = await env.DB.prepare(`SELECT * FROM real_time_dispatch WHERE FiveMinuteIntervalDateTime >= DATE('now', '-1 day')`).all();
 	return c.json(dispatch.results);
-});
+});*/
 
 app.get("/legacy/generators", async (c) => {
 	const generators = await getGenerators();
