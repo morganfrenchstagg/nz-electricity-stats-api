@@ -1,7 +1,9 @@
 import { getGenerators } from "../generators";
+import { getSubstations } from "../substations";
 
 export const checkForMissingUnits = async (dispatchList: string[]) => {
 	const generators = await getGenerators();
+	const substations = await getSubstations();
 
 	const unitsNotInDispatchList = [];
 	const unitsNotInGeneratorList = dispatchList.filter(unit => (unit as string).split(' ').length > 1);
@@ -19,6 +21,8 @@ export const checkForMissingUnits = async (dispatchList: string[]) => {
 
 	return {
 		generationUnitsNotInDispatchList: unitsNotInDispatchList,
-		generationUnitsNotInGeneratorList: unitsNotInGeneratorList
+		generationUnitsNotInGeneratorList: unitsNotInGeneratorList,
+		substationUnitsNotInDispatchList: [],
+		substationUnitsNotInSubstationList: []
 	};
 }
