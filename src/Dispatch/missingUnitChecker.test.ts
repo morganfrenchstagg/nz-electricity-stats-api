@@ -37,7 +37,7 @@ describe('checkForMissingUnits', () => {
 		});
 	});
 
-	it('should return an array of missing units if there are missing units', async () => {
+	it('should return an array of missing units if there are missing units in the dispatch list', async () => {
 		mockedGetGenerators.mockResolvedValue([{
 			units: [
 				{
@@ -49,6 +49,23 @@ describe('checkForMissingUnits', () => {
 		const result = await checkForMissingUnits([]);
 		expect(result).toEqual({
 			unitsNotInDispatchList: ['1234567890'],
+			unitsNotInGeneratorList: []
+		});
+	});
+
+	it('should return an empty array of missing units if there are missing units in the dispatch list but the unit is listed as inactive in the generator list', async () => {
+		mockedGetGenerators.mockResolvedValue([{
+			units: [
+				{
+					node: '1234567890',
+					active: false
+				}
+			]
+		}]);
+
+		const result = await checkForMissingUnits([]);
+		expect(result).toEqual({
+			unitsNotInDispatchList: [],
 			unitsNotInGeneratorList: []
 		});
 	});

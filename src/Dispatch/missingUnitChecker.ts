@@ -11,7 +11,7 @@ export const checkForMissingUnits = async (dispatchList: string[]) => {
 		for(const unit of generator.units){
 			if(unitsNotInGeneratorList.includes(unit.node)){
 				unitsNotInGeneratorList.splice(unitsNotInGeneratorList.indexOf(unit.node), 1);
-			} else {
+			} else if(unit.active === undefined || unit.active === true){
 				unitsNotInDispatchList.push(unit.node);
 			}
 		}
