@@ -95,4 +95,20 @@ describe('checkForMissingUnits', () => {
 			generationUnitsNotInGeneratorList: ['9876543210 ABCD']
 		});
 	});
+
+	it('should not include substation units in the generator list', async () => {
+		mockedGetGenerators.mockResolvedValue([{
+			units: [
+				{
+					node: '1234567890 ABCD'
+				}
+			]
+		}]);
+
+		const result = await checkForMissingUnits(['1234567890', '1234567890 ABCD']);
+		expect(result).toEqual({
+			generationUnitsNotInDispatchList: [],
+			generationUnitsNotInGeneratorList: []
+		});
+	});
 });

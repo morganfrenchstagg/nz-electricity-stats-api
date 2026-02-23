@@ -4,7 +4,7 @@ export const checkForMissingUnits = async (dispatchList: string[]) => {
 	const generators = await getGenerators();
 
 	const unitsNotInDispatchList = [];
-	const unitsNotInGeneratorList = dispatchList;
+	const unitsNotInGeneratorList = dispatchList.filter(unit => (unit as string).split(' ').length > 1);
 	
 
 	for(const generator of generators){
