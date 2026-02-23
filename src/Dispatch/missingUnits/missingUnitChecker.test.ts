@@ -220,4 +220,42 @@ describe("checkForMissingUnits", () => {
       },
     });
   });
+
+  it("should satisfy all conditions", async () => {
+    mockedGetGenerators.mockResolvedValue([
+      {
+        units: [
+          {
+            node: "1234567890 ABCD",
+          },
+        ],
+      },
+    ]);
+    mockedGetSubstations.mockResolvedValue([
+      {
+        siteId: "1234567890",
+        lat: 0,
+        long: 0,
+        description: "",
+        type: "ACSTN",
+        gridZone: 0,
+        island: "north",
+      },
+    ]);
+
+    const result = await checkForMissingUnits([
+      "9876543210 ABCD",
+      "9876543210",
+    ]);
+    expect(result).toEqual({
+      generation: {
+        notInDispatchList: ["1234567890 ABCD"],
+        notInGeneratorList: ["9876543210 ABCD"],
+      },
+      substations: {
+        notInDispatchList: ["1234567890"],
+        notInSubstationList: ["9876543210"],
+      },
+    });
+  });
 });
