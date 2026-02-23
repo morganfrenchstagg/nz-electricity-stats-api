@@ -1,8 +1,8 @@
 import { checkForMissingUnits } from "./missingUnitChecker";
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { getGenerators } from "./generators";
+import { getGenerators } from ".././generators";
 
-vi.mock('./generators');
+vi.mock('.././generators');
 
 const mockedGetGenerators = vi.mocked(getGenerators);
 
