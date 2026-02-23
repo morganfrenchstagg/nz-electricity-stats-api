@@ -16,8 +16,8 @@ describe('checkForMissingUnits', () => {
 
 		const result = await checkForMissingUnits([]);
 		expect(result).toEqual({
-			unitsNotInDispatchList: [],
-			unitsNotInGeneratorList: []
+			generationUnitsNotInDispatchList: [],
+			generationUnitsNotInGeneratorList: []
 		});
 	});
 
@@ -25,15 +25,15 @@ describe('checkForMissingUnits', () => {
 		mockedGetGenerators.mockResolvedValue([{
 			units: [
 				{
-					node: '1234567890'
+					node: '1234567890 ABCD'
 				}
 			]
 		}]);
 
-		const result = await checkForMissingUnits(['1234567890']);
+		const result = await checkForMissingUnits(['1234567890 ABCD']);
 		expect(result).toEqual({
-			unitsNotInDispatchList: [],
-			unitsNotInGeneratorList: []
+			generationUnitsNotInDispatchList: [],
+			generationUnitsNotInGeneratorList: []
 		});
 	});
 
@@ -41,15 +41,15 @@ describe('checkForMissingUnits', () => {
 		mockedGetGenerators.mockResolvedValue([{
 			units: [
 				{
-					node: '1234567890'
+					node: '1234567890 ABCD'
 				}
 			]
 		}]);
 
 		const result = await checkForMissingUnits([]);
 		expect(result).toEqual({
-			unitsNotInDispatchList: ['1234567890'],
-			unitsNotInGeneratorList: []
+			generationUnitsNotInDispatchList: ['1234567890 ABCD'],
+			generationUnitsNotInGeneratorList: []
 		});
 	});
 
@@ -57,7 +57,7 @@ describe('checkForMissingUnits', () => {
 		mockedGetGenerators.mockResolvedValue([{
 			units: [
 				{
-					node: '1234567890',
+					node: '1234567890 ABCD',
 					active: false
 				}
 			]
@@ -65,18 +65,18 @@ describe('checkForMissingUnits', () => {
 
 		const result = await checkForMissingUnits([]);
 		expect(result).toEqual({
-			unitsNotInDispatchList: [],
-			unitsNotInGeneratorList: []
+			generationUnitsNotInDispatchList: [],
+			generationUnitsNotInGeneratorList: []
 		});
 	});
 
 	it('should return an array of units not in the generator list if there are units not in the generator list', async () => {
 		mockedGetGenerators.mockResolvedValue([]);
 
-		const result = await checkForMissingUnits(['1234567890']);
+		const result = await checkForMissingUnits(['1234567890 ABCD']);
 		expect(result).toEqual({
-			unitsNotInDispatchList: [],
-			unitsNotInGeneratorList: ['1234567890']
+			generationUnitsNotInDispatchList: [],
+			generationUnitsNotInGeneratorList: ['1234567890 ABCD']
 		});
 	});
 
@@ -84,15 +84,15 @@ describe('checkForMissingUnits', () => {
 		mockedGetGenerators.mockResolvedValue([{
 			units: [
 				{
-					node: '1234567890'
+					node: '1234567890 ABCD'
 				}
 			]
 		}]);
 
-		const result = await checkForMissingUnits(['9876543210']);
+		const result = await checkForMissingUnits(['9876543210 ABCD']);
 		expect(result).toEqual({
-			unitsNotInDispatchList: ['1234567890'],
-			unitsNotInGeneratorList: ['9876543210']
+			generationUnitsNotInDispatchList: ['1234567890 ABCD'],
+			generationUnitsNotInGeneratorList: ['9876543210 ABCD']
 		});
 	});
 });
