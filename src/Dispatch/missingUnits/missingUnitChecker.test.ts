@@ -145,7 +145,43 @@ describe("checkForMissingUnits", () => {
       generationUnitsNotInDispatchList: [],
       generationUnitsNotInGeneratorList: [],
       substationUnitsNotInDispatchList: [],
+      substationUnitsNotInSubstationList: ["1234567890"],
+    });
+  });
+
+  it("should show missing substation units if there are missing substation units in the dispatch list", async () => {
+    mockedGetGenerators.mockResolvedValue([]);
+    mockedGetSubstations.mockResolvedValue([
+      {
+        siteId: "1234567890",
+        lat: 0,
+        long: 0,
+        description: "",
+        type: "ACSTN",
+        gridZone: 0,
+        island: "north",
+      },
+    ]);
+
+    const result = await checkForMissingUnits([]);
+    expect(result).toEqual({
+      generationUnitsNotInDispatchList: [],
+      generationUnitsNotInGeneratorList: [],
+      substationUnitsNotInDispatchList: ["1234567890"],
       substationUnitsNotInSubstationList: [],
+    });
+  });
+
+  it("should show missing substation units if there are missing substation units in the substation list", async () => {
+    mockedGetGenerators.mockResolvedValue([]);
+    mockedGetSubstations.mockResolvedValue([]);
+
+    const result = await checkForMissingUnits(["1234567890"]);
+    expect(result).toEqual({
+      generationUnitsNotInDispatchList: [],
+      generationUnitsNotInGeneratorList: [],
+      substationUnitsNotInDispatchList: [],
+      substationUnitsNotInSubstationList: ["1234567890"],
     });
   });
 });
