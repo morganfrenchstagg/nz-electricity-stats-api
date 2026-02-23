@@ -20,10 +20,14 @@ describe("checkForMissingUnits", () => {
 
     const result = await checkForMissingUnits([]);
     expect(result).toEqual({
-      generationUnitsNotInDispatchList: [],
-      generationUnitsNotInGeneratorList: [],
-      substationUnitsNotInDispatchList: [],
-      substationUnitsNotInSubstationList: [],
+      generation: {
+        notInDispatchList: [],
+        notInGeneratorList: [],
+      },
+      substations: {
+        notInDispatchList: [],
+        notInSubstationList: [],
+      },
     });
   });
 
@@ -41,10 +45,14 @@ describe("checkForMissingUnits", () => {
 
     const result = await checkForMissingUnits(["1234567890 ABCD"]);
     expect(result).toEqual({
-      generationUnitsNotInDispatchList: [],
-      generationUnitsNotInGeneratorList: [],
-      substationUnitsNotInDispatchList: [],
-      substationUnitsNotInSubstationList: [],
+      generation: {
+        notInDispatchList: [],
+        notInGeneratorList: [],
+      },
+      substations: {
+        notInDispatchList: [],
+        notInSubstationList: [],
+      },
     });
   });
 
@@ -62,10 +70,14 @@ describe("checkForMissingUnits", () => {
 
     const result = await checkForMissingUnits([]);
     expect(result).toEqual({
-      generationUnitsNotInDispatchList: ["1234567890 ABCD"],
-      generationUnitsNotInGeneratorList: [],
-      substationUnitsNotInDispatchList: [],
-      substationUnitsNotInSubstationList: [],
+      generation: {
+        notInDispatchList: ["1234567890 ABCD"],
+        notInGeneratorList: [],
+      },
+      substations: {
+        notInDispatchList: [],
+        notInSubstationList: [],
+      },
     });
   });
 
@@ -84,10 +96,14 @@ describe("checkForMissingUnits", () => {
 
     const result = await checkForMissingUnits([]);
     expect(result).toEqual({
-      generationUnitsNotInDispatchList: [],
-      generationUnitsNotInGeneratorList: [],
-      substationUnitsNotInDispatchList: [],
-      substationUnitsNotInSubstationList: [],
+      generation: {
+        notInDispatchList: [],
+        notInGeneratorList: [],
+      },
+      substations: {
+        notInDispatchList: [],
+        notInSubstationList: [],
+      },
     });
   });
 
@@ -97,10 +113,14 @@ describe("checkForMissingUnits", () => {
 
     const result = await checkForMissingUnits(["1234567890 ABCD"]);
     expect(result).toEqual({
-      generationUnitsNotInDispatchList: [],
-      generationUnitsNotInGeneratorList: ["1234567890 ABCD"],
-      substationUnitsNotInDispatchList: [],
-      substationUnitsNotInSubstationList: [],
+      generation: {
+        notInDispatchList: [],
+        notInGeneratorList: ["1234567890 ABCD"],
+      },
+      substations: {
+        notInDispatchList: [],
+        notInSubstationList: [],
+      },
     });
   });
 
@@ -118,10 +138,14 @@ describe("checkForMissingUnits", () => {
 
     const result = await checkForMissingUnits(["9876543210 ABCD"]);
     expect(result).toEqual({
-      generationUnitsNotInDispatchList: ["1234567890 ABCD"],
-      generationUnitsNotInGeneratorList: ["9876543210 ABCD"],
-      substationUnitsNotInDispatchList: [],
-      substationUnitsNotInSubstationList: [],
+      generation: {
+        notInDispatchList: ["1234567890 ABCD"],
+        notInGeneratorList: ["9876543210 ABCD"],
+      },
+      substations: {
+        notInDispatchList: [],
+        notInSubstationList: [],
+      },
     });
   });
 
@@ -142,10 +166,14 @@ describe("checkForMissingUnits", () => {
       "1234567890 ABCD",
     ]);
     expect(result).toEqual({
-      generationUnitsNotInDispatchList: [],
-      generationUnitsNotInGeneratorList: [],
-      substationUnitsNotInDispatchList: [],
-      substationUnitsNotInSubstationList: ["1234567890"],
+      generation: {
+        notInDispatchList: [],
+        notInGeneratorList: [],
+      },
+      substations: {
+        notInDispatchList: [],
+        notInSubstationList: ["1234567890"],
+      },
     });
   });
 
@@ -165,10 +193,14 @@ describe("checkForMissingUnits", () => {
 
     const result = await checkForMissingUnits([]);
     expect(result).toEqual({
-      generationUnitsNotInDispatchList: [],
-      generationUnitsNotInGeneratorList: [],
-      substationUnitsNotInDispatchList: ["1234567890"],
-      substationUnitsNotInSubstationList: [],
+      generation: {
+        notInDispatchList: [],
+        notInGeneratorList: [],
+      },
+      substations: {
+        notInDispatchList: ["1234567890"],
+        notInSubstationList: [],
+      },
     });
   });
 
@@ -178,10 +210,14 @@ describe("checkForMissingUnits", () => {
 
     const result = await checkForMissingUnits(["1234567890"]);
     expect(result).toEqual({
-      generationUnitsNotInDispatchList: [],
-      generationUnitsNotInGeneratorList: [],
-      substationUnitsNotInDispatchList: [],
-      substationUnitsNotInSubstationList: ["1234567890"],
+      generation: {
+        notInDispatchList: [],
+        notInGeneratorList: [],
+      },
+      substations: {
+        notInDispatchList: [],
+        notInSubstationList: ["1234567890"],
+      },
     });
   });
 });

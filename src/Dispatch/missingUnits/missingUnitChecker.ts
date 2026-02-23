@@ -39,9 +39,13 @@ export const checkForMissingUnits = async (dispatchList: string[]) => {
   }
 
   return {
-    generationUnitsNotInDispatchList: unitsNotInDispatchList,
-    generationUnitsNotInGeneratorList: unitsNotInGeneratorList,
-    substationUnitsNotInDispatchList: substationUnitsNotInDispatchList,
-    substationUnitsNotInSubstationList: unitsNotInSubstationList,
+    generation: {
+      notInDispatchList: unitsNotInDispatchList,
+      notInGeneratorList: unitsNotInGeneratorList,
+    },
+    substations: {
+      notInDispatchList: substationUnitsNotInDispatchList,
+      notInSubstationList: unitsNotInSubstationList,
+    },
   };
 };
