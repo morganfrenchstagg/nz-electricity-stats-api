@@ -24,18 +24,17 @@ export const checkForMissingUnits = async (dispatchList: string[]) => {
   }
 
   const substationUnitsNotInDispatchList = [];
-  const unitsNotInSubstationList = dispatchList.filter(
-    (unit) => (unit as string).split(" ").length === 1,
-  );
+  const unitsNotInSubstationList = dispatchList.filter((unit) => (unit as string).split(" ").length === 1);
+
   for (const substation of substations) {
-    if (unitsNotInSubstationList.includes(substation.siteId)) {
-      unitsNotInSubstationList.splice(
-        unitsNotInSubstationList.indexOf(substation.siteId),
-        1,
-      );
-    } else {
-      substationUnitsNotInDispatchList.push(substation.siteId);
-    }
+	const units = unitsNotInSubstationList.filter((unit) => unit.substring(0, 3) === substation.siteId);
+	for (const unit of units) {
+		unitsNotInSubstationList.splice(unitsNotInSubstationList.indexOf(unit), 1);
+	}
+
+	if (units.length === 0) {
+		substationUnitsNotInDispatchList.push(substation.siteId);
+	}
   }
 
   return {

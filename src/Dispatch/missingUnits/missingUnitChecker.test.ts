@@ -204,6 +204,33 @@ describe("checkForMissingUnits", () => {
     });
   });
 
+  it("should show nothing if all substations are in the dispatch list", async () => {
+    mockedGetGenerators.mockResolvedValue([]);
+    mockedGetSubstations.mockResolvedValue([
+      {
+        siteId: "ABC",
+        lat: 0,
+        long: 0,
+        description: "",
+        type: "ACSTN",
+        gridZone: 0,
+        island: "north",
+      },
+    ]);
+
+    const result = await checkForMissingUnits(["ABC1234", "ABC1235"]);
+    expect(result).toEqual({
+      generation: {
+        notInDispatchList: [],
+        notInGeneratorList: [],
+      },
+      substations: {
+        notInDispatchList: [],
+        notInSubstationList: [],
+      },
+    });
+  });
+
   it("should show missing substation units if there are missing substation units in the substation list", async () => {
     mockedGetGenerators.mockResolvedValue([]);
     mockedGetSubstations.mockResolvedValue([]);
