@@ -3,6 +3,7 @@ import { Hono } from "hono";
 import { cors } from "hono/cors";
 import { Dispatch } from "./model";
 import { getGenerators, getGeneratorUnits } from "./generators";
+import { checkForMissingUnits } from "./missingUnits/missingUnitChecker";
 
 const app = new Hono();
 app.use(cors());
@@ -91,32 +92,18 @@ app.get("/legacy/generator-history/:date", async (c) => {
 })
 
 app.get("/delta", async (c) => {
-	const generators = await getGenerators();
-
 	const lastSynced = await env.DB.prepare(`SELECT MAX(FiveMinuteIntervalDatetime) FROM real_time_dispatch`).first("MAX(FiveMinuteIntervalDatetime)") as string;
-
 	const dispatchList = await env.DB.prepare(`SELECT DISTINCT PointOfConnectionCode FROM real_time_dispatch`).all();
+	const dispatchListResult = dispatchList.results.map(dispatch => dispatch.PointOfConnectionCode) as string[];
 
-	const dispatchListResult = dispatchList.results.map(dispatch => dispatch.PointOfConnectionCode);
+	const missingUnits = await checkForMissingUnits(dispatchListResult);
 
-	const unitsUnaccountedForInDispatchList = dispatchListResult;
-	const unitsMissingInDispatchList = [];
-
-	for(const generator of generators){
-		for(const unit of generator.units){
-			if(dispatchListResult.includes(unit.node)){
-				unitsUnaccountedForInDispatchList.splice(unitsUnaccountedForInDispatchList.indexOf(unit.node), 1);
-			} else if(unit.active === undefined || unit.active === true) {
-				unitsMissingInDispatchList.push(unit.node);
-			}
-		}
-	}
+	console.log(missingUnits);
 
 	
 	return c.json({
 		lastSynced: lastSynced,
-		unitsMissingInDispatchList: unitsMissingInDispatchList,
-		unitsUnaccountedForInDispatchList: unitsUnaccountedForInDispatchList.filter(unit => (unit as string).split(' ').length > 1)
+		missingUnits: missingUnits
 	});
 })
 
