@@ -1,5 +1,5 @@
 import { env } from "cloudflare:workers";
-import { getGenerators } from "./generators";
+import { checkForMissingUnits } from "./missingUnits/missingUnitChecker";
 
 const emiApiUrl = 'https://emi.azure-api.net/real-time-dispatch/';
 
@@ -9,7 +9,7 @@ export async function syncDispatch() {
   const lastSynced = await getLastSynced();
 
   if(isSyncNeeded(lastSynced)){
-    await fetchFromEmiRtdApi(lastSynced);
+    await fetchAndProcessDataFromEmiApi(lastSynced);
   } else {
     console.log("No sync needed");
     return;
@@ -32,13 +32,18 @@ async function getLastSynced(): Promise<Date>{
   return new Date(lastSynced as string);
 }
 
-async function fetchFromEmiRtdApi(lastSynced?: Date){
+async function fetchDataFromEmiApi(){
   console.log("Fetching from EMI RTD API");
   var response = await fetch(emiApiUrl, {
     headers: {
       'Ocp-Apim-Subscription-Key': env.EMI_API_KEY
     }
   })
+  return response;
+}
+
+async function fetchAndProcessDataFromEmiApi(lastSynced?: Date){
+  const response = await fetchDataFromEmiApi();
 
   if(response.status === 200){
     var data = await response.json() as any[];
@@ -52,7 +57,6 @@ async function fetchFromEmiRtdApi(lastSynced?: Date){
     }
 
     await processEmiRtdData(data);
-    await checkForMissingUnits();
   } else {
     throw new Error(`Failed to fetch from EMI RTD API: ${response.statusText}`);
   }
@@ -73,31 +77,48 @@ async function processEmiRtdData(data: any){
   console.log("Processed " + data.length + " items");
 }
 
-async function checkForMissingUnits(){
-  const generators = await getGenerators();
-  const dispatchList = await env.DB.prepare(`SELECT DISTINCT PointOfConnectionCode FROM real_time_dispatch`).all();
-  const dispatchListResult = dispatchList.results.map(dispatch => dispatch.PointOfConnectionCode).filter(unit => (unit as string).split(' ').length > 1);
-
-  const unitsUnaccountedForInDispatchList = dispatchListResult;
-
-  for(const generator of generators){
-    for(const unit of generator.units){
-      if(dispatchListResult.includes(unit.node)){
-        unitsUnaccountedForInDispatchList.splice(unitsUnaccountedForInDispatchList.indexOf(unit.node), 1);
+export async function checkForMissingUnitsToday(){
+  console.log("Checking for missing units today");
+  const response = await fetchDataFromEmiApi();
+  if(response.status === 200){
+    const data = await response.json() as any[];
+    var missingUnitResponse = await checkForMissingUnits(data.map(item => item.PointOfConnectionCode) as string[]);
+    if(missingUnitResponse.generation.notInDispatchList.length > 0 || 
+      missingUnitResponse.substations.notInDispatchList.length > 0 || 
+      missingUnitResponse.generation.notInGeneratorList.length > 0 ||
+      missingUnitResponse.substations.notInSubstationList.length > 0){
+        await sendMissingUnitsToSlack(missingUnitResponse);
+      } else{
+        console.log("No missing units");
       }
-    }
+  } else {
+    throw new Error(`Failed to fetch from EMI RTD API: ${response.statusText}`);
   }
+}
 
-  if(unitsUnaccountedForInDispatchList.length > 0){
-    console.log("Missing units: " + unitsUnaccountedForInDispatchList.join(', '));
-    await fetch(env.SLACK_WEBHOOK_URL, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({
-        text: "Missing units: `" + unitsUnaccountedForInDispatchList.join('`, `') + "`"
-      })
-    });
+async function sendMissingUnitsToSlack(missingUnitResponse: any){
+  console.log("Sending missing units to Slack");
+
+  var slackMessage = "*Update for " + getNZDateTime().toLocaleString("en-US", { timeZone: "Pacific/Auckland" }) + ":*\n";
+  if(missingUnitResponse.substations.notInSubstationList.length > 0){
+    slackMessage += "Missing unit in substation list: `" + missingUnitResponse.substations.notInSubstationList.join('`, `') + "`" + "\n";
   }
+  if(missingUnitResponse.substations.notInDispatchList.length > 0){
+    slackMessage += "Missing substation in Real Time Dispatch: `" + missingUnitResponse.substations.notInDispatchList.join('`, `') + "`" + "\n";
+  }
+  if(missingUnitResponse.generation.notInGeneratorList.length > 0){
+    slackMessage += "Missing unit in generator list: `" + missingUnitResponse.generation.notInGeneratorList.join('`, `') + "`" + "\n";
+  }
+  if(missingUnitResponse.generation.notInDispatchList.length > 0){
+    slackMessage += "Missing generator in Real Time Dispatch: `" + missingUnitResponse.generation.notInDispatchList.join('`, `') + "`";
+  }
+  await fetch(env.SLACK_WEBHOOK_URL, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify({
+      text: slackMessage
+    })
+  });
 }

@@ -1,7 +1,7 @@
 import { Hono } from "hono";
 import { cors } from "hono/cors";
 import { syncOffers } from "./Offers/syncOffers";
-import { syncDispatch } from "./Dispatch/syncDispatch";
+import { checkForMissingUnitsToday, syncDispatch } from "./Dispatch/syncDispatch";
 import dispatchApi from "./Dispatch/dispatchApi";
 
 const app = new Hono();
@@ -21,6 +21,9 @@ async function scheduled(controller: ScheduledController) {
   switch (controller.cron) {
     case "*/2 * * * *":
       await syncDispatch();
+      break;
+    case "0 12 * * *":
+      await checkForMissingUnitsToday();
       break;
     case "8 * * * *":
       await syncOffers();
