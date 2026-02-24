@@ -181,7 +181,7 @@ describe("checkForMissingUnits", () => {
     mockedGetGenerators.mockResolvedValue([]);
     mockedGetSubstations.mockResolvedValue([
       {
-        siteId: "1234567890",
+        siteId: "ABC",
         lat: 0,
         long: 0,
         description: "",
@@ -198,7 +198,7 @@ describe("checkForMissingUnits", () => {
         notInGeneratorList: [],
       },
       substations: {
-        notInDispatchList: ["1234567890"],
+        notInDispatchList: ["ABC"],
         notInSubstationList: [],
       },
     });
@@ -208,7 +208,7 @@ describe("checkForMissingUnits", () => {
     mockedGetGenerators.mockResolvedValue([]);
     mockedGetSubstations.mockResolvedValue([]);
 
-    const result = await checkForMissingUnits(["1234567890"]);
+    const result = await checkForMissingUnits(["ABC1234"]);
     expect(result).toEqual({
       generation: {
         notInDispatchList: [],
@@ -216,7 +216,7 @@ describe("checkForMissingUnits", () => {
       },
       substations: {
         notInDispatchList: [],
-        notInSubstationList: ["1234567890"],
+        notInSubstationList: ["ABC1234"],
       },
     });
   });
@@ -233,7 +233,7 @@ describe("checkForMissingUnits", () => {
     ]);
     mockedGetSubstations.mockResolvedValue([
       {
-        siteId: "1234567890",
+        siteId: "ABCD",
         lat: 0,
         long: 0,
         description: "",
@@ -245,7 +245,7 @@ describe("checkForMissingUnits", () => {
 
     const result = await checkForMissingUnits([
       "9876543210 ABCD",
-      "9876543210",
+      "DEF1234",
     ]);
     expect(result).toEqual({
       generation: {
@@ -253,8 +253,8 @@ describe("checkForMissingUnits", () => {
         notInGeneratorList: ["9876543210 ABCD"],
       },
       substations: {
-        notInDispatchList: ["1234567890"],
-        notInSubstationList: ["9876543210"],
+        notInDispatchList: ["ABCD"],
+        notInSubstationList: ["DEF1234"],
       },
     });
   });
