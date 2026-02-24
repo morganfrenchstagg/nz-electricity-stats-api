@@ -97,9 +97,6 @@ app.get("/delta", async (c) => {
 	const dispatchListResult = dispatchList.results.map(dispatch => dispatch.PointOfConnectionCode) as string[];
 
 	const missingUnits = await checkForMissingUnits(dispatchListResult);
-
-	console.log(missingUnits);
-
 	
 	return c.json({
 		lastSynced: lastSynced,
