@@ -99,7 +99,7 @@ export async function checkForMissingUnitsToday(){
 async function sendMissingUnitsToSlack(missingUnitResponse: any){
   console.log("Sending missing units to Slack");
 
-  var slackMessage = "*Update for " + getNZDateTime().toLocaleString("en-US", { timeZone: "Pacific/Auckland" }) + ":*\n";
+  var slackMessage = "*Update for " + getNZDateTime() + ":*\n";
   if(missingUnitResponse.substations.notInSubstationList.length > 0){
     slackMessage += "Missing unit in substation list: `" + missingUnitResponse.substations.notInSubstationList.join('`, `') + "`" + "\n";
   }
