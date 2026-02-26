@@ -6,6 +6,8 @@ declare namespace Cloudflare {
 		mainModule: typeof import("./src/worker");
 	}
 	interface Env {
+        EMI_API_KEY: string;
+        SLACK_WEBHOOK_URL: RequestInfo<unknown, CfProperties<unknown>> | URL;
 		DB: D1Database;
 	}
 }
