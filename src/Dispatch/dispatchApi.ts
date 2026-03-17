@@ -5,30 +5,29 @@ import { Dispatch } from "./model";
 import { getGenerators, getGeneratorUnits } from "./generators";
 import { checkForMissingUnits } from "./missingUnits/missingUnitChecker";
 import { fetchDataFromEmiApi } from "./emiApi";
+import { RealTimeDispatch } from "./models/realTimeDispatch";
 
 const app = new Hono();
 app.use(cors());
 
-/*app.get("/", async (c) => {
-	const dispatch = await env.DB.prepare(`SELECT * FROM real_time_dispatch WHERE FiveMinuteIntervalDateTime >= DATE('now', '-1 day')`).all();
-	return c.json(dispatch.results);
-});*/
-
 app.get("/legacy/generators", async (c) => {
 	const generators = await getGenerators();
+	
+	const rtd = await fetchDataFromEmiApi();
+	const rtdData = await rtd.json() as RealTimeDispatch[];
 
-	const lastSynced = await env.DB.prepare(`SELECT MAX(FiveMinuteIntervalDatetime) FROM real_time_dispatch`).first("MAX(FiveMinuteIntervalDatetime)");
-
-	const dispatchAtLastSynced = await env.DB.prepare(`SELECT * FROM real_time_dispatch WHERE FiveMinuteIntervalDatetime = ?`).bind(lastSynced).all();
-
-	const nodes: Record<string, number> = {};
-	for(const unit of dispatchAtLastSynced.results as Dispatch[]){
-		nodes[unit.PointOfConnectionCode] = unit.SPDGenerationMegawatt;
+	const rtdUnits = {} as Record<string, RealTimeDispatch>;
+	for(const item of rtdData){
+		if(item.PointOfConnectionCode.split(' ').length == 2){
+			rtdUnits[item.PointOfConnectionCode] = item;
+		}
 	}
+
+	const lastSynced = rtdData[0].FiveMinuteIntervalDatetime;
 
 	for(const generator of generators as any[]){
 		for(const unit of generator.units){
-			unit.generation = nodes[unit.node] ?? 0;
+			unit.generation = rtdUnits[unit.node]?.SPDGenerationMegawatt ?? 0;
 			// todo add outages
 		}
 	}
