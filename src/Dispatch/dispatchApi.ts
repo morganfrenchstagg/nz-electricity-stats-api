@@ -6,6 +6,7 @@ import { getGenerators, getGeneratorUnits } from "./generators";
 import { checkForMissingUnits } from "./missingUnits/missingUnitChecker";
 import { fetchDataFromEmiApi } from "./emiApi";
 import { RealTimeDispatch } from "./models/realTimeDispatch";
+import { getSubstations } from "./substations";
 
 const app = new Hono();
 app.use(cors());
@@ -37,6 +38,72 @@ app.get("/legacy/generators", async (c) => {
 		lastUpdate: lastSynced,
 	});
 })
+
+app.get("/legacy/nzgrid", async (c) => {
+	const substations = await getSubstations();
+	const generators = await getGenerators();
+
+	const rtd = await fetchDataFromEmiApi();
+	const rtdData = await rtd.json() as RealTimeDispatch[];
+
+	const units = {} as Record<string, any>;
+	for (const unit of rtdData) {
+		units[unit.PointOfConnectionCode.substring(0,3)] = [...(units[unit.PointOfConnectionCode.substring(0,3)] || []), unit];
+	}
+
+	const generatorsMap = {} as Record<string, any>;
+	for(const generator of generators){
+		for(const unit of generator.units){
+			generatorsMap[unit.node] = generator;
+		}
+	}
+
+	for(const substation of substations){
+		let busbars = {};
+		let totalGenerationMW = 0;
+		let totalLoadMW = 0;
+		let netImportMW = 0;
+		for(const unit of units[substation.siteId]){
+			const currentBusbar = busbars[getBusbarName(unit.PointOfConnectionCode)];
+			busbars[getBusbarName(unit.PointOfConnectionCode)] = {
+				connections: [
+					...(currentBusbar?.connections || []),
+					{
+						identifier: unit.PointOfConnectionCode,
+						loadMW: unit.SPDLoadMegawatt,
+						generationMW: unit.SPDGenerationMegawatt,
+						generatorInfo: {} // todo generatorInfo
+					}
+				],
+				priceDollarsPerMegawattHour: unit.DollarsPerMegawattHour,
+				voltage: unit.PointOfConnectionCode.substring(3,6),
+				busNumber: unit.PointOfConnectionCode.substring(6,7),
+				totalGenerationMW: (currentBusbar?.totalGenerationMW ?? 0) + unit.SPDGenerationMegawatt,
+				totalLoadMW: (currentBusbar?.totalLoadMW ?? 0) + unit.SPDLoadMegawatt,
+				netImportMW: (currentBusbar?.netImportMW ?? 0) + (unit.SPDLoadMegawatt - unit.SPDGenerationMegawatt),
+			};
+			totalGenerationMW += unit.SPDGenerationMegawatt;
+			totalLoadMW += unit.SPDLoadMegawatt;
+			netImportMW += unit.SPDLoadMegawatt - unit.SPDGenerationMegawatt;
+		}
+		substation['busbars'] = busbars;
+		substation['totalGenerationMW'] = totalGenerationMW;
+		substation['totalLoadMW'] = totalLoadMW;
+		substation['netImportMW'] = netImportMW;
+		// todo totalGenerationCapacityMW
+	}
+
+	return c.json({
+		sites: substations,
+		lastUpdate: rtdData[0].FiveMinuteIntervalDatetime,
+	})
+})
+
+function getBusbarName(pointOfConnectionCode: string) {
+	const voltage = pointOfConnectionCode.substring(3,6);
+	const number = pointOfConnectionCode.substring(6,7);
+	return `${voltage}kV - ${number}`;
+}
 
 app.get("/legacy/price-history/:date", async (c) => {
 	const date = c.req.param('date');
