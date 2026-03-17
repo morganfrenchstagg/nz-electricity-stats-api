@@ -1,7 +1,6 @@
 import { env } from "cloudflare:workers";
 import { checkForMissingUnits } from "./missingUnits/missingUnitChecker";
-
-const emiApiUrl = 'https://emi.azure-api.net/real-time-dispatch/';
+import { fetchDataFromEmiApi } from "./emiApi";
 
 export async function syncDispatch() {
   console.log("Syncing dispatch");
@@ -30,16 +29,6 @@ async function getLastSynced(): Promise<Date>{
   const lastSynced = await env.DB.prepare(`SELECT MAX(FiveMinuteIntervalDatetime) FROM real_time_dispatch`).first("MAX(FiveMinuteIntervalDatetime)");
   console.log("Last synced: " + new Date(lastSynced as string));
   return new Date(lastSynced as string);
-}
-
-async function fetchDataFromEmiApi(){
-  console.log("Fetching from EMI RTD API");
-  var response = await fetch(emiApiUrl, {
-    headers: {
-      'Ocp-Apim-Subscription-Key': env.EMI_API_KEY
-    }
-  })
-  return response;
 }
 
 async function fetchAndProcessDataFromEmiApi(lastSynced?: Date){

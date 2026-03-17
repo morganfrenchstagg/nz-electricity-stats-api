@@ -4,6 +4,7 @@ import { cors } from "hono/cors";
 import { Dispatch } from "./model";
 import { getGenerators, getGeneratorUnits } from "./generators";
 import { checkForMissingUnits } from "./missingUnits/missingUnitChecker";
+import { fetchDataFromEmiApi } from "./emiApi";
 
 const app = new Hono();
 app.use(cors());
@@ -102,6 +103,12 @@ app.get("/delta", async (c) => {
 		lastSynced: lastSynced,
 		missingUnits: missingUnits
 	});
+})
+
+app.get("/rtd", async (c) => {
+	const rtd = await fetchDataFromEmiApi();
+	const rtdData = await rtd.json();
+	return c.json(rtdData);
 })
 
 export default app;
