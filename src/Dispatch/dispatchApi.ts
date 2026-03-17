@@ -63,7 +63,29 @@ app.get("/legacy/nzgrid", async (c) => {
 		let totalGenerationMW = 0;
 		let totalLoadMW = 0;
 		let netImportMW = 0;
+		let totalGenerationCapacityMW = 0;
 		for(const unit of units[substation.siteId]){
+
+			let generatorInfo = {}
+			if(unit.PointOfConnectionCode.split(' ').length == 2){
+				const generator = generatorsMap[unit.PointOfConnectionCode];
+				if(generator){
+					const generatorUnit = generator.units.find((unitA: any) => unitA.node == unit.PointOfConnectionCode)
+					totalGenerationCapacityMW += generatorUnit?.capacity ?? 0;
+					generatorInfo = {
+						plantName: generator.name,
+						operator: generator.operator,
+						technology: "",
+						fuel: generatorUnit?.fuel ?? "",
+						nameplateCapacityMW: generatorUnit?.capacity ?? 0,
+					}
+				} else {
+					generatorInfo = {
+						plantName: "Unknown"
+					}
+				}
+			}
+
 			const currentBusbar = busbars[getBusbarName(unit.PointOfConnectionCode)];
 			busbars[getBusbarName(unit.PointOfConnectionCode)] = {
 				connections: [
@@ -72,7 +94,7 @@ app.get("/legacy/nzgrid", async (c) => {
 						identifier: unit.PointOfConnectionCode,
 						loadMW: unit.SPDLoadMegawatt,
 						generationMW: unit.SPDGenerationMegawatt,
-						generatorInfo: {} // todo generatorInfo
+						generatorInfo: generatorInfo
 					}
 				],
 				priceDollarsPerMegawattHour: unit.DollarsPerMegawattHour,
@@ -90,6 +112,7 @@ app.get("/legacy/nzgrid", async (c) => {
 		substation['totalGenerationMW'] = totalGenerationMW;
 		substation['totalLoadMW'] = totalLoadMW;
 		substation['netImportMW'] = netImportMW;
+		substation['totalGenerationCapacityMW'] = totalGenerationCapacityMW;
 		// todo totalGenerationCapacityMW
 	}
 
