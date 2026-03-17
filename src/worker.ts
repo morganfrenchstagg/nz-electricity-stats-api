@@ -3,6 +3,8 @@ import { cors } from "hono/cors";
 import { syncOffers } from "./Offers/syncOffers";
 import { checkForMissingUnitsToday, syncDispatch } from "./Dispatch/syncDispatch";
 import dispatchApi from "./Dispatch/dispatchApi";
+import { getGenerators } from "./Dispatch/generators";
+import { getSubstations } from "./Dispatch/substations";
 
 const app = new Hono();
 
@@ -12,6 +14,14 @@ app.get('/', async (c) => {
 
 app.get('ping', async (c) => {
   return c.text("pong");
+});
+
+app.get('/v1/generators', async (c) => {
+  return c.json(await getGenerators());
+});
+
+app.get('/v1/substations', async (c) => {
+  return c.json(await getSubstations());
 });
 
 app.route('/v1/dispatch', dispatchApi);
