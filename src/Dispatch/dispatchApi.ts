@@ -119,7 +119,7 @@ app.get("/legacy/nzgrid", async (c) => {
 
 	return c.json({
 		sites: substations,
-		lastUpdate: rtdData[0].FiveMinuteIntervalDatetime,
+		lastUpdated: rtdData[0].FiveMinuteIntervalDatetime,
 	})
 })
 
