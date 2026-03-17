@@ -8,6 +8,8 @@ import { getSubstations } from "./Dispatch/substations";
 
 const app = new Hono();
 
+app.use(cors());
+
 app.get('/', async (c) => {
   return c.redirect("https://electricitymap.frenchsta.gg/");
 });
@@ -25,7 +27,7 @@ app.get('/v1/substations', async (c) => {
 });
 
 app.route('/v1/dispatch', dispatchApi);
-app.use(cors());
+
 
 async function scheduled(controller: ScheduledController) {
   switch (controller.cron) {
