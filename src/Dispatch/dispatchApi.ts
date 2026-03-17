@@ -29,6 +29,7 @@ app.get("/legacy/generators", async (c) => {
 	for(const generator of generators as any[]){
 		for(const unit of generator.units){
 			unit.generation = rtdUnits[unit.node]?.SPDGenerationMegawatt ?? 0;
+			unit.outage = []
 			// todo add outages
 		}
 	}
@@ -182,14 +183,15 @@ app.get("/legacy/generator-history/:date", async (c) => {
 })
 
 app.get("/delta", async (c) => {
-	const lastSynced = await env.DB.prepare(`SELECT MAX(FiveMinuteIntervalDatetime) FROM real_time_dispatch`).first("MAX(FiveMinuteIntervalDatetime)") as string;
-	const dispatchList = await env.DB.prepare(`SELECT DISTINCT PointOfConnectionCode FROM real_time_dispatch`).all();
-	const dispatchListResult = dispatchList.results.map(dispatch => dispatch.PointOfConnectionCode) as string[];
+	const rtd = await fetchDataFromEmiApi();
+	const rtdData = await rtd.json() as RealTimeDispatch[];
 
-	const missingUnits = await checkForMissingUnits(dispatchListResult);
+	const dispatchList = rtdData.map(item => item.PointOfConnectionCode) as string[];
+
+	const missingUnits = await checkForMissingUnits(dispatchList);
 	
 	return c.json({
-		lastSynced: lastSynced,
+		lastSynced: rtdData[0].FiveMinuteIntervalDatetime,
 		missingUnits: missingUnits
 	});
 })
