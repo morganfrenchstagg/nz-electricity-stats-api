@@ -1,6 +1,5 @@
 import { Hono } from "hono";
 import { cors } from "hono/cors";
-import { syncOffers } from "./Offers/syncOffers";
 import { checkForMissingUnitsToday, syncDispatch } from "./Dispatch/syncDispatch";
 import dispatchApi from "./Dispatch/dispatchApi";
 import { getGenerators } from "./Dispatch/generators";
@@ -36,9 +35,6 @@ async function scheduled(controller: ScheduledController) {
       break;
     case "0 12 * * *":
       await checkForMissingUnitsToday();
-      break;
-    case "8 * * * *":
-      await syncOffers();
       break;
   }
 }
