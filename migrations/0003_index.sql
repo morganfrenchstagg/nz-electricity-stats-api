@@ -1,1 +1,0 @@
-create index if not exists idx_rtd_date ON real_time_dispatch(FiveMinuteIntervalDatetime);
