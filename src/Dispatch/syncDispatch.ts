@@ -4,66 +4,10 @@ import { fetchDataFromEmiApi } from "./emiApi";
 
 export async function syncDispatch() {
   console.log("Syncing dispatch");
-
-  const lastSynced = await getLastSynced();
-
-  if(isSyncNeeded(lastSynced)){
-    await fetchAndProcessDataFromEmiApi(lastSynced);
-  } else {
-    console.log("No sync needed");
-    return;
-  }
 }
 
 function getNZDateTime(): Date{
   return new Date(new Date().toLocaleString("en-US", { timeZone: "Pacific/Auckland" }));
-}
-
-function isSyncNeeded(lastSynced: Date){
-  const now = getNZDateTime();
-  const diff = now.getTime() - lastSynced.getTime();
-  return diff / 1000 / 60 > 5;
-}
-
-async function getLastSynced(): Promise<Date>{
-  const lastSynced = await env.DB.prepare(`SELECT MAX(FiveMinuteIntervalDatetime) FROM real_time_dispatch`).first("MAX(FiveMinuteIntervalDatetime)");
-  console.log("Last synced: " + new Date(lastSynced as string));
-  return new Date(lastSynced as string);
-}
-
-async function fetchAndProcessDataFromEmiApi(lastSynced?: Date){
-  const response = await fetchDataFromEmiApi();
-
-  if(response.status === 200){
-    var data = await response.json() as any[];
-
-    console.log("Response date time: " + data[0].FiveMinuteIntervalDatetime);
-    var responseDateTime = new Date(data[0].FiveMinuteIntervalDatetime);
-
-    if(responseDateTime.getTime() <= (lastSynced?.getTime() ?? 0)){
-      console.log("We are up to date with the latest data");
-      return;
-    }
-
-    await processEmiRtdData(data);
-  } else {
-    throw new Error(`Failed to fetch from EMI RTD API: ${response.statusText}`);
-  }
-}
-
-async function processEmiRtdData(data: any){
-  const insert = env.DB.prepare(`INSERT INTO real_time_dispatch (PointOfConnectionCode, FiveMinuteIntervalDatetime, SPDLoadMegawatt, SPDGenerationMegawatt, DollarsPerMegawattHour) VALUES (?, ?, ?, ?, ?)`);
-  const batch = [];
-  for(var item of data){
-    const firstTradingPeriodOfTheDay = item.FiveMinuteIntervalDatetime.split("T")[1] === "00:00:00";
-    if(item.SPDLoadMegawatt === 0 && item.SPDGenerationMegawatt === 0 && !firstTradingPeriodOfTheDay){
-      continue;
-    }
-    batch.push(insert.bind(item.PointOfConnectionCode, item.FiveMinuteIntervalDatetime, item.SPDLoadMegawatt, item.SPDGenerationMegawatt, item.DollarsPerMegawattHour));
-  }
-  console.log("Batch size: " + batch.length);
-  env.DB.batch(batch);
-  console.log("Processed " + data.length + " items");
 }
 
 export async function checkForMissingUnitsToday(){
