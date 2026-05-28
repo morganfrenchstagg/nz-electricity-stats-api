@@ -129,59 +129,6 @@ function getBusbarName(pointOfConnectionCode: string) {
 	return `${voltage}kV - ${number}`;
 }
 
-app.get("/legacy/price-history/:date", async (c) => {
-	const date = c.req.param('date');
-	const dispatch = await env.DB.prepare(`SELECT * FROM real_time_dispatch WHERE FiveMinuteIntervalDatetime like ? AND PointOfConnectionCode in ('OTA2201', 'BEN2201') `).bind(date + '%').all();
-	const dispatchResults = dispatch.results as Dispatch[];
-
-	var priceMap: Record<string, any> = {};
-	for(const dispatch of dispatchResults){
-		const dateTime = dispatch.FiveMinuteIntervalDatetime || dispatch['FiveMinuteIntervalDateTime'];
-		
-		priceMap[dateTime] = priceMap[dateTime] || {};
-		priceMap[dateTime][dispatch.PointOfConnectionCode] = dispatch.DollarsPerMegawattHour;
-	}
-
-	return c.json(priceMap);
-})
-
-app.get("/legacy/generator-history/:date", async (c) => {
-	const date = c.req.param('date');
-	const dispatch = await env.DB.prepare(`SELECT * FROM real_time_dispatch WHERE FiveMinuteIntervalDatetime > ? and FiveMinuteIntervalDatetime < ? and PointOfConnectionCode like '% %' and NOT (SPDLoadMegawatt == 0 and SPDGenerationMegawatt == 0)`).bind(date, date + 'T23:59:00').all();
-	var dispatchResults = dispatch.results as Dispatch[];
-
-	const generatorUnits = await getGeneratorUnits();
-	
-	var dispatchMap: Record<string, any[]> = {};
-	for(const dispatch of dispatchResults){
-		const dateTime = dispatch.FiveMinuteIntervalDatetime || dispatch['FiveMinuteIntervalDateTime'];
-
-		const unit = generatorUnits[dispatch.PointOfConnectionCode];
-
-		const generation = dispatch.SPDGenerationMegawatt - dispatch.SPDLoadMegawatt;
-
-		if(generation === 0){
-			continue;
-		}
-
-		const element = {
-			site: unit.site,
-			fuel: unit.fuelCode,
-			gen: dispatch.SPDGenerationMegawatt - dispatch.SPDLoadMegawatt
-		}
-		dispatchMap[dateTime] = dispatchMap[dateTime] || [];
-
-		const existingElement = dispatchMap[dateTime].find(element => element.site === unit.site && element.fuel === unit.fuelCode);
-		if(existingElement){
-			existingElement.gen += dispatch.SPDGenerationMegawatt - dispatch.SPDLoadMegawatt;
-		} else {
-			dispatchMap[dateTime].push(element);
-		}
-
-	}
-	return c.json(dispatchMap);
-})
-
 app.get("/delta", async (c) => {
 	const rtd = await fetchDataFromEmiApi();
 	const rtdData = await rtd.json() as RealTimeDispatch[];
