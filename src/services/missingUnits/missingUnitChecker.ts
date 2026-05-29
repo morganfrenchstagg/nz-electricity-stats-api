@@ -1,5 +1,5 @@
-import { getGenerators } from "../../services/generators";
-import { getSubstations } from "../../services/substations";
+import { getGenerators } from "../../clients/generators";
+import { getSubstations } from "../../clients/substations";
 
 export const checkForMissingUnits = async (dispatchList: string[]) => {
   const generators = await getGenerators();

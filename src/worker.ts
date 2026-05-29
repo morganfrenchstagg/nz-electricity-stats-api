@@ -1,10 +1,10 @@
 import { Hono } from "hono";
 import { cors } from "hono/cors";
-import { syncOffers } from "./Offers/syncOffers";
-import { checkForMissingUnitsToday, syncDispatch } from "./Dispatch/syncDispatch";
-import dispatchApi from "./Dispatch/dispatchApi";
-import { getGenerators } from "./services/generators";
-import { getSubstations } from "./services/substations";
+import { syncOffers } from "./sync/syncOffers";
+import { checkForMissingUnitsToday, syncDispatch } from "./sync/syncDispatch";
+import dispatchApi from "./api/dispatchApi";
+import { getGenerators } from "./clients/generators";
+import { getSubstations } from "./clients/substations";
 
 const app = new Hono();
 

@@ -1,7 +1,7 @@
 import { checkForMissingUnits } from "./missingUnitChecker";
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { getGenerators } from "../../services/generators";
-import { getSubstations } from "../../services/substations";
+import { getGenerators } from "../../clients/generators";
+import { getSubstations } from "../../clients/substations";
 
 vi.mock(".././generators");
 vi.mock(".././substations");
