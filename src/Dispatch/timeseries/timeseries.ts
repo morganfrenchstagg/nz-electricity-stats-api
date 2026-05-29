@@ -23,14 +23,15 @@ export function generateTimeseries(existingTimeseries: Timeseries, rtdData: Real
 	}
 }
 
-// there may be new generators in the rtd data, so this aligns the data based on the new series
-// inserting nulls where relevant
+// this ensures that the existing rows in the timeseries are aligned with the new series
+// e.g if there is a case of nodes being reorganised
 function ensureRowsAreAlignedWithCurrentSeries(existingTimeseries: Timeseries, newSeries: string[]): any[] {
 	const data = existingTimeseries.data.map((item: any[]) => {
 		const row = [item[0]];
 		newSeries.forEach((seriesItem) => {
 			const oldSeriesIndex = existingTimeseries.series.indexOf(seriesItem);
 			if (oldSeriesIndex === -1) {
+				// a new node has been created, therefore we need to 'backfill' a null value
 				row.push(null);
 			} else {
 				row.push(item[oldSeriesIndex + 1]);

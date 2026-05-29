@@ -119,6 +119,53 @@ describe("generateTimeseries", () => {
     });
   });
 
+  it("existing dataset should generate a timeseries based on the input + new node in different order", () => {
+	// this is unlikely to happen based on my observation of the api behaviour, but testing this edge case just in case
+    const existingTimeseries = {
+      series: ["ABY0111", "ARA2201 ARA0", "BRB0331 RUK99"],
+      data: [["2026-05-29T13:30:00", -2.576, 72, -1]],
+    };
+
+    const exampleRtdData = [
+      {
+        PointOfConnectionCode: "ABY0111",
+        FiveMinuteIntervalDatetime: "2026-05-29T13:35:00",
+        FiveMinuteIntervalNumber: 1,
+        RunDateTime: "2026-05-29T01:29:01",
+        SPDLoadMegawatt: 3,
+        SPDGenerationMegawatt: 0,
+        DollarsPerMegawattHour: 94.08,
+      },
+	  {
+        PointOfConnectionCode: "BRB0331 RUK99",
+        FiveMinuteIntervalDatetime: "2026-05-29T13:35:00",
+        FiveMinuteIntervalNumber: 1,
+        RunDateTime: "2026-05-29T01:29:01",
+        SPDLoadMegawatt: 8.82,
+        SPDGenerationMegawatt: 0,
+        DollarsPerMegawattHour: 111.5,
+      },
+      {
+        PointOfConnectionCode: "ARA2201 ARA0",
+        FiveMinuteIntervalDatetime: "2026-05-29T13:35:00",
+        FiveMinuteIntervalNumber: 1,
+        RunDateTime: "2026-05-29T01:29:01",
+        SPDLoadMegawatt: 0,
+        SPDGenerationMegawatt: 70,
+        DollarsPerMegawattHour: 100.27,
+      },
+    ];
+
+    const timeseries = generateTimeseries(existingTimeseries, exampleRtdData);
+    expect(timeseries).toEqual({
+      series: ["ABY0111", "BRB0331 RUK99", "ARA2201 ARA0"],
+      data: [
+        ["2026-05-29T13:30:00", -2.576, -1, 72],
+        ["2026-05-29T13:35:00", -3, -8.82,70],
+      ],
+    });
+  });
+
   it("existing dataset should generate the same timeseries if it already contains this timestamp", () => {
 	const existingTimeseries = {
 	  series: ["ABY0111", "ARA2201 ARA0"],
