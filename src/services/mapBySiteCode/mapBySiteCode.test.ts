@@ -2,12 +2,13 @@ import { it, describe, expect } from "vitest";
 
 import { mapBySiteCode } from "./mapBySiteCode";
 import { RealTimeDispatch } from "../../models/realTimeDispatch";
+import { RealTimeDispatchDto } from "../../models/realTimeDispatchDto";
 
 describe("mapBySiteCode", () => {
     it("should map empty array to empty map", () => {
 
         const result = mapBySiteCode([]);
-        expect(result).toEqual(new Map<string, any[]>());
+        expect(result).toEqual(new Map<string, RealTimeDispatchDto[]>());
     });
 
     it("should map RTD data to a map grouped by site code", () => {
@@ -35,35 +36,35 @@ describe("mapBySiteCode", () => {
             }];
 
         const result = mapBySiteCode(rtdData);
-        expect(result).toEqual(new Map<string, any[]>([
+        expect(result).toEqual(new Map<string, RealTimeDispatchDto[]>([
             ["ABC", [
                 {
-                    PointOfConnectionCode: "ABC123",
-                    Load: 10,
-                    Generation: 5,
-                    Price: 100
+                    pointOfConnectionCode: "ABC123",
+                    load: 10,
+                    generation  : 5,
+                    price: 100
                 },
                 {
-                    PointOfConnectionCode: "ABC456 GAM0",
-                    Load: 20,
-                    Generation: 15,
-                    Price: 150
+                    pointOfConnectionCode: "ABC456 GAM0",
+                    load: 20,
+                    generation: 15,
+                    price: 150
                 }
             ]],
             ["DEF", [
                 {
-                    PointOfConnectionCode: "DEF123",
-                    Load: 30,
-                    Generation: 25,
-                    Price: 200
+                    pointOfConnectionCode: "DEF123",
+                    load: 30,
+                    generation: 25,
+                    price: 200
                 }
             ]],
             ["GAM", [
                 {
-                    PointOfConnectionCode: "ABC456 GAM0",
-                    Load: 20,
-                    Generation: 15,
-                    Price: 150
+                    pointOfConnectionCode: "ABC456 GAM0",
+                    load: 20,
+                    generation: 15,
+                    price: 150
                 }
             ]]
         ]));

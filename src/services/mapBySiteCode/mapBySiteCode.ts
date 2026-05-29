@@ -6,10 +6,10 @@ export function mapBySiteCode(rtdData: RealTimeDispatch[]): Map<string, RealTime
 
     for(const item of rtdData){
 		const mappedData = {
-			"PointOfConnectionCode": item.PointOfConnectionCode,
-			"Load": item.SPDLoadMegawatt,
-			"Generation": item.SPDGenerationMegawatt,
-			"Price": item.DollarsPerMegawattHour,
+			pointOfConnectionCode: item.PointOfConnectionCode,
+			load: item.SPDLoadMegawatt,
+			generation: item.SPDGenerationMegawatt,
+			price: item.DollarsPerMegawattHour,
 		}
 		
         const siteCode = item.PointOfConnectionCode.substring(0,3);

@@ -1,6 +1,6 @@
 export type RealTimeDispatchDto = {
-    PointOfConnectionCode: string;
-    Load: number;
-    Generation: number;
-    Price: number;
+    pointOfConnectionCode: string;
+    load: number;
+    generation: number;
+    price: number;
 }

@@ -54,9 +54,9 @@ app.get("/latest", async (c) => {
 	const pointOfConnectionCodeMap = new Map<string, any>();
 	for(const item of rtdData){
 		pointOfConnectionCodeMap.set(item.PointOfConnectionCode, {
-			Load: item.SPDLoadMegawatt,
-			Generation: item.SPDGenerationMegawatt,
-			Price: item.DollarsPerMegawattHour,
+			load: item.SPDLoadMegawatt,
+			generation: item.SPDGenerationMegawatt,
+			price: item.DollarsPerMegawattHour,
 		});
 	}
 
