@@ -20,7 +20,7 @@ describe("mapBySiteCode", () => {
                 DollarsPerMegawattHour: 100
             },
             {
-                PointOfConnectionCode: "ABC456",
+                PointOfConnectionCode: "ABC456 GAM0",
                 FiveMinuteIntervalDatetime: "2024-01-01T00:05:00Z",
                 SPDLoadMegawatt: 20,
                 SPDGenerationMegawatt: 15,
@@ -44,7 +44,7 @@ describe("mapBySiteCode", () => {
                     Price: 100
                 },
                 {
-                    PointOfConnectionCode: "ABC456",
+                    PointOfConnectionCode: "ABC456 GAM0",
                     Load: 20,
                     Generation: 15,
                     Price: 150
@@ -56,6 +56,14 @@ describe("mapBySiteCode", () => {
                     Load: 30,
                     Generation: 25,
                     Price: 200
+                }
+            ]],
+            ["GAM", [
+                {
+                    PointOfConnectionCode: "ABC456 GAM0",
+                    Load: 20,
+                    Generation: 15,
+                    Price: 150
                 }
             ]]
         ]));

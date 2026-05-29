@@ -7,6 +7,7 @@ import { RealTimeDispatch } from "../models/realTimeDispatch";
 import legacyDispatchApi from "./legacyDispatchApi";
 import { getSubstations } from "../clients/substations";
 import { mapBySiteCode } from "../services/mapBySiteCode/mapBySiteCode";
+import { getGenerators } from "../clients/generators";
 
 const app = new Hono();
 app.use(cors());
@@ -48,15 +49,32 @@ app.get("/latest", async (c) => {
 	const rtd = await fetchDataFromEmiApi();
 	const rtdData = await rtd.json() as RealTimeDispatch[];
 
-	const rtdMap = mapBySiteCode(rtdData);
+	const siteCodeMap = mapBySiteCode(rtdData);
+
+	const pointOfConnectionCodeMap = new Map<string, any>();
+	for(const item of rtdData){
+		pointOfConnectionCodeMap.set(item.PointOfConnectionCode, {
+			Load: item.SPDLoadMegawatt,
+			Generation: item.SPDGenerationMegawatt,
+			Price: item.DollarsPerMegawattHour,
+		});
+	}
 
 	const substations = await getSubstations();
+	const generators = await getGenerators();
 
 	return c.json({
 		lastUpdated: rtdData[0].FiveMinuteIntervalDatetime,
 		substations: substations.map(substation => ({
 			...substation,
-			pointsOfConnection: rtdMap.get(substation.siteId)
+			pointsOfConnection: siteCodeMap.get(substation.siteId)
+		})),
+		generators: generators.map(generator => ({
+			...generator,
+			units: generator.units.map(unit => ({
+				...unit,
+				dispatch: pointOfConnectionCodeMap.get(unit.node)
+			}))
 		}))
 	});
 })
