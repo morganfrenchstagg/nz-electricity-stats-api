@@ -58,6 +58,8 @@ app.get("/legacy/nzgrid", async (c) => {
 		}
 	}
 
+	const substationResponses = [] as any[];
+
 	for(const substation of substations){
 		let busbars = {};
 		let totalGenerationMW = 0;
@@ -108,16 +110,18 @@ app.get("/legacy/nzgrid", async (c) => {
 			totalLoadMW += unit.SPDLoadMegawatt;
 			netImportMW += unit.SPDLoadMegawatt - unit.SPDGenerationMegawatt;
 		}
-		substation['busbars'] = busbars;
-		substation['totalGenerationMW'] = totalGenerationMW;
-		substation['totalLoadMW'] = totalLoadMW;
-		substation['netImportMW'] = netImportMW;
-		substation['totalGenerationCapacityMW'] = totalGenerationCapacityMW;
-		// todo totalGenerationCapacityMW
+		substationResponses.push({
+			...substation,
+			busbars: busbars,
+			totalGenerationMW: totalGenerationMW,
+			totalLoadMW: totalLoadMW,
+			netImportMW: netImportMW,
+			totalGenerationCapacityMW: totalGenerationCapacityMW,
+		})
 	}
 
 	return c.json({
-		sites: substations,
+		sites: substationResponses,
 		lastUpdated: rtdData[0].FiveMinuteIntervalDatetime,
 	})
 })
