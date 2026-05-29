@@ -5,6 +5,8 @@ import { checkForMissingUnits } from "../services/missingUnits/missingUnitChecke
 import { fetchDataFromEmiApi } from "../clients/emiApi";
 import { RealTimeDispatch } from "../models/realTimeDispatch";
 import legacyDispatchApi from "./legacyDispatchApi";
+import { getSubstations } from "../clients/substations";
+import { mapBySiteCode } from "../services/mapBySiteCode/mapBySiteCode";
 
 const app = new Hono();
 app.use(cors());
@@ -21,7 +23,7 @@ app.get("/delta", async (c) => {
 	const missingUnits = await checkForMissingUnits(dispatchList);
 	
 	return c.json({
-		lastSynced: rtdData[0].FiveMinuteIntervalDatetime,
+		lastUpdated: rtdData[0].FiveMinuteIntervalDatetime,
 		missingUnits: missingUnits
 	});
 })
@@ -40,6 +42,23 @@ app.get("/recent", async (c) => {
 	} else {
 		return c.json({series: [], data: []});
 	}
+})
+
+app.get("/latest", async (c) => {
+	const rtd = await fetchDataFromEmiApi();
+	const rtdData = await rtd.json() as RealTimeDispatch[];
+
+	const rtdMap = mapBySiteCode(rtdData);
+
+	const substations = await getSubstations();
+
+	return c.json({
+		lastUpdated: rtdData[0].FiveMinuteIntervalDatetime,
+		substations: substations.map(substation => ({
+			...substation,
+			pointsOfConnection: rtdMap.get(substation.siteId)
+		}))
+	});
 })
 
 export default app;
