@@ -18,5 +18,11 @@
 			"bucket_name": "dispatch",
 			"binding": "dispatch"
 		}
+	],
+	"kv_namespaces": [
+		{
+			"binding": "dispatch_kv",
+			"id": "37b0648936874b0c831d9fbae41abc3b"
+		}
 	]
 }

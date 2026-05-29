@@ -5,9 +5,33 @@ import { generateTimeseries } from "../services/timeseries/timeseries";
 
 export async function syncDispatch() {
   console.log("Syncing dispatch");
+  const lastUpdated = await env.dispatch_kv.get("latestDispatchTime");
+  console.log("Last updated dispatch time: " + lastUpdated);
+  const lastUpdatedDate = lastUpdated ? new Date(JSON.parse(lastUpdated)) : null;
+
+  const now = getNZDateTime();
+
+  const diffMs = lastUpdatedDate ? now.getTime() - lastUpdatedDate.getTime() : Infinity;
+  const diffMinutes = diffMs / 1000 / 60;
+
+  if (lastUpdatedDate && diffMinutes <= 5) {
+    console.log(`skipping sync`);
+    return;
+  }
+
   const response = await fetchDataFromEmiApi();
   if(response.status === 200){
     const data = await response.json() as any[];
+    const lastUpdatedRtd = data[0].FiveMinuteIntervalDatetime;
+
+    console.log("Last updated dispatch time in RDT data: " + lastUpdatedRtd);
+
+    if(lastUpdated && lastUpdatedRtd === lastUpdated){
+      console.log("Data is up to date, skipping writing to R2");
+      return;
+    }
+
+    console.log("Latest dispatch time from EMI RTD API: " + lastUpdatedRtd);
 
     const existingTimeseries = await env.dispatch.get("timeseries");
 
@@ -15,6 +39,7 @@ export async function syncDispatch() {
 
     const timeseries = await generateTimeseries(existingTimeseriesJson,data);
     await env.dispatch.put("timeseries", JSON.stringify(timeseries));
+    await env.dispatch_kv.put("latestDispatchTime", JSON.stringify(lastUpdatedRtd));
   }
 }
 
