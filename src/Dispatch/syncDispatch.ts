@@ -1,6 +1,6 @@
 import { env } from "cloudflare:workers";
 import { checkForMissingUnits } from "./missingUnits/missingUnitChecker";
-import { fetchDataFromEmiApi } from "./emiApi";
+import { fetchDataFromEmiApi } from "../services/emiApi";
 import { generateTimeseries } from "./timeseries/timeseries";
 
 export async function syncDispatch() {

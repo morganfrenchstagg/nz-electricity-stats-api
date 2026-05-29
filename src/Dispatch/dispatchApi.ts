@@ -1,12 +1,11 @@
 import { env } from "cloudflare:workers";
 import { Hono } from "hono";
 import { cors } from "hono/cors";
-import { Dispatch } from "./model";
-import { getGenerators, getGeneratorUnits } from "./generators";
+import { getGenerators } from "../services/generators";
 import { checkForMissingUnits } from "./missingUnits/missingUnitChecker";
-import { fetchDataFromEmiApi } from "./emiApi";
-import { RealTimeDispatch } from "./models/realTimeDispatch";
-import { getSubstations } from "./substations";
+import { fetchDataFromEmiApi } from "../services/emiApi";
+import { RealTimeDispatch } from "../models/realTimeDispatch";
+import { getSubstations } from "../services/substations";
 
 const app = new Hono();
 app.use(cors());

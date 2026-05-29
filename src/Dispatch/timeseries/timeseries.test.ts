@@ -1,7 +1,7 @@
 import { it, describe, expect } from "vitest";
 
 import { generateTimeseries } from "./timeseries";
-import { RealTimeDispatch } from "../models/realTimeDispatch";
+import { RealTimeDispatch } from "../../models/realTimeDispatch";
 
 describe("generateTimeseries", () => {
   it("empty dataset should generate a timeseries based on the input", () => {
@@ -255,4 +255,6 @@ describe("generateTimeseries", () => {
       ],
     });
   });
+
+  // todo - large dataset deletes oldest timestamp
 });

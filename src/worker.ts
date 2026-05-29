@@ -3,8 +3,8 @@ import { cors } from "hono/cors";
 import { syncOffers } from "./Offers/syncOffers";
 import { checkForMissingUnitsToday, syncDispatch } from "./Dispatch/syncDispatch";
 import dispatchApi from "./Dispatch/dispatchApi";
-import { getGenerators } from "./Dispatch/generators";
-import { getSubstations } from "./Dispatch/substations";
+import { getGenerators } from "./services/generators";
+import { getSubstations } from "./services/substations";
 
 const app = new Hono();
 

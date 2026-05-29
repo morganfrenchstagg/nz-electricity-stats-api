@@ -1,5 +1,5 @@
-import { RealTimeDispatch } from "../models/realTimeDispatch";
-import { Timeseries } from "../models/timeseries";
+import { RealTimeDispatch } from "../../models/realTimeDispatch";
+import { Timeseries } from "../../models/timeseries";
 
 export function generateTimeseries(existingTimeseries: Timeseries, rtdData: RealTimeDispatch[]): Timeseries {
 	if(rtdData.length === 0 || existingTimeseries.data.find((item: any[]) => item[0] === rtdData[0].FiveMinuteIntervalDatetime)) {
