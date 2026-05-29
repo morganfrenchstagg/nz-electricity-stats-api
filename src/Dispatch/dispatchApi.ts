@@ -61,7 +61,7 @@ app.get("/legacy/nzgrid", async (c) => {
 	const substationResponses = [] as any[];
 
 	for(const substation of substations){
-		let busbars = {};
+		let busbars = {} as Record<string, any>;
 		let totalGenerationMW = 0;
 		let totalLoadMW = 0;
 		let netImportMW = 0;
