@@ -256,5 +256,28 @@ describe("generateTimeseries", () => {
     });
   });
 
-  // todo - large dataset deletes oldest timestamp
+  it("should drop off oldest timestamp if there are more than 864 entries (3 days worth of 5 min interval data)", () => {
+    const existingTimeseries = {
+      series: ["ABY0111", "ARA2201 ARA0"],
+      data: Array.from({ length: 864 }, (_, i) => [`2026-05-29T${String(Math.floor(i / 12)).padStart(2, "0")}:${String((i % 12) * 5).padStart(2, "0")}:00`, -2.576, 72]),
+    };
+
+    expect(existingTimeseries.data[0][0]).toBe("2026-05-29T00:00:00");
+
+    const exampleRtdData = [
+      {
+        PointOfConnectionCode: "ABY0111",
+        FiveMinuteIntervalDatetime: "2026-07-01T13:30:00",
+        FiveMinuteIntervalNumber: 1,
+        RunDateTime: "2026-05-30T01:29:01",
+        SPDLoadMegawatt: 3,
+        SPDGenerationMegawatt: 0,
+        DollarsPerMegawattHour: 94.08,
+      }];
+
+    const timeseries = generateTimeseries(existingTimeseries, exampleRtdData);
+    expect(timeseries.data.length).toBe(864);
+    expect(timeseries.data[0][0]).toBe("2026-05-29T00:05:00");
+    expect(timeseries.data[863][0]).toBe("2026-07-01T13:30:00");
+  });
 });
