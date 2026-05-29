@@ -171,4 +171,41 @@ describe("generateTimeseries", () => {
 	  ],
 	});
   });
+
+  it("existing dataset should generate a timeseries based on the input + removed node", () => {
+    const existingTimeseries = {
+      series: ["ABY0111", "ARA2201 ARA0", "BRB0331 RUK99"],
+      data: [["2026-05-29T13:30:00", -2.576, 72, -8.82]],
+    };
+
+    const exampleRtdData = [
+      {
+        PointOfConnectionCode: "ABY0111",
+        FiveMinuteIntervalDatetime: "2026-05-29T13:35:00",
+        FiveMinuteIntervalNumber: 1,
+        RunDateTime: "2026-05-29T01:29:01",
+        SPDLoadMegawatt: 3,
+        SPDGenerationMegawatt: 0,
+        DollarsPerMegawattHour: 94.08,
+      },
+      {
+        PointOfConnectionCode: "ARA2201 ARA0",
+        FiveMinuteIntervalDatetime: "2026-05-29T13:35:00",
+        FiveMinuteIntervalNumber: 1,
+        RunDateTime: "2026-05-29T01:29:01",
+        SPDLoadMegawatt: 0,
+        SPDGenerationMegawatt: 70,
+        DollarsPerMegawattHour: 100.27,
+      },
+    ];
+
+    const timeseries = generateTimeseries(existingTimeseries, exampleRtdData);
+    expect(timeseries).toEqual({
+      series: ["ABY0111", "ARA2201 ARA0", "BRB0331 RUK99"],
+      data: [
+        ["2026-05-29T13:30:00", -2.576, 72, -8.82],
+        ["2026-05-29T13:35:00", -3, 70, null],
+      ],
+    });
+  });
 });

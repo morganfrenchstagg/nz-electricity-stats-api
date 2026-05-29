@@ -6,12 +6,16 @@ export function generateTimeseries(existingTimeseries: Timeseries, rtdData: Real
 		return existingTimeseries;
 	}
 
-	const series = rtdData.map((item: RealTimeDispatch) => item.PointOfConnectionCode);
-	const thisDispatchData = rtdData.map((item: RealTimeDispatch) => item.SPDGenerationMegawatt - item.SPDLoadMegawatt);
+	const series = [...new Set([...rtdData.map((item: RealTimeDispatch) => item.PointOfConnectionCode), ...existingTimeseries.series])];
+
+	const row = series.map((seriesItem) => {
+		const item = rtdData.find((item: RealTimeDispatch) => item.PointOfConnectionCode === seriesItem);
+		return item ? item.SPDGenerationMegawatt - item.SPDLoadMegawatt : null;
+	});
 
 	const data = ensureRowsAreAlignedWithCurrentSeries(existingTimeseries, series);
 
-	data.push([rtdData[0].FiveMinuteIntervalDatetime, ...thisDispatchData]);
+	data.push([rtdData[0].FiveMinuteIntervalDatetime, ...row]);
 
 	return {
 		series,
