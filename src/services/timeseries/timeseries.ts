@@ -16,7 +16,7 @@ export function generateTimeseries(existingTimeseries: Timeseries, rtdData: Real
 
 	const row = series.map((seriesItem) => {
 		const item = rtdData.find((item: RealTimeDispatch) => item.PointOfConnectionCode === seriesItem);
-		return item ? item.SPDGenerationMegawatt - item.SPDLoadMegawatt : null;
+		return item ? item.SPDGenerationMegawatt - item.SPDLoadMegawatt : 0;
 	});
 
 	const data = ensureRowsAreAlignedWithCurrentSeries(existingTimeseries, series);
@@ -38,7 +38,7 @@ function ensureRowsAreAlignedWithCurrentSeries(existingTimeseries: Timeseries, n
 			const oldSeriesIndex = existingTimeseries.series.indexOf(seriesItem);
 			if (oldSeriesIndex === -1) {
 				// a new node has been created, therefore we need to 'backfill' a null value
-				row.push(null);
+				row.push(0);
 			} else {
 				row.push(item[oldSeriesIndex + 1]);
 			}
