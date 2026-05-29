@@ -5,6 +5,7 @@ import { checkForMissingUnitsToday, syncDispatch } from "./sync/syncDispatch";
 import dispatchApi from "./api/dispatchApi";
 import { getGenerators } from "./clients/generators";
 import { getSubstations } from "./clients/substations";
+import { syncDailyDispatch } from "./sync/syncDailyDispatch";
 
 const app = new Hono();
 
@@ -36,6 +37,9 @@ async function scheduled(controller: ScheduledController) {
       break;
     case "0 12 * * *":
       await checkForMissingUnitsToday();
+      break;
+    case "10 * * * *":
+      await syncDailyDispatch();
       break;
     case "8 * * * *":
       await syncOffers();
