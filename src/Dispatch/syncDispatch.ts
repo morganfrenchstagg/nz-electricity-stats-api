@@ -1,9 +1,21 @@
 import { env } from "cloudflare:workers";
 import { checkForMissingUnits } from "./missingUnits/missingUnitChecker";
 import { fetchDataFromEmiApi } from "./emiApi";
+import { generateTimeseries } from "./timeseries/timeseries";
 
 export async function syncDispatch() {
   console.log("Syncing dispatch");
+  const response = await fetchDataFromEmiApi();
+  if(response.status === 200){
+    const data = await response.json() as any[];
+
+    const existingTimeseries = await env.dispatch.get("timeseries");
+
+	  const existingTimeseriesJson = existingTimeseries ? await existingTimeseries.json() : {series: [], data: []};
+
+    const timeseries = await generateTimeseries(existingTimeseriesJson,data);
+    await env.dispatch.put("timeseries", JSON.stringify(timeseries));
+  }
 }
 
 function getNZDateTime(): Date{

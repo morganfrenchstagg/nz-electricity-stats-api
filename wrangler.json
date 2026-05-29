@@ -12,5 +12,11 @@
 			"8 * * * *",
 			"0 12 * * *"
 		]
-	}
+	},
+	"r2_buckets": [
+		{
+			"bucket_name": "dispatch",
+			"binding": "dispatch"
+		}
+	]
 }

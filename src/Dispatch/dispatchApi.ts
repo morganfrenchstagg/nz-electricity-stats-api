@@ -149,4 +149,14 @@ app.get("/rtd", async (c) => {
 	return c.json(rtdData);
 })
 
+app.get("/recent", async (c) => {
+	const timeseries = await env.dispatch.get("timeseries");
+	const json = await timeseries.json();
+	if(timeseries){
+		return c.json(json);
+	} else {
+		return c.json({series: [], data: []});
+	}
+})
+
 export default app;
