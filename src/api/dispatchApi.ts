@@ -6,8 +6,9 @@ import { fetchDataFromEmiApi } from "../clients/emiApi";
 import { RealTimeDispatch } from "../models/realTimeDispatch";
 import legacyDispatchApi from "./legacyDispatchApi";
 import { getSubstations } from "../clients/substations";
-import { mapBySiteCode } from "../services/mapBySiteCode/mapBySiteCode";
+import { mapBySiteCode } from "../services/rtdMapping/mapBySiteCode";
 import { getGenerators } from "../clients/generators";
+import { mapByPointOfConnectionCode } from "../services/rtdMapping/mapByPointOfConnectionCode";
 
 const app = new Hono();
 app.use(cors());
@@ -50,15 +51,7 @@ app.get("/latest", async (c) => {
 	const rtdData = await rtd.json() as RealTimeDispatch[];
 
 	const siteCodeMap = mapBySiteCode(rtdData);
-
-	const pointOfConnectionCodeMap = new Map<string, any>();
-	for(const item of rtdData){
-		pointOfConnectionCodeMap.set(item.PointOfConnectionCode, {
-			load: item.SPDLoadMegawatt,
-			generation: item.SPDGenerationMegawatt,
-			price: item.DollarsPerMegawattHour,
-		});
-	}
+	const pointOfConnectionCodeMap = mapByPointOfConnectionCode(rtdData);
 
 	const substations = await getSubstations();
 	const generators = await getGenerators();
