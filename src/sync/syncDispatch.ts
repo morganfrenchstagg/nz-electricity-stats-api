@@ -24,14 +24,13 @@ export async function syncDispatch() {
     const data = await response.json() as any[];
     const lastUpdatedRtd = data[0].FiveMinuteIntervalDatetime;
 
-    console.log("Last updated dispatch time in RDT data: " + lastUpdatedRtd);
+    console.log("Latest dispatch time from EMI RTD API: " + lastUpdatedRtd);
 
-    if(lastUpdated && lastUpdatedRtd === lastUpdated){
+    if(`"${lastUpdatedRtd}"` === lastUpdated){
       console.log("Data is up to date, skipping writing to R2");
       return;
     }
 
-    console.log("Latest dispatch time from EMI RTD API: " + lastUpdatedRtd);
 
     const existingTimeseries = await env.dispatch.get("timeseries");
 
