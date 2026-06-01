@@ -1,6 +1,6 @@
 import { Hono } from "hono";
 import { cors } from "hono/cors";
-import { fetchDataFromEmiApi } from "../clients/emiApi";
+import { fetchCachedDataFromEmiApi } from "../clients/emiApi";
 import { getGenerators } from "../clients/generators";
 import { getSubstations } from "../clients/substations";
 import { RealTimeDispatch } from "../models/realTimeDispatch";
@@ -14,8 +14,8 @@ app.use(cors());
 app.get("/generators", async (c) => {
 	const generators = await getGenerators();
 	
-	const rtd = await fetchDataFromEmiApi();
-	const rtdData = await rtd.json() as RealTimeDispatch[];
+	const rtd = await fetchCachedDataFromEmiApi();
+	const rtdData = rtd as RealTimeDispatch[];
 
 	const rtdUnits = {} as Record<string, RealTimeDispatch>;
 	for(const item of rtdData){
@@ -44,8 +44,8 @@ app.get("/nzgrid", async (c) => {
 	const substations = await getSubstations();
 	const generators = await getGenerators();
 
-	const rtd = await fetchDataFromEmiApi();
-	const rtdData = await rtd.json() as RealTimeDispatch[];
+	const rtd = await fetchCachedDataFromEmiApi();
+	const rtdData = rtd as RealTimeDispatch[];
 
 	const units = {} as Record<string, any>;
 	for (const unit of rtdData) {

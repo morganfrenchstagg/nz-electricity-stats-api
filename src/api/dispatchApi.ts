@@ -2,7 +2,7 @@ import { env } from "cloudflare:workers";
 import { Hono } from "hono";
 import { cors } from "hono/cors";
 import { checkForMissingUnits } from "../services/missingUnits/missingUnitChecker";
-import { fetchDataFromEmiApi } from "../clients/emiApi";
+import { fetchDataFromEmiApi, fetchCachedDataFromEmiApi } from "../clients/emiApi";
 import { RealTimeDispatch } from "../models/realTimeDispatch";
 import legacyDispatchApi from "./legacyDispatchApi";
 import { getSubstations } from "../clients/substations";
@@ -18,8 +18,8 @@ app.route('/legacy', legacyDispatchApi);
 
 
 app.get("/delta", async (c) => {
-	const rtd = await fetchDataFromEmiApi();
-	const rtdData = await rtd.json() as RealTimeDispatch[];
+	const rtd = await fetchCachedDataFromEmiApi();
+	const rtdData = rtd as RealTimeDispatch[];
 
 	const dispatchList = rtdData.map(item => item.PointOfConnectionCode) as string[];
 
@@ -48,8 +48,8 @@ app.get("/recent", async (c) => {
 })
 
 app.get("/latest", async (c) => {
-	const rtd = await fetchDataFromEmiApi();
-	const rtdData = await rtd.json() as RealTimeDispatch[];
+	const rtd = await fetchCachedDataFromEmiApi();
+	const rtdData = rtd as RealTimeDispatch[];
 
 	const siteCodeMap = mapBySiteCode(rtdData);
 	const pointOfConnectionCodeMap = mapByPointOfConnectionCode(rtdData);
