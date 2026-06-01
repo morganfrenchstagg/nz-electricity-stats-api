@@ -4,6 +4,7 @@ import { fetchDataFromEmiApi } from "../clients/emiApi";
 import { getGenerators } from "../clients/generators";
 import { getSubstations } from "../clients/substations";
 import { RealTimeDispatch } from "../models/realTimeDispatch";
+import { env } from "cloudflare:workers";
 
 const app = new Hono();
 app.use(cors());
@@ -131,5 +132,38 @@ function getBusbarName(pointOfConnectionCode: string) {
     const number = pointOfConnectionCode.substring(6,7);
     return `${voltage}kV - ${number}`;
 }
+
+app.get("history/price/:date", async (c) => {
+	const date = c.req.param("date");
+	const formattedDate = date.replace(/-/g, '');
+	const response = await env.dispatch.get(`dispatch-${formattedDate}`);
+
+	if (!response) {
+		c.status(404);
+		return c.json({ message: "No data for this date" });
+	}
+
+	const json = await response.json();
+
+	let out = {}
+
+	for(const key in json){
+		console.log(key)
+		let thisTimestamp = {};
+		for(const node in json[key]){
+			const thisNode = json[key][node];
+			// this is a little hacky - might inadvetantly pick the wrong benmore/otahuhu node
+			if(thisNode.p.startsWith("OTA")){
+				thisTimestamp["OTA2201"] = +thisNode.c;
+			} else if(thisNode.p.startsWith("BEN")) {
+				thisTimestamp["BEN2201"] = +thisNode.c;
+			}
+		}
+		console.log(thisTimestamp)
+		out[key] = thisTimestamp;
+	}
+
+	return c.json(out)
+})
 
 export default app;
