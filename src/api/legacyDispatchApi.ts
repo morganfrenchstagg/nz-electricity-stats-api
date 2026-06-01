@@ -133,6 +133,56 @@ function getBusbarName(pointOfConnectionCode: string) {
     return `${voltage}kV - ${number}`;
 }
 
+app.get("history/generation/:date", async (c) => {
+	const date = c.req.param("date");
+	const formattedDate = date.replace(/-/g, '');
+	const response = await env.dispatch.get(`dispatch-${formattedDate}`);
+
+	const generators = await getGenerators();
+
+	const generatorLookup = {};
+	for(const generator in generators){
+		const details = generators[generator];
+		for(const node in details.units){
+			const nodeDetails = details.units[node]
+			generatorLookup[nodeDetails.node] = {
+				site: details.site,
+				fuel: nodeDetails.fuelCode
+			}
+		}
+	}
+
+	if (!response) {
+		c.status(404);
+		return c.json({ message: "No data for this date" });
+	}
+
+	const json = await response.json();
+
+	let out = {}
+
+	for(const key in json){
+		let timestampOutput = []
+		for(const node in json[key]){
+			const nodeDetails = json[key][node];
+			const genNodeDetails = generatorLookup[nodeDetails.p];
+			if(!genNodeDetails){
+				continue;
+			}
+
+			//todo merge into existing if already exists
+			timestampOutput.push({
+				site: genNodeDetails.site,
+				fuel: genNodeDetails.fuel,
+				gen: +nodeDetails.g
+			})
+		}
+		out[key] = timestampOutput;
+	}
+
+	return c.json(out)
+})
+
 app.get("history/price/:date", async (c) => {
 	const date = c.req.param("date");
 	const formattedDate = date.replace(/-/g, '');
