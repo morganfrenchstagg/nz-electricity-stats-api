@@ -31,7 +31,6 @@ export async function syncDispatch() {
       return;
     }
 
-
     const existingTimeseries = await env.dispatch.get("timeseries");
 
 	  const existingTimeseriesJson = existingTimeseries ? await existingTimeseries.json() : {series: [], data: []};
@@ -39,6 +38,7 @@ export async function syncDispatch() {
     const timeseries = await generateTimeseries(existingTimeseriesJson,data);
     await env.dispatch.put("timeseries", JSON.stringify(timeseries));
     await env.dispatch_kv.put("latestDispatchTime", JSON.stringify(lastUpdatedRtd));
+    await env.dispatch_kv.put("latestDispatch", JSON.stringify(data))
   }
 }
 
