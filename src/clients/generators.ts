@@ -13,6 +13,7 @@ export type GeneratorDefinition = {
 	gridZone: string;
 	operator: string;
 	scheme: string;
+	alias: string;
 }
 
 export type UnitDefinition = {

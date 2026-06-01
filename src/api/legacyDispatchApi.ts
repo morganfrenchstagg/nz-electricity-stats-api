@@ -5,6 +5,8 @@ import { getGenerators } from "../clients/generators";
 import { getSubstations } from "../clients/substations";
 import { RealTimeDispatch } from "../models/realTimeDispatch";
 import { env } from "cloudflare:workers";
+import { getOutageListFromPocp } from "../clients/pocpApi";
+import { mapOutagesByUnit } from "../services/outageMapping/outageMapper";
 
 const app = new Hono();
 app.use(cors());
@@ -13,24 +15,34 @@ app.use(cors());
 // for backwards compatability with the old dispatch api, this will be removed in the future
 app.get("/generators", async (c) => {
 	const generators = await getGenerators();
-	
+
 	const rtd = await fetchCachedDataFromEmiApi();
 	const rtdData = rtd as RealTimeDispatch[];
 
+	const outages = await getOutageListFromPocp();
+	const outagesByUnit = mapOutagesByUnit(outages, generators);
+
 	const rtdUnits = {} as Record<string, RealTimeDispatch>;
-	for(const item of rtdData){
-		if(item.PointOfConnectionCode.split(' ').length == 2){
+	for (const item of rtdData) {
+		if (item.PointOfConnectionCode.split(' ').length == 2) {
 			rtdUnits[item.PointOfConnectionCode] = item;
 		}
 	}
 
 	const lastSynced = rtdData[0].FiveMinuteIntervalDatetime;
 
-	for(const generator of generators as any[]){
-		for(const unit of generator.units){
+	for (const generator of generators as any[]) {
+		for (const unit of generator.units) {
 			unit.generation = rtdUnits[unit.node]?.SPDGenerationMegawatt ?? 0;
-			unit.outage = []
-			// todo add outages
+			unit.outage = outagesByUnit[unit.node]?.map((o: any) => {
+				return {
+					outageBlock: o.outageBlock,
+					mwLost: o.mwattLost,
+					mwRemain: o.mwattRemaining,
+					from: o.timeStart,
+					until: o.timeEnd,
+				}
+			}) || [];
 		}
 	}
 
@@ -49,30 +61,30 @@ app.get("/nzgrid", async (c) => {
 
 	const units = {} as Record<string, any>;
 	for (const unit of rtdData) {
-		units[unit.PointOfConnectionCode.substring(0,3)] = [...(units[unit.PointOfConnectionCode.substring(0,3)] || []), unit];
+		units[unit.PointOfConnectionCode.substring(0, 3)] = [...(units[unit.PointOfConnectionCode.substring(0, 3)] || []), unit];
 	}
 
 	const generatorsMap = {} as Record<string, any>;
-	for(const generator of generators){
-		for(const unit of generator.units){
+	for (const generator of generators) {
+		for (const unit of generator.units) {
 			generatorsMap[unit.node] = generator;
 		}
 	}
 
 	const substationResponses = [] as any[];
 
-	for(const substation of substations){
+	for (const substation of substations) {
 		let busbars = {} as Record<string, any>;
 		let totalGenerationMW = 0;
 		let totalLoadMW = 0;
 		let netImportMW = 0;
 		let totalGenerationCapacityMW = 0;
-		for(const unit of units[substation.siteId]){
+		for (const unit of units[substation.siteId]) {
 
 			let generatorInfo = {}
-			if(unit.PointOfConnectionCode.split(' ').length == 2){
+			if (unit.PointOfConnectionCode.split(' ').length == 2) {
 				const generator = generatorsMap[unit.PointOfConnectionCode];
-				if(generator){
+				if (generator) {
 					const generatorUnit = generator.units.find((unitA: any) => unitA.node == unit.PointOfConnectionCode)
 					totalGenerationCapacityMW += generatorUnit?.capacity ?? 0;
 					generatorInfo = {
@@ -101,8 +113,8 @@ app.get("/nzgrid", async (c) => {
 					}
 				],
 				priceDollarsPerMegawattHour: unit.DollarsPerMegawattHour,
-				voltage: unit.PointOfConnectionCode.substring(3,6),
-				busNumber: unit.PointOfConnectionCode.substring(6,7),
+				voltage: unit.PointOfConnectionCode.substring(3, 6),
+				busNumber: unit.PointOfConnectionCode.substring(6, 7),
 				totalGenerationMW: (currentBusbar?.totalGenerationMW ?? 0) + unit.SPDGenerationMegawatt,
 				totalLoadMW: (currentBusbar?.totalLoadMW ?? 0) + unit.SPDLoadMegawatt,
 				netImportMW: (currentBusbar?.netImportMW ?? 0) + (unit.SPDLoadMegawatt - unit.SPDGenerationMegawatt),
@@ -128,9 +140,9 @@ app.get("/nzgrid", async (c) => {
 })
 
 function getBusbarName(pointOfConnectionCode: string) {
-    const voltage = pointOfConnectionCode.substring(3,6);
-    const number = pointOfConnectionCode.substring(6,7);
-    return `${voltage}kV - ${number}`;
+	const voltage = pointOfConnectionCode.substring(3, 6);
+	const number = pointOfConnectionCode.substring(6, 7);
+	return `${voltage}kV - ${number}`;
 }
 
 app.get("history/generation/:date", async (c) => {
@@ -142,9 +154,9 @@ app.get("history/generation/:date", async (c) => {
 	const generators = await getGenerators();
 
 	const generatorLookup = {};
-	for(const generator in generators){
+	for (const generator in generators) {
 		const details = generators[generator];
-		for(const node in details.units){
+		for (const node in details.units) {
 			const nodeDetails = details.units[node]
 			generatorLookup[nodeDetails.node] = {
 				site: details.site,
@@ -164,20 +176,20 @@ app.get("history/generation/:date", async (c) => {
 
 	let gensWithNoData = new Set<string>();
 
-	for(const key in json){
+	for (const key in json) {
 		let timestampOutput = []
 		let nodes = [];
-		for(const node in json[key]){
+		for (const node in json[key]) {
 			const nodeDetails = json[key][node];
 			const genNodeDetails = generatorLookup[nodeDetails.p];
-			if(!genNodeDetails){
-				if(nodeDetails.p.split(' ').length == 2){
+			if (!genNodeDetails) {
+				if (nodeDetails.p.split(' ').length == 2) {
 					gensWithNoData.add(nodeDetails.p);
 				}
 				continue;
 			}
 
-			if(nodes.includes(nodeDetails.p)){
+			if (nodes.includes(nodeDetails.p)) {
 				continue;
 			}
 
@@ -213,15 +225,15 @@ app.get("history/price/:date", async (c) => {
 
 	let out = {}
 
-	for(const key in json){
+	for (const key in json) {
 		console.log(key)
 		let thisTimestamp = {};
-		for(const node in json[key]){
+		for (const node in json[key]) {
 			const thisNode = json[key][node];
 			// this is a little hacky - might inadvetantly pick the wrong benmore/otahuhu node
-			if(thisNode.p.startsWith("OTA")){
+			if (thisNode.p.startsWith("OTA")) {
 				thisTimestamp["OTA2201"] = +thisNode.c;
-			} else if(thisNode.p.startsWith("BEN")) {
+			} else if (thisNode.p.startsWith("BEN")) {
 				thisTimestamp["BEN2201"] = +thisNode.c;
 			}
 		}
