@@ -30,14 +30,15 @@ export async function syncDailyDispatch(){
 }
 
 async function getLatestObjectKeyFromBucket(){
+    const prefix = "dispatch-2023"
     const result = await env.dispatch.list({
-        prefix: "dispatch-"
+        prefix
     });
     
     let allObjects = [...result.objects];
     while(result.truncated){
         const nextResult = await env.dispatch.list({
-            prefix: "dispatch-",
+            prefix,
             cursor: result.cursor,
         });
         allObjects = [...allObjects, ...nextResult.objects];
