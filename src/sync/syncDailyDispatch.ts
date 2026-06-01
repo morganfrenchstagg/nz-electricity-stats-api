@@ -23,6 +23,7 @@ export async function syncDailyDispatch(){
         const data = await downloadFileAndParse(file);
         const date = file.split('/').slice(-1)[0].split('_')[0];
         await env.dispatch.put("dispatch-" + date, JSON.stringify(data));
+        await env.dispatch_kv.put("latestDailySyncDate", date);
         console.log("Finished downloading file: " + file + "\n");
     }
 
