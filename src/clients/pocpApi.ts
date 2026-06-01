@@ -16,7 +16,7 @@ export async function getOutageListFromPocp(): Promise<PocpOutage[]> {
 
     const response = await fetch(urlString);
 
-    const json = await response.json();
+    const json = await response.json() as any;
 
     return json.items as PocpOutage[];
 }
