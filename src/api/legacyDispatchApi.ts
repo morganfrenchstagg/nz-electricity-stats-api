@@ -136,6 +136,7 @@ function getBusbarName(pointOfConnectionCode: string) {
 app.get("history/generation/:date", async (c) => {
 	const date = c.req.param("date");
 	const formattedDate = date.replace(/-/g, '');
+	// todo - if it is today get data from today's cache
 	const response = await env.dispatch.get(`dispatch-${formattedDate}`);
 
 	const generators = await getGenerators();
@@ -161,12 +162,22 @@ app.get("history/generation/:date", async (c) => {
 
 	let out = {}
 
+	let gensWithNoData = new Set<string>();
+
 	for(const key in json){
 		let timestampOutput = []
+		let nodes = [];
 		for(const node in json[key]){
 			const nodeDetails = json[key][node];
 			const genNodeDetails = generatorLookup[nodeDetails.p];
 			if(!genNodeDetails){
+				if(nodeDetails.p.split(' ').length == 2){
+					gensWithNoData.add(nodeDetails.p);
+				}
+				continue;
+			}
+
+			if(nodes.includes(nodeDetails.p)){
 				continue;
 			}
 
@@ -174,11 +185,16 @@ app.get("history/generation/:date", async (c) => {
 			timestampOutput.push({
 				site: genNodeDetails.site,
 				fuel: genNodeDetails.fuel,
-				gen: +nodeDetails.g
+				gen: +nodeDetails.g,
+				node: nodeDetails.p,
 			})
+
+			nodes.push(nodeDetails.p);
 		}
 		out[key] = timestampOutput;
 	}
+
+	gensWithNoData.size > 0 && console.warn("Generators with no data for " + date + ": " + Array.from(gensWithNoData).join(', '))
 
 	return c.json(out)
 })
