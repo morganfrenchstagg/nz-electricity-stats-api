@@ -6,12 +6,12 @@ export async function syncDailyDispatch(){
     console.log("Syncing daily dispatch");
 
     const filesToDownload = await getListOfFilesToDownload();
-    const latestFile = await getLatestObjectKeyFromBucket();
 
-    console.log("Latest file in bucket: " + latestFile + "\n");
-
-    const datesToDownload = latestFile ? filesToDownload
-        .filter(date => date.split('/').slice(-1)[0].split('_')[0] > latestFile.split('-')[1]) : filesToDownload;
+    const lastSyncDate = await env.dispatch_kv.get("latestDailySyncDate");
+    console.log("Syncing any files posted since: " + lastSyncDate)
+    
+    const datesToDownload = lastSyncDate ? filesToDownload
+        .filter(date => date.split('/').slice(-1)[0].split('_')[0] > lastSyncDate) : filesToDownload;
 
     if(datesToDownload.length === 0){
         console.log("No new files to download");
@@ -28,27 +28,6 @@ export async function syncDailyDispatch(){
     }
 
     console.log("Finished syncing daily dispatch");
-}
-
-async function getLatestObjectKeyFromBucket(){
-    const prefix = "dispatch-2023"
-    const result = await env.dispatch.list({
-        prefix
-    });
-    
-    let allObjects = [...result.objects];
-    while(result.truncated){
-        const nextResult = await env.dispatch.list({
-            prefix,
-            cursor: result.cursor,
-        });
-        allObjects = [...allObjects, ...nextResult.objects];
-    }
-
-    const names = allObjects
-        .sort((a, b) => new Date(b.uploaded) > new Date(a.uploaded) ? 1 : -1);
-
-    return names[0]?.key;
 }
 
 async function downloadFileAndParse(url: string){
