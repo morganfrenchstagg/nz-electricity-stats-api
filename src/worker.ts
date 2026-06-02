@@ -43,7 +43,7 @@ async function scheduled(controller: ScheduledController) {
     case "*/20 * * * *":
       await syncDailyDispatch();
       break;
-    case "30 * * * *":
+    case "40 * * * *":
       await syncOffers();
       break;
   }
