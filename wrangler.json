@@ -17,6 +17,10 @@
 		{
 			"bucket_name": "dispatch",
 			"binding": "dispatch"
+		},
+		{
+			"bucket_name": "offers",
+			"binding": "offers"
 		}
 	],
 	"kv_namespaces": [

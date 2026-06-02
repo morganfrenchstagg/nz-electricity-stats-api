@@ -6,6 +6,7 @@ import dispatchApi from "./api/dispatchApi";
 import { getGenerators } from "./clients/generators";
 import { getSubstations } from "./clients/substations";
 import { syncDailyDispatch } from "./sync/syncDailyDispatch";
+import offersApi from "./api/offersApi";
 
 const app = new Hono();
 
@@ -28,6 +29,7 @@ app.get('/v1/substations', async (c) => {
 });
 
 app.route('/v1/dispatch', dispatchApi);
+app.route('/v1/offers', offersApi);
 
 
 async function scheduled(controller: ScheduledController) {
@@ -41,9 +43,9 @@ async function scheduled(controller: ScheduledController) {
     case "*/20 * * * *":
       await syncDailyDispatch();
       break;
-    /*case "30 * * * *":
+    case "30 * * * *":
       await syncOffers();
-      break;*/
+      break;
   }
 }
 
