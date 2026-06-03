@@ -2,6 +2,9 @@ import { env } from "cloudflare:workers";
 import { checkForMissingUnits } from "../services/missingUnits/missingUnitChecker";
 import { fetchDataFromEmiApi } from "../clients/emiApi";
 import { generateTimeseries } from "../services/timeseries/timeseries";
+import { getOutageListFromPocp } from "../clients/pocpApi";
+import { mapOutagesByUnit } from "../services/outageMapping/outageMapper";
+import { getGenerators } from "../clients/generators";
 
 export async function syncDispatch() {
   console.log("Syncing dispatch");
@@ -40,6 +43,11 @@ export async function syncDispatch() {
     await env.dispatch_kv.put("latestDispatchTime", JSON.stringify(lastUpdatedRtd));
     await env.dispatch_kv.put("latestDispatch", JSON.stringify(data))
   }
+
+  const outageList = await getOutageListFromPocp();
+  const generators = await getGenerators();
+  const outagesByUnit = mapOutagesByUnit(outageList, generators);
+  await env.dispatch_kv.put("latestOutages", JSON.stringify(outagesByUnit));
 }
 
 function getNZDateTime(): Date{

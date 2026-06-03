@@ -13,7 +13,7 @@ export async function syncOffers() {
   const filteredFilesToDownload = lastSyncDate ? filesToDownload
     .filter(file => file.split('/').slice(-1)[0].split('_')[0] > lastSyncDate) : filesToDownload;
 
-  for (const file of filteredFilesToDownload) { // only download the most recent file for now
+  for (const file of filteredFilesToDownload) {
     console.log("Downloading file: " + file);
     const parsedData = await downloadFileAndParse(file);
 
