@@ -176,7 +176,9 @@ app.get("history/generation/:date", async (c) => {
 			return c.json({ message: "No data for this date" });
 		}
 		const json = await timeseries.json();
+
 		for(const row in json.data){
+			let rowDetails = [];
 			const rowData = json.data[row];
 			const timestamp = rowData[0];
 
@@ -184,20 +186,21 @@ app.get("history/generation/:date", async (c) => {
 				continue;
 			}
 
-			const rowDetails = [] as any[];
-			for(const column in rowData){
-				const columnData = rowData[column];
-				const thisNode = json.series[column];
-				const genDetails = generatorLookup[thisNode];
-				if(!genDetails){
-					continue;
+			for(const genIndex in generators){
+				const generator = generators[genIndex];
+				let genOutput = {};
+				for(const unitIndex in generator.units){
+					const unit = generator.units[unitIndex];
+
+					genOutput[unit.fuelCode] = genOutput[unit.fuelCode] ? genOutput[unit.fuelCode] + rowData[json.series.indexOf(unit.node) + 1] : rowData[json.series.indexOf(unit.node) + 1]
 				}
-				console.log(genDetails.site + ": " + columnData);
-				rowDetails.push({
-					site: genDetails.site,
-					fuel: genDetails.fuel,
-					gen: columnData,
-					node: thisNode,
+
+				Object.keys(genOutput).forEach((fuelCode) => {
+					rowDetails.push({
+						site: generator.site,
+						fuel: fuelCode,
+						gen: genOutput[fuelCode]
+					})
 				})
 			}
 
