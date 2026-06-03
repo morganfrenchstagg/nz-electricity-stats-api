@@ -10,6 +10,7 @@ import { mapBySiteCode } from "../services/rtdMapping/mapBySiteCode";
 import { getGenerators } from "../clients/generators";
 import { mapByPointOfConnectionCode } from "../services/rtdMapping/mapByPointOfConnectionCode";
 import { generateTimeseries } from "../services/timeseries/timeseries";
+import { getOutageListFromCache } from "../clients/pocpApi";
 
 const app = new Hono();
 app.use(cors());
@@ -51,6 +52,8 @@ app.get("/latest", async (c) => {
 	const rtd = await fetchCachedDataFromEmiApi();
 	const rtdData = rtd as RealTimeDispatch[];
 
+	const outages = await getOutageListFromCache();
+
 	const siteCodeMap = mapBySiteCode(rtdData);
 	const pointOfConnectionCodeMap = mapByPointOfConnectionCode(rtdData);
 
@@ -67,7 +70,14 @@ app.get("/latest", async (c) => {
 			...generator,
 			units: generator.units.map(unit => ({
 				...unit,
-				dispatch: pointOfConnectionCodeMap.get(unit.node)
+				dispatch: pointOfConnectionCodeMap.get(unit.node),
+				outages: outages[unit.node]?.map((o) => ({
+					outageBlock: o.outageBlock,
+					mwLost: o.mwattLost,
+					mwRemain: o.mwattRemaining,
+					from: o.timeStart,
+					until: o.timeEnd,
+				})) || []
 			}))
 		}))
 	});

@@ -45,6 +45,7 @@ export async function syncDispatch() {
   }
 
   const outageList = await getOutageListFromPocp();
+  // todo - handle if pocp returns an error or is down, we don't want to overwrite the existing outage data with an empty list
   const generators = await getGenerators();
   const outagesByUnit = mapOutagesByUnit(outageList, generators);
   await env.dispatch_kv.put("latestOutages", JSON.stringify(outagesByUnit));
