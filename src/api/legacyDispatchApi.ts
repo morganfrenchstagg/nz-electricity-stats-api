@@ -6,7 +6,7 @@ import { getSubstations } from "../clients/substations";
 import { RealTimeDispatch } from "../models/realTimeDispatch";
 import { env } from "cloudflare:workers";
 import { getOutageListFromCache, getOutageListFromPocp } from "../clients/pocpApi";
-import { mapOutagesByUnit } from "../services/outageMapping/outageMapper";
+import { getNZDateTime } from "../services/nzDateTime";
 
 const app = new Hono();
 app.use(cors());
@@ -147,7 +147,6 @@ function getBusbarName(pointOfConnectionCode: string) {
 app.get("history/generation/:date", async (c) => {
 	const date = c.req.param("date");
 	const formattedDate = date.replace(/-/g, '');
-	// todo - if it is today get data from today's cache
 	const response = await env.dispatch.get(`dispatch-${formattedDate}`);
 
 	const generators = await getGenerators();
@@ -162,6 +161,47 @@ app.get("history/generation/:date", async (c) => {
 				fuel: nodeDetails.fuelCode
 			}
 		}
+	}
+
+	const now = getNZDateTime();
+	
+	// if the date requested is today, use our 'live' cache.
+	if (date === now.toISOString().split('T')[0]) {
+		let out = {} as Record<string, any>;
+		const timeseries = await env.dispatch.get("timeseries");
+		if(!timeseries){
+			c.status(404);
+			return c.json({ message: "No data for this date" });
+		}
+		const json = await timeseries.json();
+		for(const row in json.data){
+			const rowData = json.data[row];
+			const timestamp = rowData[0];
+
+			if(timestamp.split('T')[0] !== date){
+				continue;
+			}
+
+			const rowDetails = [] as any[];
+			for(const column in rowData){
+				const columnData = rowData[column];
+				const thisNode = json.series[column];
+				const genDetails = generatorLookup[thisNode];
+				if(!genDetails){
+					continue;
+				}
+				console.log(genDetails.site + ": " + columnData);
+				rowDetails.push({
+					site: genDetails.site,
+					fuel: genDetails.fuel,
+					gen: columnData,
+					node: thisNode,
+				})
+			}
+
+			out[timestamp] = rowDetails;
+		}
+		return c.json(out);
 	}
 
 	if (!response) {
@@ -225,7 +265,6 @@ app.get("history/price/:date", async (c) => {
 	let out = {}
 
 	for (const key in json) {
-		console.log(key)
 		let thisTimestamp = {};
 		for (const node in json[key]) {
 			const thisNode = json[key][node];
@@ -236,7 +275,6 @@ app.get("history/price/:date", async (c) => {
 				thisTimestamp["BEN2201"] = +thisNode.c;
 			}
 		}
-		console.log(thisTimestamp)
 		out[key] = thisTimestamp;
 	}
 
