@@ -5,7 +5,7 @@ import { getGenerators } from "../clients/generators";
 import { getSubstations } from "../clients/substations";
 import { RealTimeDispatch } from "../models/realTimeDispatch";
 import { env } from "cloudflare:workers";
-import { getOutageListFromPocp } from "../clients/pocpApi";
+import { getOutageListFromCache, getOutageListFromPocp } from "../clients/pocpApi";
 import { mapOutagesByUnit } from "../services/outageMapping/outageMapper";
 
 const app = new Hono();
@@ -19,8 +19,7 @@ app.get("/generators", async (c) => {
 	const rtd = await fetchCachedDataFromEmiApi();
 	const rtdData = rtd as RealTimeDispatch[];
 
-	const outages = await getOutageListFromPocp();
-	const outagesByUnit = mapOutagesByUnit(outages, generators);
+	const outagesByUnit = await getOutageListFromCache();
 
 	const rtdUnits = {} as Record<string, RealTimeDispatch>;
 	for (const item of rtdData) {
