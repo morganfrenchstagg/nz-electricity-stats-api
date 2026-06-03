@@ -191,8 +191,12 @@ app.get("history/generation/:date", async (c) => {
 				let genOutput = {};
 				for(const unitIndex in generator.units){
 					const unit = generator.units[unitIndex];
+					const seriesIndex = json.series.indexOf(unit.node) + 1;
 
-					genOutput[unit.fuelCode] = genOutput[unit.fuelCode] ? genOutput[unit.fuelCode] + rowData[json.series.indexOf(unit.node) + 1] : rowData[json.series.indexOf(unit.node) + 1]
+					const generation = seriesIndex != 0 ? rowData[seriesIndex] : 0;
+
+					genOutput[unit.fuelCode] = genOutput[unit.fuelCode] ? 
+						genOutput[unit.fuelCode] + generation : generation;
 				}
 
 				Object.keys(genOutput).forEach((fuelCode) => {
