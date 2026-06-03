@@ -147,9 +147,11 @@ function getBusbarName(pointOfConnectionCode: string) {
 app.get("history/generation/:date", async (c) => {
 	const date = c.req.param("date");
 	const formattedDate = date.replace(/-/g, '');
-	const response = await env.dispatch.get(`dispatch-${formattedDate}`);
 
-	const generators = await getGenerators();
+	const [response, generators] = await Promise.all([
+		env.dispatch.get(`dispatch-${formattedDate}`),
+		getGenerators()
+	]);
 
 	const generatorLookup = {};
 	for (const generator in generators) {
