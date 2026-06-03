@@ -49,16 +49,16 @@ app.get("/recent", async (c) => {
 })
 
 app.get("/latest", async (c) => {
-	const rtd = await fetchCachedDataFromEmiApi();
+	const [rtd, outages, substations, generators] = await Promise.all([
+		fetchCachedDataFromEmiApi(),
+		getOutageListFromCache(),
+		getSubstations(),
+		getGenerators()
+	]);
+
 	const rtdData = rtd as RealTimeDispatch[];
-
-	const outages = await getOutageListFromCache();
-
 	const siteCodeMap = mapBySiteCode(rtdData);
 	const pointOfConnectionCodeMap = mapByPointOfConnectionCode(rtdData);
-
-	const substations = await getSubstations();
-	const generators = await getGenerators();
 
 	return c.json({
 		lastUpdated: rtdData[0].FiveMinuteIntervalDatetime,
