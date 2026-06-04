@@ -40,7 +40,7 @@ async function scheduled(controller: ScheduledController) {
     case "0 12 * * *":
       await checkForMissingUnitsToday();
       break;
-    case "*/20 * * * *":
+    case "02 * * * *":
       await syncDailyDispatch();
       break;
     case "32 * * * *":
