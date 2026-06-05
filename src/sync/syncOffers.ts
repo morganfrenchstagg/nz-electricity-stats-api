@@ -16,12 +16,10 @@ export async function syncOffers() {
   for (const file of filteredFilesToDownload) {
     console.log("Downloading file: " + file);
     const parsedData = await downloadFileAndParse(file);
-
-    console.log("Finished downloading file: " + file + "\n");
     const fileDate = file.split('/').slice(-1)[0].split('_')[0];
     await env.offers.put("offers-" + fileDate, JSON.stringify(parsedData));
     await env.dispatch_kv.put("latestSyncedOffers", fileDate);
-    console.log("Finished syncing " + fileDate);
+    console.log("Finished syncing " + fileDate + "\n");
   }
 
   console.log("Finished syncing offers");
@@ -29,6 +27,7 @@ export async function syncOffers() {
 
 async function downloadFileAndParse(url: string) {
   const response = await fetch(url);
+  console.log("Finished downloading file: " + url);
   const text = await response.text();
 
   const json = csvToJson(text);
@@ -54,6 +53,8 @@ async function downloadFileAndParse(url: string) {
       output[tradingPeriod][pointOfConnectionAndUnit] = [...(output[tradingPeriod][pointOfConnectionAndUnit] || []), thisTranche];
     }
   }
+
+  console.log("Finished parsing " + url)
 
   return output;
 }
