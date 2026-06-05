@@ -36,7 +36,7 @@ async function downloadFileAndParse(url: string) {
   const output = {};
 
   for (const item of json as OfferRecord[]) {
-    if ((item.IsLatestYesNo === 'Y' || item.IsLatestYesNo === '1') && item.ProductClass === 'Injection' && item.ProductType === 'Energy') {
+    if (item.IsLatestYesNo === 'Y' && item.ProductClass === 'Injection' && item.ProductType === 'Energy') {
       const tradingPeriod = +item.TradingPeriod;
 
       const pointOfConnectionAndUnit = item.PointOfConnection + " " + item.Unit;
@@ -47,7 +47,7 @@ async function downloadFileAndParse(url: string) {
 
       const thisTranche = {
         tranche: +item.Tranche,
-        meagawatts: +item.Megawatts,
+        megawatts: +item.Megawatts,
         price: +item.DollarsPerMegawattHour
       };
 
