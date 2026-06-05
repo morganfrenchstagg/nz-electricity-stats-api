@@ -36,7 +36,7 @@ async function downloadFileAndParse(url: string) {
   const output = {};
 
   for (const item of json as OfferRecord[]) {
-    if (item.IsLatestYesNo === 'Y' && item.ProductClass === 'Injection' && item.ProductType === 'Energy') {
+    if (item.IsLatestYesNo === 'Y' && item.ProductClass === 'Injection' && item.ProductType === 'Energy' && +item.Megawatts > 0) {
       const tradingPeriod = +item.TradingPeriod;
 
       const pointOfConnectionAndUnit = item.PointOfConnection + " " + item.Unit;
