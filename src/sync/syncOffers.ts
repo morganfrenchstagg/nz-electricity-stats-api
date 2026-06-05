@@ -32,7 +32,7 @@ async function downloadFileAndParse(url: string) {
 
   const json = csvToJson(text);
 
-  const output = {};
+  const output = {} as Record<string, any>;
 
   for (const item of json as OfferRecord[]) {
     if (item.IsLatestYesNo === 'Y' && item.ProductClass === 'Injection' && item.ProductType === 'Energy' && +item.Megawatts > 0) {
