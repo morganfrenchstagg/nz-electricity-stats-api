@@ -245,7 +245,7 @@ app.get("history/generation/:date", async (c) => {
 			timestampOutput.push({
 				site: genNodeDetails.site,
 				fuel: genNodeDetails.fuel,
-				gen: +nodeDetails.g,
+				gen: +nodeDetails.g - +nodeDetails.l,
 				node: nodeDetails.p,
 			})
 
