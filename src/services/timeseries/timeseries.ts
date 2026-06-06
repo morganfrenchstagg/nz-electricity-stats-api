@@ -10,6 +10,7 @@ export function generateTimeseries(existingTimeseries: Timeseries, rtdData: Real
 
 	if(existingTimeseries.data.length >= MAX_DATA_POINTS){
 		existingTimeseries.data.shift();
+		existingTimeseries.pricing.shift();
 	}
 
 	const series = [...new Set([...rtdData.map((item: RealTimeDispatch) => item.PointOfConnectionCode), ...existingTimeseries.series])];
