@@ -262,6 +262,41 @@ app.get("history/generation/:date", async (c) => {
 app.get("history/price/:date", async (c) => {
 	const date = c.req.param("date");
 	const formattedDate = date.replace(/-/g, '');
+
+	const now = getNZDateTime();
+	
+	// if the date requested is today, use our 'live' cache.
+	if (date === now.toISOString().split('T')[0]) {
+		const timeseries = await env.dispatch.get("timeseries");
+		if(!timeseries){
+			c.status(404);
+			return c.json({ message: "No data for this date" });
+		}
+
+		const json = await timeseries.json();
+
+		const benmore = json.series.indexOf("BEN2201");
+		const otahuhu = json.series.indexOf("OTA2201");
+
+		console.log(benmore, otahuhu);
+
+		const out = {} as Record<string, any>;
+
+		json.pricing.forEach((item: any) => {
+			const timestamp = item[0];
+			if(timestamp.split('T')[0] !== date){
+				return;
+			}
+
+			out[timestamp] = {
+				"OTA2201": item[otahuhu + 1],
+				"BEN2201": item[benmore + 1]
+			}
+		})
+
+		return c.json(out);
+	}
+
 	const response = await env.dispatch.get(`dispatch-${formattedDate}`);
 
 	if (!response) {
