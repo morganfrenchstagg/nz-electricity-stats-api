@@ -41,7 +41,7 @@ describe("mapBySiteCode", () => {
                 {
                     pointOfConnectionCode: "ABC123",
                     load: 10,
-                    generation  : 5,
+                    generation: 5,
                     price: 100
                 },
                 {

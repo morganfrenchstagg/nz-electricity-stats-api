@@ -171,7 +171,7 @@ describe("outageMapper", () => {
                 outageBlock: "KTS"
             }
         ] as PocpOutage[];
-        
+
         const generatorDefinitions = [
             {
                 site: "KSF",

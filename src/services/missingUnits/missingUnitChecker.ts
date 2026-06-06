@@ -27,14 +27,14 @@ export const checkForMissingUnits = async (dispatchList: string[]) => {
   const unitsNotInSubstationList = dispatchList.filter((unit) => (unit as string).split(" ").length === 1);
 
   for (const substation of substations) {
-	const units = unitsNotInSubstationList.filter((unit) => unit.substring(0, 3) === substation.siteId);
-	for (const unit of units) {
-		unitsNotInSubstationList.splice(unitsNotInSubstationList.indexOf(unit), 1);
-	}
+    const units = unitsNotInSubstationList.filter((unit) => unit.substring(0, 3) === substation.siteId);
+    for (const unit of units) {
+      unitsNotInSubstationList.splice(unitsNotInSubstationList.indexOf(unit), 1);
+    }
 
-	if (units.length === 0) {
-		substationUnitsNotInDispatchList.push(substation.siteId);
-	}
+    if (units.length === 0) {
+      substationUnitsNotInDispatchList.push(substation.siteId);
+    }
   }
 
   return {

@@ -5,8 +5,7 @@ import { getGenerators } from "../clients/generators";
 import { getSubstations } from "../clients/substations";
 import { RealTimeDispatch } from "../models/realTimeDispatch";
 import { env } from "cloudflare:workers";
-import { getOutageListFromCache, getOutageListFromPocp } from "../clients/pocpApi";
-import { getNZDateTime } from "../services/nzDateTime";
+import { getOutageListFromCache } from "../clients/pocpApi";
 
 const app = new Hono();
 app.use(cors());

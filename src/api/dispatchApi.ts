@@ -93,8 +93,8 @@ app.get("/:date", async (c) => {
 		return c.json({ message: "No data for this date" });
 	}
 	const json = await response.json();
-	
-	let timeseries = {series: [], data: []} as any;
+
+	let timeseries = { series: [], data: [] } as any;
 	for (const key in json) {
 		const data = json[key].map((item: any) => ({
 			PointOfConnectionCode: item.p,

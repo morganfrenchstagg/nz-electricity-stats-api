@@ -33,8 +33,8 @@ export async function getGeneratorUnits() {
 	const generators = await getGenerators();
 
 	const unitMap: Record<string, any> = {};
-	for(const generator of generators){
-		for(const unit of generator.units){
+	for (const generator of generators) {
+		for (const unit of generator.units) {
 			const unitObject = {
 				...unit,
 				site: generator.site,

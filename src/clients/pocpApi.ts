@@ -3,7 +3,7 @@ import { PocpOutage } from "../models/pocpOutage";
 
 export async function getOutageListFromCache(): Promise<Record<string, PocpOutage[]>> {
     const cachedOutages = await env.dispatch_kv.get("latestOutages");
-    if(cachedOutages){
+    if (cachedOutages) {
         return JSON.parse(cachedOutages) as Record<string, PocpOutage[]>;
     }
     return {};
