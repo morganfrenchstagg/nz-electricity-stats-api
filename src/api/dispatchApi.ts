@@ -101,7 +101,7 @@ app.get("/:date", async (c) => {
 			FiveMinuteIntervalDatetime: key,
 			SPDGenerationMegawatt: item.g,
 			SPDLoadMegawatt: item.l,
-			DollarsPerMegawattHour: item.c,
+			DollarsPerMegawattHour: +item.c,
 		}) as RealTimeDispatch);
 
 		timeseries = generateTimeseries(timeseries, data);
