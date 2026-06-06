@@ -1726,5 +1726,14 @@
         "type": "ACSTN",
         "gridZone": 14,
         "island": "south"
+    },
+    {
+        "long": 173.84854650643427,
+        "lat": -35.40375335301184,
+        "siteId": "NGA",
+        "description": "Ngāwhā",
+        "type": "ACSTN",
+        "gridZone": 1,
+        "island": "north"
     }
 ]
