@@ -285,7 +285,7 @@ describe("generateTimeseries", () => {
     const existingTimeseries = {
       series: ["ABY0111", "ARA2201 ARA0"],
       data: Array.from({ length: 864 }, (_, i) => [`2026-05-29T${String(Math.floor(i / 12)).padStart(2, "0")}:${String((i % 12) * 5).padStart(2, "0")}:00`, -2.576, 72]),
-      pricing: []
+      pricing: Array.from({ length: 864 }, (_, i) => [`${i}:00`, i, i]),
     };
 
     expect(existingTimeseries.data[0][0]).toBe("2026-05-29T00:00:00");
@@ -305,6 +305,18 @@ describe("generateTimeseries", () => {
     expect(timeseries.data.length).toBe(864);
     expect(timeseries.data[0][0]).toBe("2026-05-29T00:05:00");
     expect(timeseries.data[863][0]).toBe("2026-07-01T13:30:00");
+
+    expect(timeseries.pricing[862]).toStrictEqual([
+      "2026-05-29T71:55:00",
+      863,
+      863
+    ])
+
+    expect(timeseries.pricing[863]).toStrictEqual([
+      "2026-07-01T13:30:00",
+      94.08,
+      0
+    ])
   });
 
   // todo - no pricing data available
