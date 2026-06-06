@@ -1,8 +1,7 @@
-export async function getGenerators() {
-	const list = await fetch('https://raw.githubusercontent.com/morganfrenchstagg/nz-electricity-map/refs/heads/main/backend/data/generators.json');
-	const generationListJson = await list.json() as GeneratorDefinition[];
+import generators from '../data/generators.json' with { type: 'json' };
 
-	return generationListJson;
+export async function getGenerators() {
+	return generators;
 }
 
 export type GeneratorDefinition = {
