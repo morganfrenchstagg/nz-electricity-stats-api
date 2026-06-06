@@ -14,7 +14,7 @@ export async function csvToJson(csv: string): Promise<Record<string, string>[]> 
 	return records;
 }
 
-function parseCSV(str, onRow, { delimiter = ",", quote = '"' } = {}) {
+function parseCSV(str: string, onRow: any, { delimiter = ",", quote = '"' } = {}) {
   let pos = 0;
   let rowIndex = 0;
   let fields = [] as string[];
@@ -24,7 +24,7 @@ function parseCSV(str, onRow, { delimiter = ",", quote = '"' } = {}) {
 
   const specialChars = new RegExp(`[${delimiter}\r\n]`, "g");
 
-  function emitField(end) {
+  function emitField(end: number) {
     const raw = str.slice(fieldStart, end);
 	fields.push(raw)
     fields.push(hasEscapes ? raw.replaceAll(quote + quote, quote) : raw);

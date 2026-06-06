@@ -153,7 +153,7 @@ app.get("history/generation/:date", async (c) => {
 		getGenerators()
 	]);
 
-	const generatorLookup = {};
+	const generatorLookup = {} as Record<string, any>;
 	for (const generator in generators) {
 		const details = generators[generator];
 		for (const node in details.units) {
@@ -178,7 +178,7 @@ app.get("history/generation/:date", async (c) => {
 		const json = await timeseries.json();
 
 		for(const row in json.data){
-			let rowDetails = [];
+			let rowDetails = [] as any[];
 			const rowData = json.data[row];
 			const timestamp = rowData[0];
 
@@ -188,7 +188,7 @@ app.get("history/generation/:date", async (c) => {
 
 			for(const genIndex in generators){
 				const generator = generators[genIndex];
-				let genOutput = {};
+				let genOutput = {} as Record<string, any>;
 				for(const unitIndex in generator.units){
 					const unit = generator.units[unitIndex];
 					const seriesIndex = json.series.indexOf(unit.node) + 1;
@@ -220,13 +220,13 @@ app.get("history/generation/:date", async (c) => {
 
 	const json = await response.json();
 
-	let out = {}
+	let out = {} as Record<string, any>;
 
 	let gensWithNoData = new Set<string>();
 
 	for (const key in json) {
 		let timestampOutput = []
-		let nodes = [];
+		let nodes = [] as string[];
 		for (const node in json[key]) {
 			const nodeDetails = json[key][node];
 			const genNodeDetails = generatorLookup[nodeDetails.p];
@@ -271,10 +271,10 @@ app.get("history/price/:date", async (c) => {
 
 	const json = await response.json();
 
-	let out = {}
+	let out = {} as Record<string, any>;
 
 	for (const key in json) {
-		let thisTimestamp = {};
+		let thisTimestamp = {} as Record<string, number>;
 		for (const node in json[key]) {
 			const thisNode = json[key][node];
 			// this is a little hacky - might inadvetantly pick the wrong benmore/otahuhu node
