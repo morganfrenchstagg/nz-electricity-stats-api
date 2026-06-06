@@ -165,55 +165,11 @@ app.get("history/generation/:date", async (c) => {
 		}
 	}
 
-	const now = getNZDateTime();
-	
-	// if the date requested is today, use our 'live' cache.
-	if (date === now.toISOString().split('T')[0]) {
-		let out = {} as Record<string, any>;
-		const timeseries = await env.dispatch.get("timeseries");
-		if(!timeseries){
-			c.status(404);
-			return c.json({ message: "No data for this date" });
-		}
-		const json = await timeseries.json();
-
-		for(const row in json.data){
-			let rowDetails = [] as any[];
-			const rowData = json.data[row];
-			const timestamp = rowData[0];
-
-			if(timestamp.split('T')[0] !== date){
-				continue;
-			}
-
-			for(const genIndex in generators){
-				const generator = generators[genIndex];
-				let genOutput = {} as Record<string, any>;
-				for(const unitIndex in generator.units){
-					const unit = generator.units[unitIndex];
-					const seriesIndex = json.series.indexOf(unit.node) + 1;
-
-					const generation = seriesIndex != 0 ? rowData[seriesIndex] : 0;
-
-					genOutput[unit.fuelCode] = genOutput[unit.fuelCode] ? 
-						genOutput[unit.fuelCode] + generation : generation;
-				}
-
-				Object.keys(genOutput).forEach((fuelCode) => {
-					rowDetails.push({
-						site: generator.site,
-						fuel: fuelCode,
-						gen: genOutput[fuelCode]
-					})
-				})
-			}
-
-			out[timestamp] = rowDetails;
-		}
-		return c.json(out);
-	}
-
 	if (!response) {
+		const liveData = await getLiveData(date, generators);
+		if (Object.keys(liveData).length > 0) {
+			return c.json(liveData)
+		}
 		c.status(404);
 		return c.json({ message: "No data for this date" });
 	}
@@ -263,43 +219,13 @@ app.get("history/price/:date", async (c) => {
 	const date = c.req.param("date");
 	const formattedDate = date.replace(/-/g, '');
 
-	const now = getNZDateTime();
-	
-	// if the date requested is today, use our 'live' cache.
-	if (date === now.toISOString().split('T')[0]) {
-		const timeseries = await env.dispatch.get("timeseries");
-		if(!timeseries){
-			c.status(404);
-			return c.json({ message: "No data for this date" });
-		}
-
-		const json = await timeseries.json();
-
-		const benmore = json.series.indexOf("BEN2201");
-		const otahuhu = json.series.indexOf("OTA2201");
-
-		console.log(benmore, otahuhu);
-
-		const out = {} as Record<string, any>;
-
-		json.pricing.forEach((item: any) => {
-			const timestamp = item[0];
-			if(timestamp.split('T')[0] !== date){
-				return;
-			}
-
-			out[timestamp] = {
-				"OTA2201": item[otahuhu + 1],
-				"BEN2201": item[benmore + 1]
-			}
-		})
-
-		return c.json(out);
-	}
-
 	const response = await env.dispatch.get(`dispatch-${formattedDate}`);
 
 	if (!response) {
+		const livePrices = await getLivePrices(date);
+		if (Object.keys(livePrices).length > 0) {
+			return c.json(livePrices);
+		}
 		c.status(404);
 		return c.json({ message: "No data for this date" });
 	}
@@ -323,6 +249,81 @@ app.get("history/price/:date", async (c) => {
 	}
 
 	return c.json(out)
-})
+});
+
+async function getLivePrices(date: string) {
+	const timeseries = await env.dispatch.get("timeseries");
+	if (!timeseries) {
+		return {};
+	}
+
+	const json = await timeseries.json();
+
+	const benmore = json.series.indexOf("BEN2201");
+	const otahuhu = json.series.indexOf("OTA2201");
+
+	console.log(benmore, otahuhu);
+
+	const out = {} as Record<string, any>;
+
+	json.pricing.forEach((item: any) => {
+		const timestamp = item[0];
+		if (timestamp.split('T')[0] !== date) {
+			return;
+		}
+
+		out[timestamp] = {
+			"OTA2201": item[otahuhu + 1],
+			"BEN2201": item[benmore + 1]
+		}
+	})
+
+	return out;
+}
+
+async function getLiveData(date: string, generators: any): Promise<Record<string, any>> {
+	let out = {} as Record<string, any>;
+	const timeseries = await env.dispatch.get("timeseries");
+	if (!timeseries) {
+		return {};
+	}
+	const json = await timeseries.json();
+
+	for (const row in json.data) {
+		let rowDetails = [] as any[];
+		const rowData = json.data[row];
+		const timestamp = rowData[0];
+
+		if (timestamp.split('T')[0] !== date) {
+			continue;
+		}
+
+		for (const genIndex in generators) {
+			const generator = generators[genIndex];
+			let genOutput = {} as Record<string, any>;
+			for (const unitIndex in generator.units) {
+				const unit = generator.units[unitIndex];
+				const seriesIndex = json.series.indexOf(unit.node) + 1;
+
+				const generation = seriesIndex != 0 ? rowData[seriesIndex] : 0;
+
+				genOutput[unit.fuelCode] = genOutput[unit.fuelCode] ?
+					genOutput[unit.fuelCode] + generation : generation;
+			}
+
+			Object.keys(genOutput).forEach((fuelCode) => {
+				rowDetails.push({
+					site: generator.site,
+					fuel: fuelCode,
+					gen: genOutput[fuelCode]
+				})
+			})
+		}
+
+		out[timestamp] = rowDetails;
+	}
+
+	return out;
+}
 
 export default app;
