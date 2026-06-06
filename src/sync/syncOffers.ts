@@ -28,9 +28,12 @@ export async function syncOffers() {
 async function downloadFileAndParse(url: string) {
   const response = await fetch(url);
   console.log("Finished downloading file: " + url);
+
+  const startTime = performance.now()
+
   const text = await response.text();
 
-  const json = csvToJson(text);
+  const json = await csvToJson(text);
 
   const output = {} as Record<string, any>;
 
@@ -54,7 +57,9 @@ async function downloadFileAndParse(url: string) {
     }
   }
 
-  console.log("Finished parsing " + url)
+  const endTime = performance.now()
+
+  console.log(`Finished parsing in ${endTime - startTime} milliseconds`);
 
   return output;
 }
