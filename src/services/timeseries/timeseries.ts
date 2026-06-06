@@ -9,6 +9,7 @@ export function generateTimeseries(existingTimeseries: Timeseries, rtdData: Real
 	}
 
 	if(existingTimeseries.data.length >= MAX_DATA_POINTS){
+		// todo - better logic here would be to grab the last x datapoints from each array, instead of assuming that if i'm over the max then reducing the current array by 1 will fix it.
 		existingTimeseries.data.shift();
 		existingTimeseries.pricing.shift();
 	}
