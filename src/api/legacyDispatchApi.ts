@@ -247,7 +247,13 @@ app.get("history/price/:date", async (c) => {
 		out[key] = thisTimestamp;
 	}
 
-	return c.json(out)
+	const headers = new Headers();
+	headers.set("Cache-Control", "public, max-age=86400")
+	const resp = Response.json(out, {
+		headers
+	});
+
+	return resp;
 });
 
 async function getLivePrices(date: string) {
