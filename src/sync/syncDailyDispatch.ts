@@ -1,6 +1,7 @@
 import { parseDocument } from "htmlparser2";
 import { getElementsByTagName, getText } from "domutils";
 import { env } from "cloudflare:workers";
+import { HistoricalDispatchRecord } from "../models/historicalDispatchRecord";
 
 export async function syncDailyDispatch() {
     console.log("Syncing daily dispatch");
@@ -36,7 +37,7 @@ async function downloadFileAndParse(url: string) {
 
     const data = csvToJson(text);
 
-    let out = {} as Record<string, any[]>;
+    let out = {} as Record<string, HistoricalDispatchRecord[]>;
 
     for (const item of data as any[]) {
         const time = item.IntervalDateTime.split('.')[0];
