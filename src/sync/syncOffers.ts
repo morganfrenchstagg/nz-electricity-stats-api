@@ -61,7 +61,7 @@ async function downloadFileAndParse(url: string) {
 
   const decoder = new TextDecoder();
 
-  for await (const chunk of response.body) {
+  for await (const chunk of response.body!) {
     // Decode the file data as a UTF-8 string, and send it to the CSV parser.
     const ready = parser.write(decoder.decode(chunk));
 
