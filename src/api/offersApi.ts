@@ -6,7 +6,12 @@ const app = new Hono();
 app.use(cors());
 
 app.get(":date", async (c) => {
-    const date = c.req.param("date");
+    let date = c.req.param("date");
+
+    if (date === "latest") {
+        date = await env.dispatch_kv.get("latestSyncedOffers");
+    }
+
     const formattedDate = date.replace(/-/g, '');
     const fileKey = "offers-" + formattedDate;
     const response = await env.offers.get(fileKey);
