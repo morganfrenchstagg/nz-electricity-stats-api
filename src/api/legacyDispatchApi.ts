@@ -261,8 +261,6 @@ async function getLivePrices(date: string) {
 	const benmore = json.series.indexOf("BEN2201");
 	const otahuhu = json.series.indexOf("OTA2201");
 
-	console.log(benmore, otahuhu);
-
 	const out = {} as Record<string, any>;
 
 	json.pricing.forEach((item: any) => {
