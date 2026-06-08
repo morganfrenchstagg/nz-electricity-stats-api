@@ -48,10 +48,17 @@ app.get("/generators", async (c) => {
 		}
 	}
 
-	return c.json({
+	const output = {
 		generators: generators,
 		lastUpdate: lastSynced,
-	});
+	};
+
+	const latestTimestamp = new Date(lastSynced);
+	const nextTimestamp = new Date(latestTimestamp.setTime(latestTimestamp.getTime() + 5 * 1000 * 60)); // 5 minutes later
+	const now = getNZDateTime();
+
+	const cachableTimeInSeconds = (nextTimestamp.getTime() - now.getTime()) / 1000;
+	return getJsonResponseWithHeaders(output, { "Cache-Control": `max-age=${cachableTimeInSeconds > 0 ? cachableTimeInSeconds : 0}` });
 })
 
 app.get("/nzgrid", async (c) => {
@@ -135,10 +142,17 @@ app.get("/nzgrid", async (c) => {
 		})
 	}
 
-	return c.json({
+	const output = {
 		sites: substationResponses,
 		lastUpdated: rtdData[0].FiveMinuteIntervalDatetime,
-	})
+	}
+
+	const latestTimestamp = new Date(rtdData[0].FiveMinuteIntervalDatetime);
+	const nextTimestamp = new Date(latestTimestamp.setTime(latestTimestamp.getTime() + 5 * 1000 * 60)); // 5 minutes later
+	const now = getNZDateTime();
+
+	const cachableTimeInSeconds = (nextTimestamp.getTime() - now.getTime()) / 1000;
+	return getJsonResponseWithHeaders(output, { "Cache-Control": `max-age=${cachableTimeInSeconds > 0 ? cachableTimeInSeconds : 0}` });
 })
 
 function getBusbarName(pointOfConnectionCode: string) {
