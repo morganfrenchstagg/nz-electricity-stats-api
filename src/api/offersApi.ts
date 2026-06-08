@@ -29,6 +29,7 @@ app.get(":date", async (c) => {
         data: json
     }
 
+    // todo - better calculate an appropriate amount of time for this cache to last
     const maxAgeSeconds = c.req.param("date") === "latest" ? ONE_HOUR_IN_SECONDS : ONE_DAY_IN_SECONDS;
 
     return getJsonResponseWithHeaders(response, { "Cache-Control": `max-age=${maxAgeSeconds}` });

@@ -7,6 +7,7 @@ import { getGenerators } from "./clients/generators";
 import { getSubstations } from "./clients/substations";
 import { syncDailyDispatch } from "./sync/syncDailyDispatch";
 import offersApi from "./api/offersApi";
+import { getJsonResponseWithMaxAgeHeader } from "./utilities/utilities";
 
 const app = new Hono();
 
@@ -21,11 +22,11 @@ app.get('ping', async (c) => {
 });
 
 app.get('/v1/generators', async (c) => {
-  return c.json(await getGenerators());
+  return getJsonResponseWithMaxAgeHeader(await getGenerators());
 });
 
 app.get('/v1/substations', async (c) => {
-  return c.json(await getSubstations());
+  return getJsonResponseWithMaxAgeHeader(await getSubstations());
 });
 
 app.route('/v1/dispatch', dispatchApi);
