@@ -6,9 +6,10 @@ import { getSubstations } from "../clients/substations";
 import { RealTimeDispatch } from "../models/realTimeDispatch";
 import { env } from "cloudflare:workers";
 import { getOutageListFromCache } from "../clients/pocpApi";
-import { getJsonResponseWithMaxAgeHeader } from "../utilities/utilities";
+import { getJsonResponseWithHeaders, getJsonResponseWithMaxAgeHeader } from "../utilities/utilities";
 import { HistoricalDispatchRecord } from "../models/historicalDispatchRecord";
 import { Timeseries } from "../models/timeseries";
+import { getNZDateTime } from "../services/nzDateTime";
 
 const app = new Hono();
 app.use(cors());
@@ -170,7 +171,12 @@ app.get("history/generation/:date", async (c) => {
 	if (!response) {
 		const liveData = await getLiveData(date, generators);
 		if (Object.keys(liveData).length > 0) {
-			return c.json(liveData)
+			const latestTimestamp = new Date(Object.keys(liveData)[Object.keys(liveData).length - 1]);
+			const nextTimestamp = new Date(latestTimestamp.setTime(latestTimestamp.getTime() + 5 * 1000 * 60)); // 5 minutes later
+			const now = getNZDateTime();
+
+			const cachableTimeInSeconds = (nextTimestamp.getTime() - now.getTime()) / 1000;
+			return getJsonResponseWithHeaders(liveData, { "Cache-Control": `max-age=${cachableTimeInSeconds > 0 ? cachableTimeInSeconds : 0}` });
 		}
 		c.status(404);
 		return c.json({ message: "No data for this date" });
@@ -226,7 +232,12 @@ app.get("history/price/:date", async (c) => {
 	if (!response) {
 		const livePrices = await getLivePrices(date);
 		if (Object.keys(livePrices).length > 0) {
-			return c.json(livePrices);
+			const latestTimestamp = new Date(Object.keys(livePrices)[Object.keys(livePrices).length - 1]);
+			const nextTimestamp = new Date(latestTimestamp.setTime(latestTimestamp.getTime() + 5 * 1000 * 60)); // 5 minutes later
+			const now = getNZDateTime();
+
+			const cachableTimeInSeconds = (nextTimestamp.getTime() - now.getTime()) / 1000;
+			return getJsonResponseWithHeaders(livePrices, { "Cache-Control": `max-age=${cachableTimeInSeconds > 0 ? cachableTimeInSeconds : 0}` });
 		}
 		c.status(404);
 		return c.json({ message: "No data for this date" });
