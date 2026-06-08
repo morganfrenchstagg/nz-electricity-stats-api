@@ -34,8 +34,6 @@ export function mapOutagesByUnit(outages: PocpOutage[], generatorDefinitions: Ge
             unitOutages[matchingUnit3.node] = [...(unitOutages[matchingUnit3.node] || []), outage];
             continue;
         }
-
-        //console.log("Could not find match for outage block", outage.outageBlock);
     }
     return unitOutages;
 }

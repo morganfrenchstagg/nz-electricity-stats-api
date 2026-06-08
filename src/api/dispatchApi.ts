@@ -11,6 +11,7 @@ import { getGenerators } from "../clients/generators";
 import { mapByPointOfConnectionCode } from "../services/rtdMapping/mapByPointOfConnectionCode";
 import { generateTimeseries } from "../services/timeseries/timeseries";
 import { getOutageListFromCache } from "../clients/pocpApi";
+import { HistoricalDispatchRecord } from "../models/historicalDispatchRecord";
 
 const app = new Hono();
 app.use(cors());
@@ -39,7 +40,7 @@ app.get("/rtd", async (c) => {
 })
 
 app.get("/recent", async (c) => {
-	const timeseries = await env.dispatch.get("timeseries");
+	const timeseries = (await env.dispatch.get("timeseries"))!
 	const json = await timeseries.json();
 	if (timeseries) {
 		return c.json(json);
@@ -92,7 +93,7 @@ app.get("/:date", async (c) => {
 		c.status(404);
 		return c.json({ message: "No data for this date" });
 	}
-	const json = await response.json();
+	const json = (await response.json()) as Record<string, HistoricalDispatchRecord[]>;
 
 	let timeseries = { series: [], data: [] } as any;
 	for (const key in json) {
