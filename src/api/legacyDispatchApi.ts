@@ -7,6 +7,7 @@ import { RealTimeDispatch } from "../models/realTimeDispatch";
 import { env } from "cloudflare:workers";
 import { getOutageListFromCache } from "../clients/pocpApi";
 import { getJsonResponseWithMaxAgeHeader } from "../utilities/utilities";
+import { HistoricalDispatchRecord } from "../models/historicalDispatchRecord";
 
 const app = new Hono();
 app.use(cors());
@@ -176,7 +177,7 @@ app.get("history/generation/:date", async (c) => {
 
 	const json = await response.json();
 
-	let out = {} as Record<string, any>;
+	let out = {} as Record<string, HistoricalDispatchRecord[]>;
 
 	let gensWithNoData = new Set<string>();
 
@@ -212,7 +213,7 @@ app.get("history/generation/:date", async (c) => {
 
 	gensWithNoData.size > 0 && console.warn("Generators with no data for " + date + ": " + Array.from(gensWithNoData).join(', '))
 
-	return getJsonResponseWithMaxAgeHeader(json);
+	return getJsonResponseWithMaxAgeHeader(out);
 })
 
 app.get("history/price/:date", async (c) => {
@@ -248,7 +249,7 @@ app.get("history/price/:date", async (c) => {
 		out[key] = thisTimestamp;
 	}
 
-	return getJsonResponseWithMaxAgeHeader(json);
+	return getJsonResponseWithMaxAgeHeader(out);
 });
 
 async function getLivePrices(date: string) {
