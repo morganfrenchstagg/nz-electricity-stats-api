@@ -6,6 +6,7 @@ import { getSubstations } from "../clients/substations";
 import { RealTimeDispatch } from "../models/realTimeDispatch";
 import { env } from "cloudflare:workers";
 import { getOutageListFromCache } from "../clients/pocpApi";
+import { getJsonResponseWithMaxAgeHeader } from "../utilities/utilities";
 
 const app = new Hono();
 app.use(cors());
@@ -211,13 +212,7 @@ app.get("history/generation/:date", async (c) => {
 
 	gensWithNoData.size > 0 && console.warn("Generators with no data for " + date + ": " + Array.from(gensWithNoData).join(', '))
 
-	const headers = new Headers();
-	headers.set("Cache-Control", "public, max-age=86400")
-	const resp = Response.json(out, {
-		headers
-	});
-
-	return resp;
+	return getJsonResponseWithMaxAgeHeader(json);
 })
 
 app.get("history/price/:date", async (c) => {
@@ -253,13 +248,7 @@ app.get("history/price/:date", async (c) => {
 		out[key] = thisTimestamp;
 	}
 
-	const headers = new Headers();
-	headers.set("Cache-Control", "public, max-age=86400")
-	const resp = Response.json(out, {
-		headers
-	});
-
-	return resp;
+	return getJsonResponseWithMaxAgeHeader(json);
 });
 
 async function getLivePrices(date: string) {

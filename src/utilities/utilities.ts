@@ -1,6 +1,6 @@
 export const ONE_DAY_IN_SECONDS = 60 * 60 * 24;
 
-export function getJsonResponseWithMaxAgeHeader(json: any, headers: Record<string, string>) {
+export function getJsonResponseWithMaxAgeHeader(json: any, headers?: Record<string, string>) {
     headers = {
         ...headers,
         "Cache-Control": `max-age=${ONE_DAY_IN_SECONDS}`
