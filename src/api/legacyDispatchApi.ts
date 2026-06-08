@@ -8,6 +8,7 @@ import { env } from "cloudflare:workers";
 import { getOutageListFromCache } from "../clients/pocpApi";
 import { getJsonResponseWithMaxAgeHeader } from "../utilities/utilities";
 import { HistoricalDispatchRecord } from "../models/historicalDispatchRecord";
+import { Timeseries } from "../models/timeseries";
 
 const app = new Hono();
 app.use(cors());
@@ -175,9 +176,9 @@ app.get("history/generation/:date", async (c) => {
 		return c.json({ message: "No data for this date" });
 	}
 
-	const json = await response.json();
+	const json = (await response.json()) as Record<string, HistoricalDispatchRecord[]>;
 
-	let out = {} as Record<string, HistoricalDispatchRecord[]>;
+	let out = {} as Record<string, any>;
 
 	let gensWithNoData = new Set<string>();
 
@@ -231,7 +232,7 @@ app.get("history/price/:date", async (c) => {
 		return c.json({ message: "No data for this date" });
 	}
 
-	const json = await response.json();
+	const json = (await response.json()) as Record<string, HistoricalDispatchRecord[]>;
 
 	let out = {} as Record<string, any>;
 
@@ -258,7 +259,7 @@ async function getLivePrices(date: string) {
 		return {};
 	}
 
-	const json = await timeseries.json();
+	const json = (await timeseries.json()) as Timeseries;
 
 	const benmore = json.series.indexOf("BEN2201");
 	const otahuhu = json.series.indexOf("OTA2201");
@@ -286,7 +287,7 @@ async function getLiveData(date: string, generators: any): Promise<Record<string
 	if (!timeseries) {
 		return {};
 	}
-	const json = await timeseries.json();
+	const json = (await timeseries.json()) as Timeseries;
 
 	for (const row in json.data) {
 		let rowDetails = [] as any[];

@@ -12,7 +12,6 @@ export function getJsonResponseWithHeaders(json: any, headers: Record<string, st
     const headersObj = new Headers();
 
     for (let obj in headers) {
-        console.log(obj)
         headersObj.set(obj, headers[obj]);
     }
 
