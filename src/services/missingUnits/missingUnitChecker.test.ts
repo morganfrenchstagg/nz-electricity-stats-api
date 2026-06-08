@@ -3,8 +3,8 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import { getGenerators } from "../../clients/generators";
 import { getSubstations } from "../../clients/substations";
 
-vi.mock(".././generators");
-vi.mock(".././substations");
+vi.mock("../../clients/generators");
+vi.mock("../../clients/substations");
 
 const mockedGetGenerators = vi.mocked(getGenerators);
 const mockedGetSubstations = vi.mocked(getSubstations);
@@ -37,8 +37,21 @@ describe("checkForMissingUnits", () => {
         units: [
           {
             node: "1234567890 ABCD",
+            name: "",
+            unitCode: "",
+            capacity: 0,
+            fuel: "",
+            fuelCode: ""
           },
         ],
+        site: "",
+        name: "",
+        location: {
+          lat: 0,
+          long: 0
+        },
+        gridZone: "",
+        operator: ""
       },
     ]);
     mockedGetSubstations.mockResolvedValue([]);
@@ -62,8 +75,21 @@ describe("checkForMissingUnits", () => {
         units: [
           {
             node: "1234567890 ABCD",
+            name: "",
+            unitCode: "",
+            capacity: 0,
+            fuel: "",
+            fuelCode: ""
           },
         ],
+        site: "",
+        name: "",
+        location: {
+          lat: 0,
+          long: 0
+        },
+        gridZone: "",
+        operator: ""
       },
     ]);
     mockedGetSubstations.mockResolvedValue([]);
@@ -88,8 +114,21 @@ describe("checkForMissingUnits", () => {
           {
             node: "1234567890 ABCD",
             active: false,
+            name: "",
+            unitCode: "",
+            capacity: 0,
+            fuel: "",
+            fuelCode: ""
           },
         ],
+        site: "",
+        name: "",
+        location: {
+          lat: 0,
+          long: 0
+        },
+        gridZone: "",
+        operator: ""
       },
     ]);
     mockedGetSubstations.mockResolvedValue([]);
@@ -130,8 +169,21 @@ describe("checkForMissingUnits", () => {
         units: [
           {
             node: "1234567890 ABCD",
+            name: "",
+            unitCode: "",
+            capacity: 0,
+            fuel: "",
+            fuelCode: ""
           },
         ],
+        site: "",
+        name: "",
+        location: {
+          lat: 0,
+          long: 0
+        },
+        gridZone: "",
+        operator: ""
       },
     ]);
     mockedGetSubstations.mockResolvedValue([]);
@@ -155,8 +207,21 @@ describe("checkForMissingUnits", () => {
         units: [
           {
             node: "1234567890 ABCD",
+            name: "",
+            unitCode: "",
+            capacity: 0,
+            fuel: "",
+            fuelCode: ""
           },
         ],
+        site: "",
+        name: "",
+        location: {
+          lat: 0,
+          long: 0
+        },
+        gridZone: "",
+        operator: ""
       },
     ]);
     mockedGetSubstations.mockResolvedValue([]);
@@ -254,8 +319,21 @@ describe("checkForMissingUnits", () => {
         units: [
           {
             node: "1234567890 ABCD",
+            name: "",
+            unitCode: "",
+            capacity: 0,
+            fuel: "",
+            fuelCode: ""
           },
         ],
+        site: "",
+        name: "",
+        location: {
+          lat: 0,
+          long: 0
+        },
+        gridZone: "",
+        operator: ""
       },
     ]);
     mockedGetSubstations.mockResolvedValue([
