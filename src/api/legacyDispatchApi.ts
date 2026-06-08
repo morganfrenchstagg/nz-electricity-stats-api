@@ -211,7 +211,13 @@ app.get("history/generation/:date", async (c) => {
 
 	gensWithNoData.size > 0 && console.warn("Generators with no data for " + date + ": " + Array.from(gensWithNoData).join(', '))
 
-	return c.json(out)
+	const headers = new Headers();
+	headers.set("Cache-Control", "public, max-age=86400")
+	const resp = Response.json(out, {
+		headers
+	});
+
+	return resp;
 })
 
 app.get("history/price/:date", async (c) => {
