@@ -24,7 +24,7 @@ app.get(":date", async (c) => {
 
     const json = await response.json();
 
-    return getJsonResponseWithMaxAgeHeader(json, { "OffersDate": formattedDate });
+    return getJsonResponseWithMaxAgeHeader(json);
 });
 
 export default app;
