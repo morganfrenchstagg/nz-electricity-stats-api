@@ -5,6 +5,7 @@ import { generateTimeseries } from "../services/timeseries/timeseries";
 import { getOutageListFromPocp } from "../clients/pocpApi";
 import { mapOutagesByUnit } from "../services/outageMapping/outageMapper";
 import { getGenerators } from "../clients/generators";
+import { Timeseries } from "../models/timeseries";
 
 export async function syncDispatch() {
   console.log("Syncing dispatch");
@@ -36,7 +37,7 @@ export async function syncDispatch() {
 
     const existingTimeseries = await env.dispatch.get("timeseries");
 
-    const existingTimeseriesJson = existingTimeseries ? await existingTimeseries.json() : { series: [], data: [] };
+    const existingTimeseriesJson = (existingTimeseries ? await existingTimeseries.json() : { series: [], data: [] }) as Timeseries;
 
     const timeseries = await generateTimeseries(existingTimeseriesJson, data);
     await env.dispatch.put("timeseries", JSON.stringify(timeseries));
