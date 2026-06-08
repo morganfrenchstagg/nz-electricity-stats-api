@@ -1,6 +1,6 @@
 import generators from '../data/generators.json' with { type: 'json' };
 
-export async function getGenerators() {
+export async function getGenerators(): Promise<GeneratorDefinition[]> {
 	return generators;
 }
 
@@ -11,8 +11,8 @@ export type GeneratorDefinition = {
 	location: LocationDefinition;
 	gridZone: string;
 	operator: string;
-	scheme: string;
-	alias: string;
+	scheme?: string;
+	alias?: string;
 }
 
 export type UnitDefinition = {
@@ -22,6 +22,7 @@ export type UnitDefinition = {
 	capacity: number;
 	fuel: string;
 	fuelCode: string;
+	active?: boolean;
 }
 
 export type LocationDefinition = {
