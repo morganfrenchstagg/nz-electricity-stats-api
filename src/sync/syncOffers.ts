@@ -1,8 +1,8 @@
 import { env } from "cloudflare:workers";
 import { getElementsByTagName, getText } from "domutils";
 import { parseDocument } from "htmlparser2";
-import { csvToJson } from "../services/csvToJson/csvToJson";
 import { OfferRecord } from "../models/offerRecord";
+import { parse } from "csv-parse/browser/esm";
 
 export async function syncOffers() {
   console.log("Syncing offers");
@@ -29,33 +29,50 @@ async function downloadFileAndParse(url: string) {
   const response = await fetch(url);
   console.log("Finished downloading file: " + url);
 
-  const startTime = performance.now()
-
-  const text = await response.text();
-
-  const json = await csvToJson(text);
+  const startTime = performance.now();
 
   const output = {} as Record<string, any>;
 
-  for (const item of json as OfferRecord[]) {
-    if (item.IsLatestYesNo === 'Y' && item.ProductClass === 'Injection' && item.ProductType === 'Energy' && +item.Megawatts > 0) {
-      const tradingPeriod = +item.TradingPeriod;
+  const parser = parse({ columns: true });
 
-      const pointOfConnectionAndUnit = item.PointOfConnection + " " + item.Unit;
+  parser.on("readable", function () {
+    let record;
+    while ((record = parser.read()) !== null) {
+      const item = record as OfferRecord;
+      if (item.IsLatestYesNo === 'Y' && item.ProductClass === 'Injection' && item.ProductType === 'Energy' && +item.Megawatts > 0) {
+        const tradingPeriod = +item.TradingPeriod;
 
-      if (!output[tradingPeriod]) {
-        output[tradingPeriod] = {};
+        const pointOfConnectionAndUnit = item.PointOfConnection + " " + item.Unit;
+
+        if (!output[tradingPeriod]) {
+          output[tradingPeriod] = {};
+        }
+
+        const thisTranche = {
+          tranche: +item.Tranche,
+          megawatts: +item.Megawatts,
+          price: +item.DollarsPerMegawattHour
+        };
+
+        output[tradingPeriod][pointOfConnectionAndUnit] = [...(output[tradingPeriod][pointOfConnectionAndUnit] || []), thisTranche];
       }
+    }
+  });
 
-      const thisTranche = {
-        tranche: +item.Tranche,
-        megawatts: +item.Megawatts,
-        price: +item.DollarsPerMegawattHour
-      };
+  const decoder = new TextDecoder();
 
-      output[tradingPeriod][pointOfConnectionAndUnit] = [...(output[tradingPeriod][pointOfConnectionAndUnit] || []), thisTranche];
+  for await (const chunk of response.body) {
+    // Decode the file data as a UTF-8 string, and send it to the CSV parser.
+    const ready = parser.write(decoder.decode(chunk));
+
+    // If the CSV parser is backed up, block it emits a `drain` event, which
+    // means it is ready to receive more data.
+    if (!ready) {
+      parser.once("drain", () => { });
     }
   }
+
+  parser.end();
 
   const endTime = performance.now()
 
