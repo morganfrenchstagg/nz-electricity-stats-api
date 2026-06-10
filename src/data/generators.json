@@ -2148,5 +2148,26 @@
         "gridZone": "LNI",
         "island": "NI",
         "operator": "BrightFern Energy"
+    },
+    {
+        "site": "CLB",
+        "name": "Clandeboye",
+        "units": [
+            {
+                "name": "Clandeboye",
+                "unitCode": "CLB0",
+                "node": "TMK0331 CLB0",
+                "capacity": 24,
+                "fuel": "Solar",
+                "fuelCode": "SOL"
+            }
+        ],
+        "location": {
+            "lat": -44.19057439138792,
+            "long": 171.40868907547915
+        },
+        "gridZone": "LSI",
+        "island": "SI",
+        "operator": "Lodestone Energy"
     }
 ]
