@@ -2169,5 +2169,26 @@
         "gridZone": "LSI",
         "island": "SI",
         "operator": "Lodestone Energy"
+    },
+    {
+        "site": "KWK",
+        "name": "Kaiwaikawe",
+        "units": [
+            {
+                "name": "Kaiwaikawe",
+                "unitCode": "KWK0",
+                "node": "MPE1101 KWK0",
+                "capacity": 77,
+                "fuel": "Wind",
+                "fuelCode": "WIN"
+            }
+        ],
+        "location": {
+            "lat": -35.89090838067845,
+            "long": 173.74157691101598
+        },
+        "gridZone": "UNI",
+        "island": "NI",
+        "operator": "Mercury"
     }
 ]
