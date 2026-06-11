@@ -50,7 +50,7 @@ async function downloadFileAndParse(url: string) {
 
         const thisTranche = {
           tranche: +item.Tranche,
-          megawatts: +item.Megawatts,
+          megawatts: item.ForecastOfGenerationPotentialMegawatts ? +item.ForecastOfGenerationPotentialMegawatts : +item.Megawatts,
           price: +item.DollarsPerMegawattHour
         };
 
