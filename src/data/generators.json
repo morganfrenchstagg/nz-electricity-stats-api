@@ -683,7 +683,7 @@
                 "name": "TOPP2",
                 "unitCode": "TOP2",
                 "node": "KAW2201 KAW0",
-                "capacity": 49,
+                "capacity": 50,
                 "fuel": "Geothermal",
                 "fuelCode": "GEO"
             }
@@ -940,7 +940,7 @@
                 "name": "Ngā Tamariki",
                 "unitCode": "NTM0",
                 "node": "NAP2202 NTM0",
-                "capacity": 132,
+                "capacity": 133,
                 "fuel": "Geothermal",
                 "fuelCode": "GEO"
             }
@@ -1499,7 +1499,7 @@
                 "unitCode": "TAC0",
                 "outageBlock": "TAC_1",
                 "node": "TAB0331 TAC0",
-                "capacity": 52,
+                "capacity": 53,
                 "fuel": "Geothermal",
                 "fuelCode": "GEO"
             }
