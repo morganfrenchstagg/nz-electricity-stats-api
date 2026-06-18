@@ -1745,7 +1745,7 @@
                 "name": "Kaiwera Downs Stage 2",
                 "unitCode": "KWE0",
                 "node": "KIW2201 KWE0",
-                "capacity": 155,
+                "capacity": 154.8,
                 "fuel": "Wind",
                 "fuelCode": "WIN"
             }
