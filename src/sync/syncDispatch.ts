@@ -86,7 +86,7 @@ function deepEqual(a: any, b: any): boolean {
 async function sendMissingUnitsToSlack(missingUnitResponse: any) {
   console.log("Sending missing units to Slack");
 
-  var slackMessage = "*Update for " + getNZDateTime() + ":*\n";
+  var slackMessage = "";
   var sendMessage = false;
   if (missingUnitResponse.substations.notInSubstationList.length > 0) {
     slackMessage += "Missing unit in substation list: `" + missingUnitResponse.substations.notInSubstationList.join('`, `') + "`" + "\n";
