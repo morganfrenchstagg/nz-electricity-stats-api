@@ -58,25 +58,6 @@ function getNZDateTime(): Date {
   return new Date(new Date().toLocaleString("en-US", { timeZone: "Pacific/Auckland" }));
 }
 
-export async function checkForMissingUnitsToday() {
-  console.log("Checking for missing units today");
-  const response = await fetchDataFromEmiApi();
-  if (response.status === 200) {
-    const data = await response.json() as any[];
-    var missingUnitResponse = await checkForMissingUnits(data.map(item => item.PointOfConnectionCode) as string[]);
-    if (missingUnitResponse.generation.notInDispatchList.length > 0 ||
-      missingUnitResponse.substations.notInDispatchList.length > 0 ||
-      missingUnitResponse.generation.notInGeneratorList.length > 0 ||
-      missingUnitResponse.substations.notInSubstationList.length > 0) {
-      await sendMissingUnitsToSlack(missingUnitResponse);
-    } else {
-      console.log("No missing units");
-    }
-  } else {
-    throw new Error(`Failed to fetch from EMI RTD API: ${response.statusText}`);
-  }
-}
-
 async function checkForMissingUnitsAndNotify(lastDispatch: any[]) {
   var missingUnitResponse = await checkForMissingUnits(lastDispatch.map(item => item.PointOfConnectionCode) as string[]);
 

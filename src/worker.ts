@@ -1,7 +1,7 @@
 import { Hono } from "hono";
 import { cors } from "hono/cors";
 import { syncOffers } from "./sync/syncOffers";
-import { checkForMissingUnitsToday, syncDispatch } from "./sync/syncDispatch";
+import { syncDispatch } from "./sync/syncDispatch";
 import dispatchApi from "./api/dispatchApi";
 import { getGenerators } from "./clients/generators";
 import { getSubstations } from "./clients/substations";
@@ -37,9 +37,6 @@ async function scheduled(controller: ScheduledController) {
   switch (controller.cron) {
     case "*/2 * * * *":
       await syncDispatch();
-      break;
-    case "0 12 * * *":
-      await checkForMissingUnitsToday();
       break;
     case "02 * * * *":
       await syncDailyDispatch();
