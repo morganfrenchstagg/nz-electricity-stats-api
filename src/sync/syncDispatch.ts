@@ -84,8 +84,6 @@ function deepEqual(a: any, b: any): boolean {
 }
 
 async function sendMissingUnitsToSlack(missingUnitResponse: any) {
-  console.log("Sending missing units to Slack");
-
   var slackMessage = "";
   var sendMessage = false;
   if (missingUnitResponse.substations.notInSubstationList.length > 0) {
@@ -106,8 +104,10 @@ async function sendMissingUnitsToSlack(missingUnitResponse: any) {
   }
 
   if (!sendMessage) {
+    console.log("Not sending to Slack as nothing to talk about")
     return;
   }
+  console.log("Sending missing units to Slack");
   await fetch(env.SLACK_WEBHOOK_URL, {
     method: 'POST',
     headers: {
