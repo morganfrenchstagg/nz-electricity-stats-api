@@ -43,6 +43,8 @@ export async function syncDispatch() {
     await env.dispatch.put("timeseries", JSON.stringify(timeseries));
     await env.dispatch_kv.put("latestDispatchTime", JSON.stringify(lastUpdatedRtd));
     await env.dispatch_kv.put("latestDispatch", JSON.stringify(data))
+
+    await checkForMissingUnitsAndNotify(data);
   }
 
   const outageList = await getOutageListFromPocp();
@@ -75,21 +77,55 @@ export async function checkForMissingUnitsToday() {
   }
 }
 
+async function checkForMissingUnitsAndNotify(lastDispatch: any[]) {
+  var missingUnitResponse = await checkForMissingUnits(lastDispatch.map(item => item.PointOfConnectionCode) as string[]);
+
+  const previousMissingUnitResponse = await env.dispatch_kv.get("missingUnit");
+  if (previousMissingUnitResponse) {
+    const previousMissingUnitJson = JSON.parse(previousMissingUnitResponse);
+    if (!deepEqual(missingUnitResponse, previousMissingUnitJson)) {
+      console.log("Missing units not equal, will notify!")
+      sendMissingUnitsToSlack(missingUnitResponse);
+    }
+  }
+
+  await env.dispatch_kv.put("missingUnit", JSON.stringify(missingUnitResponse));
+}
+
+function deepEqual(a: any, b: any): boolean {
+  if (a === b) return true;
+  if (typeof a !== 'object' || typeof b !== 'object' || a === null || b === null) return false;
+  const keysA = Object.keys(a);
+  const keysB = Object.keys(b);
+  if (keysA.length !== keysB.length) return false;
+
+  return keysA.every(key => deepEqual(a[key], b[key]));
+}
+
 async function sendMissingUnitsToSlack(missingUnitResponse: any) {
   console.log("Sending missing units to Slack");
 
   var slackMessage = "*Update for " + getNZDateTime() + ":*\n";
+  var sendMessage = false;
   if (missingUnitResponse.substations.notInSubstationList.length > 0) {
     slackMessage += "Missing unit in substation list: `" + missingUnitResponse.substations.notInSubstationList.join('`, `') + "`" + "\n";
+    sendMessage = true;
   }
   if (missingUnitResponse.substations.notInDispatchList.length > 0) {
     slackMessage += "Missing substation in Real Time Dispatch: `" + missingUnitResponse.substations.notInDispatchList.join('`, `') + "`" + "\n";
+    sendMessage = true;
   }
   if (missingUnitResponse.generation.notInGeneratorList.length > 0) {
     slackMessage += "Missing unit in generator list: `" + missingUnitResponse.generation.notInGeneratorList.join('`, `') + "`" + "\n";
+    sendMessage = true;
   }
   if (missingUnitResponse.generation.notInDispatchList.length > 0) {
     slackMessage += "Missing generator in Real Time Dispatch: `" + missingUnitResponse.generation.notInDispatchList.join('`, `') + "`";
+    sendMessage = true;
+  }
+
+  if (!sendMessage) {
+    return;
   }
   await fetch(env.SLACK_WEBHOOK_URL, {
     method: 'POST',
