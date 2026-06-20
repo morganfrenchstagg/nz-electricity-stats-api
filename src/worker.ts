@@ -21,6 +21,18 @@ app.get('ping', async (c) => {
   return c.text("pong");
 });
 
+app.get('/v1/definitions', async (c) => {
+  const generators = await getGenerators();
+  const substations = await getSubstations();
+
+  const output = {
+    generators,
+    substations
+  }
+
+  return getJsonResponseWithMaxAgeHeader(output);
+})
+
 app.get('/v1/generators', async (c) => {
   return getJsonResponseWithMaxAgeHeader(await getGenerators());
 });
