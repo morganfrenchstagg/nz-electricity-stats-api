@@ -8,6 +8,7 @@ import { getSubstations } from "./clients/substations";
 import { syncDailyDispatch } from "./sync/syncDailyDispatch";
 import offersApi from "./api/offersApi";
 import { getJsonResponseWithMaxAgeHeader } from "./utilities/utilities";
+import outagesApi from "./api/outagesApi";
 
 const app = new Hono();
 
@@ -43,6 +44,7 @@ app.get('/v1/substations', async (c) => {
 
 app.route('/v1/dispatch', dispatchApi);
 app.route('/v1/offers', offersApi);
+app.route('/v1/outages', outagesApi)
 
 
 async function scheduled(controller: ScheduledController) {
