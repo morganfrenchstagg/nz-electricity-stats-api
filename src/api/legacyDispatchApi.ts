@@ -18,6 +18,7 @@ app.use(cors());
 // for backwards compatability with the old dispatch api, this will be removed in the future
 app.get("/generators", async (c) => {
 	const generators = await getGenerators();
+	let generatorsOutput = [];
 
 	const rtd = await fetchCachedDataFromEmiApi();
 	const rtdData = rtd as RealTimeDispatch[];
@@ -34,22 +35,30 @@ app.get("/generators", async (c) => {
 	const lastSynced = rtdData[0].FiveMinuteIntervalDatetime;
 
 	for (const generator of generators as any[]) {
+		let unitOutput = [];
 		for (const unit of generator.units) {
-			unit.generation = rtdUnits[unit.node]?.SPDGenerationMegawatt ?? 0;
-			unit.outage = outagesByUnit[unit.node]?.map((o: any) => {
-				return {
-					outageBlock: o.outageBlock,
-					mwLost: o.mwattLost,
-					mwRemain: o.mwattRemaining,
-					from: o.timeStart,
-					until: o.timeEnd,
-				}
-			}) || [];
+			unitOutput.push({
+				...unit,
+				generation: rtdUnits[unit.node]?.SPDGenerationMegawatt ?? 0,
+				outage: outagesByUnit[unit.node]?.map((o: any) => {
+					return {
+						outageBlock: o.outageBlock,
+						mwLost: o.mwattLost,
+						mwRemain: o.mwattRemaining,
+						from: o.timeStart,
+						until: o.timeEnd,
+					}
+				}) || []
+			});
 		}
+		generatorsOutput.push({
+			...generator,
+			units: unitOutput
+		})
 	}
 
 	const output = {
-		generators: generators,
+		generators: generatorsOutput,
 		lastUpdate: lastSynced,
 	};
 
