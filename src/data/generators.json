@@ -1487,7 +1487,7 @@
         "name": "Te Huka",
         "units": [
             {
-                "name": "Te Huka Units 1 & 2",
+                "name": "Te Huka Unit 1 & 2",
                 "unitCode": "TAA0",
                 "node": "WRK0331 TAA0",
                 "capacity": 27,
