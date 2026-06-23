@@ -930,7 +930,7 @@
         "long": 174.862699006183,
         "lat": -36.955194815775,
         "siteId": "OTA",
-        "description": "Otahuhu",
+        "description": "Ōtāhuhu",
         "type": "ACSTN",
         "gridZone": 2,
         "island": "north"
@@ -1734,6 +1734,15 @@
         "description": "Ngāwhā",
         "type": "ACSTN",
         "gridZone": 1,
+        "island": "north"
+    },
+    {
+        "lat": -39.5444844402326,
+        "long": 174.39914111632064,
+        "siteId": "OHG",
+        "description": "Ohangai",
+        "type": "ACSTN",
+        "gridZone": 6,
         "island": "north"
     }
 ]
