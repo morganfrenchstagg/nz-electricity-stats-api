@@ -1032,6 +1032,30 @@
                 "capacity": 11,
                 "fuel": "Hydro",
                 "fuelCode": "HYD"
+            },
+            {
+                "name": "Pātea Unit 1 (Relocate)",
+                "unitCode": "PTA1",
+                "node": "OHG1101 PTA1",
+                "capacity": 0,
+                "fuel": "Hydro",
+                "fuelCode": "HYD"
+            },
+            {
+                "name": "Pātea Unit 2 (Relocate)",
+                "unitCode": "PTA2",
+                "node": "OHG1101 PTA2",
+                "capacity": 0,
+                "fuel": "Hydro",
+                "fuelCode": "HYD"
+            },
+            {
+                "name": "Pātea Unit 3 (Relocate)",
+                "unitCode": "PTA3",
+                "node": "OHG1101 PTA3",
+                "capacity": 0,
+                "fuel": "Hydro",
+                "fuelCode": "HYD"
             }
         ],
         "location": {
