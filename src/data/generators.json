@@ -1045,7 +1045,8 @@
                 "node": "OHG1101 PTA1",
                 "capacity": 11,
                 "fuel": "Hydro",
-                "fuelCode": "HYD"
+                "fuelCode": "HYD",
+                "commissioned": "2026-06-24"
             },
             {
                 "name": "Pātea Unit 2",
@@ -1053,7 +1054,8 @@
                 "node": "OHG1101 PTA2",
                 "capacity": 11,
                 "fuel": "Hydro",
-                "fuelCode": "HYD"
+                "fuelCode": "HYD",
+                "commissioned": "2026-06-24"
             },
             {
                 "name": "Pātea Unit 3",
@@ -1061,7 +1063,8 @@
                 "node": "OHG1101 PTA3",
                 "capacity": 11,
                 "fuel": "Hydro",
-                "fuelCode": "HYD"
+                "fuelCode": "HYD",
+                "commissioned": "2026-06-24"
             }
         ],
         "location": {
