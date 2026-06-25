@@ -1016,7 +1016,8 @@
                 "capacity": 11,
                 "fuel": "Hydro",
                 "fuelCode": "HYD",
-                "active": false
+                "active": false,
+                "decomissioned": "2026-06-25"
             },
             {
                 "name": "Pātea Unit 2",
@@ -1025,7 +1026,8 @@
                 "capacity": 11,
                 "fuel": "Hydro",
                 "fuelCode": "HYD",
-                "active": false
+                "active": false,
+                "decomissioned": "2026-06-25"
             },
             {
                 "name": "Pātea Unit 3",
@@ -1034,7 +1036,8 @@
                 "capacity": 11,
                 "fuel": "Hydro",
                 "fuelCode": "HYD",
-                "active": false
+                "active": false,
+                "decomissioned": "2026-06-25"
             },
             {
                 "name": "Pātea Unit 1",
