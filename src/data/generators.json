@@ -1015,7 +1015,8 @@
                 "node": "HWA1101 PTA1",
                 "capacity": 11,
                 "fuel": "Hydro",
-                "fuelCode": "HYD"
+                "fuelCode": "HYD",
+                "active": false
             },
             {
                 "name": "Pātea Unit 2",
@@ -1023,7 +1024,8 @@
                 "node": "HWA1101 PTA2",
                 "capacity": 11,
                 "fuel": "Hydro",
-                "fuelCode": "HYD"
+                "fuelCode": "HYD",
+                "active": false
             },
             {
                 "name": "Pātea Unit 3",
@@ -1031,29 +1033,30 @@
                 "node": "HWA1101 PTA3",
                 "capacity": 11,
                 "fuel": "Hydro",
-                "fuelCode": "HYD"
+                "fuelCode": "HYD",
+                "active": false
             },
             {
-                "name": "Pātea Unit 1 (Relocate)",
+                "name": "Pātea Unit 1",
                 "unitCode": "PTA1",
                 "node": "OHG1101 PTA1",
-                "capacity": 0,
+                "capacity": 11,
                 "fuel": "Hydro",
                 "fuelCode": "HYD"
             },
             {
-                "name": "Pātea Unit 2 (Relocate)",
+                "name": "Pātea Unit 2",
                 "unitCode": "PTA2",
                 "node": "OHG1101 PTA2",
-                "capacity": 0,
+                "capacity": 11,
                 "fuel": "Hydro",
                 "fuelCode": "HYD"
             },
             {
-                "name": "Pātea Unit 3 (Relocate)",
+                "name": "Pātea Unit 3",
                 "unitCode": "PTA3",
                 "node": "OHG1101 PTA3",
-                "capacity": 0,
+                "capacity": 11,
                 "fuel": "Hydro",
                 "fuelCode": "HYD"
             }
