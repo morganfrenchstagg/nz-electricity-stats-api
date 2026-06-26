@@ -12,6 +12,7 @@ import { mapByPointOfConnectionCode } from "../services/rtdMapping/mapByPointOfC
 import { generateTimeseries } from "../services/timeseries/timeseries";
 import { getOutageListFromCache } from "../clients/pocpApi";
 import { HistoricalDispatchRecord } from "../models/historicalDispatchRecord";
+import { getJsonResponseWithMaxAgeHeader } from "../utilities/utilities";
 
 const app = new Hono();
 app.use(cors());
@@ -40,6 +41,7 @@ app.get("/rtd", async (c) => {
 })
 
 app.get("/recent", async (c) => {
+	// todo - add caching
 	const timeseries = (await env.dispatch.get("timeseries"))!
 	const json = await timeseries.json();
 	if (timeseries) {
@@ -93,22 +95,39 @@ app.get("/:date", async (c) => {
 		c.status(404);
 		return c.json({ message: "No data for this date" });
 	}
+
 	const json = (await response.json()) as Record<string, HistoricalDispatchRecord[]>;
 
-	let timeseries = { series: [], data: [] } as any;
-	for (const key in json) {
-		const data = json[key].map((item: any) => ({
-			PointOfConnectionCode: item.p,
-			FiveMinuteIntervalDatetime: key,
-			SPDGenerationMegawatt: item.g,
-			SPDLoadMegawatt: item.l,
-			DollarsPerMegawattHour: +item.c,
-		}) as RealTimeDispatch);
+	let timeseries = { series: [], data: [], pricing: [] } as any;
 
-		timeseries = generateTimeseries(timeseries, data);
+	// construct list of 'series'
+	for (const timestamp in json) {
+		for (const dp in json[timestamp]) {
+			const dataPoint = json[timestamp][dp]
+			if (!timeseries.series.includes(dataPoint.p)) {
+				timeseries.series.push(dataPoint.p)
+			}
+		}
 	}
 
-	return c.json(timeseries);
+	// populate data and pricing
+	for (const timestamp in json) {
+		let dataArr = new Array(timeseries.series.length + 1).fill(null);
+		let priceArr = new Array(timeseries.series.length + 1).fill(null);
+		dataArr[0] = timestamp;
+		priceArr[0] = timestamp;
+
+		for (const dp in json[timestamp]) {
+			const dataPoint = json[timestamp][dp];
+			dataArr[timeseries.series.indexOf(dataPoint.p) + 1] = (+dataPoint.g - +dataPoint.l);
+			priceArr[timeseries.series.indexOf(dataPoint.p) + 1] = +dataPoint.c;
+		}
+
+		timeseries.data.push(dataArr);
+		timeseries.pricing.push(priceArr);
+	}
+
+	return getJsonResponseWithMaxAgeHeader(timeseries);
 })
 
 
