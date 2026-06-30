@@ -12,7 +12,9 @@ import { mapByPointOfConnectionCode } from "../services/rtdMapping/mapByPointOfC
 import { generateTimeseries } from "../services/timeseries/timeseries";
 import { getOutageListFromCache } from "../clients/pocpApi";
 import { HistoricalDispatchRecord } from "../models/historicalDispatchRecord";
-import { getJsonResponseWithMaxAgeHeader } from "../utilities/utilities";
+import { getJsonResponseWithHeaders, getJsonResponseWithMaxAgeHeader } from "../utilities/utilities";
+import { getNZDateTime } from "../services/nzDateTime";
+import { Timeseries } from "../models/timeseries";
 
 const app = new Hono();
 app.use(cors());
@@ -41,15 +43,27 @@ app.get("/rtd", async (c) => {
 })
 
 app.get("/recent", async (c) => {
-	// todo - add caching
 	const timeseries = (await env.dispatch.get("timeseries"))!
-	const json = await timeseries.json();
+	const json = await timeseries.json() as Timeseries;
 	if (timeseries) {
-		return c.json(json);
+		return getJsonResponseWithHeaders(json, { "Cache-Control": `max-age=${calculateMaxAgeHeader(json)}` });
 	} else {
 		return c.json({ series: [], data: [] });
 	}
 })
+
+const DEFAULT_MAX_AGE = 30;
+
+function calculateMaxAgeHeader(timeseries: Timeseries): number {
+	const latestTimestamp = timeseries.data[timeseries.data.length - 1][0];
+
+	const latestDate = new Date(latestTimestamp);
+	const nextDate = new Date(latestDate.setTime(latestDate.getTime() + 6 * 1000 * 60)); // 6 minutes later (5 min + 1)
+	const now = getNZDateTime();
+
+	const cachableTimeInSeconds = (nextDate.getTime() - now.getTime()) / 1000;
+	return cachableTimeInSeconds > 0 ? cachableTimeInSeconds : DEFAULT_MAX_AGE;
+}
 
 app.get("/latest", async (c) => {
 	const [rtd, outages, substations, generators] = await Promise.all([
