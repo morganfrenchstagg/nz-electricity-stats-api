@@ -23,7 +23,8 @@ app.get('ping', async (c) => {
 });
 
 app.get('/v1/definitions', async (c) => {
-  const [generators, substations] = await Promise.all([getGenerators, getSubstations]);
+  const generators = await getGenerators();
+  const substations = await getSubstations();
 
   const output = {
     generators,
