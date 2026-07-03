@@ -2211,7 +2211,7 @@
                 "name": "Kaiwaikawe",
                 "unitCode": "KWK0",
                 "node": "MPE1101 KWK0",
-                "capacity": 77,
+                "capacity": 76.8,
                 "fuel": "Wind",
                 "fuelCode": "WIN"
             }
