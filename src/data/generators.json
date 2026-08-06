@@ -211,7 +211,7 @@
                 "name": "Aviemore",
                 "unitCode": "AVI0",
                 "node": "AVI2201 AVI0",
-                "capacity": 215,
+                "capacity": 220,
                 "fuel": "Hydro",
                 "fuelCode": "HYD"
             }
