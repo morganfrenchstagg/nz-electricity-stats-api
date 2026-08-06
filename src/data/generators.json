@@ -115,7 +115,7 @@
                 "name": "Ōhau B",
                 "unitCode": "OHB0",
                 "node": "OHB2201 OHB0",
-                "capacity": 212,
+                "capacity": 220,
                 "fuel": "Hydro",
                 "fuelCode": "HYD"
             }
@@ -137,7 +137,7 @@
                 "name": "Ōhau C",
                 "unitCode": "OHC0",
                 "node": "OHC2201 OHC0",
-                "capacity": 212,
+                "capacity": 220,
                 "fuel": "Hydro",
                 "fuelCode": "HYD"
             }
