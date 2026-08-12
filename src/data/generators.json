@@ -683,7 +683,7 @@
                 "name": "TOPP2",
                 "unitCode": "TOP2",
                 "node": "KAW2201 KAW0",
-                "capacity": 50,
+                "capacity": 51,
                 "fuel": "Geothermal",
                 "fuelCode": "GEO"
             }
@@ -2223,5 +2223,27 @@
         "gridZone": "UNI",
         "island": "NI",
         "operator": "Mercury"
+    },
+    {
+        "site": "KPS",
+        "name": "Kōwhai Park",
+        "units": [
+            {
+                "name": "Kōwhai Park",
+                "unitCode": "KPS0",
+                "node": "ISL0661 KPS0",
+                "capacity": 150,
+                "fuel": "Solar",
+                "fuelCode": "SOL"
+            }
+        ],
+        "location": {
+            "lat": -43.49277380784132,
+            "long": 172.50953626586775
+        },
+        "gridZone": "USI",
+        "island": "SI",
+        "operator": "Lightsource bp",
+        "secondaryOperator": "Contact Energy"
     }
 ]
