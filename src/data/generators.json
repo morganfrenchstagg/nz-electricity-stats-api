@@ -2118,7 +2118,7 @@
                 "name": "Omeheu",
                 "unitCode": "EDS0",
                 "node": "EDG0331 EDS0",
-                "capacity": 27,
+                "capacity": 28.7,
                 "fuel": "Solar",
                 "fuelCode": "SOL"
             }
