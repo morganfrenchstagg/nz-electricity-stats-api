@@ -1,11 +1,18 @@
 import { env } from "cloudflare:workers";
-import { getElementsByTagName, getText } from "domutils";
-import { parseDocument } from "htmlparser2";
 import { OfferRecord } from "../models/offerRecord";
 import { parse } from "csv-parse/browser/esm";
+import { listEmiDatasetBlobs } from "../clients/emiDatasets";
+
+// stop starting new files after this long, so a long catch-up stops cleanly before the 15 minute limit
+// for cron triggers. each file takes ~1 minute, the rest are picked up by the next run
+const TIME_BUDGET_MS = 10 * 60 * 1000;
+
+// each file (~240MB, ~1.5 million rows) uses ~20-30s of CPU, so this stays within the 5 minute CPU limit
+const MAX_FILES_PER_RUN = 8;
 
 export async function syncOffers() {
   console.log("Syncing offers");
+  const startTime = Date.now();
 
   const lastSyncDate = await env.dispatch_kv.get("latestSyncedOffers");
   const filesToDownload = await getListOfFilesToDownload();
@@ -13,7 +20,12 @@ export async function syncOffers() {
   const filteredFilesToDownload = lastSyncDate ? filesToDownload
     .filter(file => file.split('/').slice(-1)[0].split('_')[0] > lastSyncDate) : filesToDownload;
 
-  for (const file of filteredFilesToDownload) {
+  for (const [i, file] of filteredFilesToDownload.entries()) {
+    if (i >= MAX_FILES_PER_RUN || Date.now() - startTime > TIME_BUDGET_MS) {
+      console.log(`Stopping for this run, ${filteredFilesToDownload.length - i} file(s) left to sync`);
+      break;
+    }
+
     console.log("Downloading file: " + file);
     const parsedData = await downloadFileAndParse(file);
     const fileDate = file.split('/').slice(-1)[0].split('_')[0];
@@ -82,23 +94,9 @@ async function downloadFileAndParse(url: string) {
 }
 
 async function getListOfFilesToDownload(): Promise<string[]> {
-  const response = await fetch("https://emidatasets.blob.core.windows.net/publicdata?restype=container&comp=list&prefix=Datasets/Wholesale/BidsAndOffers/Offers");
+  const blobs = await listEmiDatasetBlobs("Datasets/Wholesale/BidsAndOffers/Offers");
 
-  const data = await response.text();
-
-
-  const xmlDoc = parseDocument(data, { xmlMode: true, decodeEntities: true });
-  const blobs = getElementsByTagName("Blob", xmlDoc);
-
-  const filesToDownload: string[] = [];
-
-  for (let i = 0; i < blobs.length; i++) {
-    const blob = blobs[i];
-    const name = getText(getElementsByTagName("Name", blob)[0]) || "";
-    if (name.endsWith("_Offers.csv")) {
-      filesToDownload.push(getText(getElementsByTagName("Url", blob)[0]));
-    }
-  }
-
-  return filesToDownload;
+  return blobs
+    .filter(blob => blob.name.endsWith("_Offers.csv"))
+    .map(blob => blob.url);
 }
