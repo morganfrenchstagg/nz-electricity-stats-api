@@ -125,8 +125,10 @@ app.get("/:date", async (c) => {
 	}
 
 	// populate data and pricing
+	// the daily files leave out most nodes while they're at 0MW generation and load, so a node missing from an
+	// interval is 0 rather than unknown. intervals missing from the file entirely are still left out
 	for (const timestamp in json) {
-		let dataArr = new Array(timeseries.series.length + 1).fill(null);
+		let dataArr = new Array(timeseries.series.length + 1).fill(0);
 		let priceArr = new Array(timeseries.series.length + 1).fill(null);
 		dataArr[0] = timestamp;
 		priceArr[0] = timestamp;
