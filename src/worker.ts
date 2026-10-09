@@ -6,6 +6,7 @@ import dispatchApi from "./api/dispatchApi";
 import { getGenerators } from "./clients/generators";
 import { getSubstations } from "./clients/substations";
 import { syncDailyDispatch } from "./sync/syncDailyDispatch";
+import { syncDispatchAggregates } from "./sync/syncDispatchAggregates";
 import offersApi from "./api/offersApi";
 import { getJsonResponseWithMaxAgeHeader } from "./utilities/utilities";
 import outagesApi from "./api/outagesApi";
@@ -54,6 +55,7 @@ async function scheduled(controller: ScheduledController) {
       break;
     case "02 * * * *":
       await syncDailyDispatch();
+      await syncDispatchAggregates();
       break;
     case "45 * * * *":
       await syncOffers();

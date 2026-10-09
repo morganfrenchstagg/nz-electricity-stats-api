@@ -4,13 +4,14 @@ import { env } from "cloudflare:workers";
 import { HistoricalDispatchRecord } from "../models/historicalDispatchRecord";
 import { CsvRecordParser } from "../services/csvToJson/csvToJson";
 import { EmiDailyFile, selectFilesToDownload } from "../services/dailyDispatchFiles/selectFilesToDownload";
+import { queueForReaggregation } from "./syncDispatchAggregates";
 
 // files are downloaded in parallel batches. each file in progress uses up to ~20MB of memory - 3 at a time
 // stays comfortably within the 128MB limit, 4 caused heavy garbage collection with the largest files
 const MAX_CONCURRENT_DOWNLOADS = 3;
 
 // stop starting new files after this long, so a long (re-)sync stops cleanly before the 15 minute limit
-// for cron triggers. the rest are picked up by the next run
+// for cron triggers, leaving time for the aggregates to run. the rest are picked up by the next run
 const TIME_BUDGET_MS = 10 * 60 * 1000;
 
 // each file uses ~0.25s of CPU, so this leaves plenty of headroom within the 5 minute CPU limit
@@ -53,6 +54,8 @@ export async function syncDailyDispatch() {
             const data = await downloadFileAndParse(file.url);
             await env.dispatch.put("dispatch-" + file.date, JSON.stringify(data));
         }));
+
+        await queueForReaggregation(batch.map(file => file.date));
 
         // republished files are older than the checkpoint, so only move it forward
         const lastDate = batch[batch.length - 1].date;

@@ -5,6 +5,7 @@ import { checkForMissingUnits } from "../services/missingUnits/missingUnitChecke
 import { fetchDataFromEmiApi, fetchCachedDataFromEmiApi } from "../clients/emiApi";
 import { RealTimeDispatch } from "../models/realTimeDispatch";
 import legacyDispatchApi from "./legacyDispatchApi";
+import aggregatesApi from "./aggregatesApi";
 import { getSubstations } from "../clients/substations";
 import { mapBySiteCode } from "../services/rtdMapping/mapBySiteCode";
 import { getGenerators } from "../clients/generators";
@@ -20,6 +21,7 @@ const app = new Hono();
 app.use(cors());
 
 app.route('/legacy', legacyDispatchApi);
+app.route('/aggregates', aggregatesApi);
 
 
 app.get("/delta", async (c) => {
