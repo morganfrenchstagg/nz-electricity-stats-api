@@ -1,10 +1,9 @@
-import { parseDocument } from "htmlparser2";
-import { getElementsByTagName, getText } from "domutils";
 import { env } from "cloudflare:workers";
 import { HistoricalDispatchRecord } from "../models/historicalDispatchRecord";
 import { CsvRecordParser } from "../services/csvToJson/csvToJson";
 import { EmiDailyFile, selectFilesToDownload } from "../services/dailyDispatchFiles/selectFilesToDownload";
 import { queueForReaggregation } from "./syncDispatchAggregates";
+import { listEmiDatasetBlobs } from "../clients/emiDatasets";
 
 // files are downloaded in parallel batches. each file in progress uses up to ~20MB of memory - 3 at a time
 // stays comfortably within the 128MB limit, 4 caused heavy garbage collection with the largest files
@@ -116,26 +115,13 @@ async function getStoredUploadTimes(): Promise<Map<string, number>> {
 }
 
 async function getListOfEmiFiles(): Promise<EmiDailyFile[]> {
-    const response = await fetch("https://emidatasets.blob.core.windows.net/publicdata?restype=container&comp=list&prefix=Datasets/Wholesale/DispatchAndPricing/NodalPricesAndVolumes/");
+    const blobs = await listEmiDatasetBlobs("Datasets/Wholesale/DispatchAndPricing/NodalPricesAndVolumes/");
 
-    const data = await response.text();
-
-    const xmlDoc = parseDocument(data, { xmlMode: true, decodeEntities: true });
-    const blobs = getElementsByTagName("Blob", xmlDoc);
-
-    const files: EmiDailyFile[] = [];
-
-    for (let i = 0; i < blobs.length; i++) {
-        const blob = blobs[i];
-        const name = getText(getElementsByTagName("Name", blob)[0]) || "";
-        if (name.endsWith("DispatchNodalPricesAndVolumes.csv")) {
-            files.push({
-                date: name.split('/').slice(-1)[0].split('_')[0],
-                url: getText(getElementsByTagName("Url", blob)[0]),
-                lastModified: Date.parse(getText(getElementsByTagName("Last-Modified", blob)[0])),
-            });
-        }
-    }
-
-    return files;
+    return blobs
+        .filter(blob => blob.name.endsWith("DispatchNodalPricesAndVolumes.csv"))
+        .map(blob => ({
+            date: blob.name.split('/').slice(-1)[0].split('_')[0],
+            url: blob.url,
+            lastModified: blob.lastModified,
+        }));
 }
