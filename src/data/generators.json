@@ -1680,6 +1680,16 @@
                 "capacity": 52,
                 "fuel": "Diesel",
                 "fuelCode": "DIE"
+            },
+            {
+                "name": "Whirinaki",
+                "unitCode": "WHI1",
+                "node": "WHI2201 WHI0",
+                "capacity": 52,
+                "fuel": "Diesel",
+                "fuelCode": "DIE",
+                "active": false,
+                "decomissioned": "2023-11-30"
             }
         ],
         "location": {
@@ -2236,5 +2246,51 @@
         "island": "SI",
         "operator": "Lightsource bp",
         "secondaryOperator": "Contact Energy"
+    },
+    {
+        "site": "TRC",
+        "name": "Te Rapa",
+        "units": [
+            {
+                "name": "Te Rapa",
+                "unitCode": "TRC1",
+                "node": "TWH0331 TRC1",
+                "capacity": 44,
+                "fuel": "Gas",
+                "fuelCode": "GAS",
+                "active": false,
+                "decomissioned": "2023-05-30"
+            }
+        ],
+        "location": {
+            "lat": -37.716224559970414,
+            "long": 175.21723546409729
+        },
+        "gridZone": "UNI",
+        "island": "NI",
+        "operator": "Contact Energy"
+    },
+    {
+        "site": "SWN",
+        "name": "Southdown",
+        "units": [
+            {
+                "name": "Southdown",
+                "unitCode": "SWN1",
+                "node": "SWN2201 SWN1",
+                "fuel": "Gas",
+                "fuelCode": "GAS",
+                "capacity": 170,
+                "active": false,
+                "decomissioned": "2022-05-30"
+            }
+        ],
+        "location": {
+            "long": 174.827744530525,
+            "lat": -36.9268146760233
+        },
+        "gridZone": "UNI",
+        "island": "NI",
+        "operator": "Mercury"
     }
 ]
