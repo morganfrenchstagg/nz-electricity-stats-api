@@ -1729,7 +1729,7 @@
                 "name": "Rangitaiki",
                 "unitCode": "RGT0",
                 "node": "EDG0331 RGT0",
-                "capacity": 23.7,
+                "capacity": 23.75,
                 "fuel": "Solar",
                 "fuelCode": "SOL"
             }
@@ -1872,7 +1872,7 @@
                 "name": "Pukenui",
                 "unitCode": "PSF0",
                 "node": "KOE1101 PSF0",
-                "capacity": 17.16,
+                "capacity": 17.25,
                 "fuel": "Solar",
                 "fuelCode": "SOL"
             }
@@ -1973,7 +1973,7 @@
                 "name": "Te Puna Mauri ō Omaru",
                 "unitCode": "RWI0",
                 "node": "MTO0331 RWI0",
-                "capacity": 14.86,
+                "capacity": 16.23,
                 "fuel": "Solar",
                 "fuelCode": "SOL"
             }
@@ -2015,7 +2015,7 @@
                 "name": "Taiohi",
                 "unitCode": "TOH0",
                 "node": "HLY0331 TOH0",
-                "capacity": 22.4,
+                "capacity": 22.51,
                 "fuel": "Solar",
                 "fuelCode": "SOL"
             }
