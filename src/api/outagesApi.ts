@@ -1,7 +1,7 @@
 import { Hono } from "hono";
 import { cors } from "hono/cors";
 import { getOutageListFromCache } from "../clients/pocpApi";
-import { getJsonResponseWithMaxAgeHeader } from "../utilities/utilities";
+import { getJsonResponseWithHeaders, ONE_HOUR_IN_SECONDS } from "../utilities/utilities";
 
 const app = new Hono();
 app.use(cors());
@@ -21,7 +21,7 @@ app.get("", async (c) => {
         });
     }
 
-    return getJsonResponseWithMaxAgeHeader(output)
+    return getJsonResponseWithHeaders(output, { "Cache-Control": `max-age=${ONE_HOUR_IN_SECONDS}` })
 })
 
 export default app;
