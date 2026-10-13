@@ -1955,6 +1955,14 @@
                 "capacity": -100,
                 "fuel": "Battery (Charging)",
                 "fuelCode": "BESS-C"
+            },
+            {
+                "name": "Ruakākā Solar",
+                "unitCode": "RUS0",
+                "node": "BRB0331 RUS0",
+                "capacity": 130,
+                "fuel": "Solar",
+                "fuelCode": "SOL"
             }
         ],
         "location": {
