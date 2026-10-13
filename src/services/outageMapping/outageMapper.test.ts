@@ -270,4 +270,55 @@ describe("outageMapper", () => {
             ]
         });
     })
+
+    it("matches based on node bus", () => {
+        const outages = [
+            {
+                outageBlock: "KAW2201"
+            }
+        ] as PocpOutage[];
+
+        const generatorDefinitions = [
+            {
+                units: [
+                    {
+                        unitCode: "TAM0",
+                        node: "KAW2201 TAM0"
+                    }
+                ]
+            }
+        ] as GeneratorDefinition[];
+
+        const result = mapOutagesByUnit(outages, generatorDefinitions);
+        expect(result).toEqual({
+            "KAW2201 TAM0": [
+                {
+                    outageBlock: "KAW2201"
+                }
+            ]
+        });
+    })
+
+    it("doesn't match a block that's only the start of a node's substation", () => {
+        const outages = [
+            {
+                outageBlock: "ST"
+            }
+        ] as PocpOutage[];
+
+        const generatorDefinitions = [
+            {
+                site: "COB",
+                units: [
+                    {
+                        unitCode: "COB0",
+                        node: "STK0661 COB0"
+                    }
+                ]
+            }
+        ] as GeneratorDefinition[];
+
+        const result = mapOutagesByUnit(outages, generatorDefinitions);
+        expect(result).toEqual({});
+    })
 });

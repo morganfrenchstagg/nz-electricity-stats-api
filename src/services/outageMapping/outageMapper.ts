@@ -28,8 +28,13 @@ export function mapOutagesByUnit(outages: PocpOutage[], generatorDefinitions: Ge
             continue;
         }
 
-        // matches based on the start of the RTD node matching the start of the outage block
-        const matchingUnit3 = allUnits.find(unit => unit.node.toLowerCase().startsWith(outage.outageBlock.split('_')[0].toLowerCase()));
+        // matches based on the start of the outage block naming the RTD node's whole substation ('ARG') or bus ('KAW2201').
+        // a partial prefix isn't enough: Whareroa's 'ST' (steam turbine) block would otherwise land on Cobb's 'STK0661 COB0'
+        const matchingUnit3 = allUnits.find(unit => {
+            const bus = unit.node.toLowerCase().split(' ')[0];
+            const blockStart = outage.outageBlock.split('_')[0].toLowerCase();
+            return blockStart === bus || blockStart === bus.replace(/\d+$/, '');
+        });
         if (matchingUnit3) {
             unitOutages[matchingUnit3.node] = [...(unitOutages[matchingUnit3.node] || []), outage];
             continue;
