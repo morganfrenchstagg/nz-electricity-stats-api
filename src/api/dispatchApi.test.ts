@@ -24,6 +24,14 @@ describe("dispatch api", () => {
     vi.setSystemTime(new Date("2026-10-14T09:01:00Z"));
   });
 
+  it.each(["/v1/dispatch/latest", "/v1/dispatch/delta"])("%s returns 503 before the live dispatch has been synced", async (path) => {
+    const { response, json } = await getJson(path);
+
+    expect(response.status).toBe(503);
+    expect(response.headers.get("Cache-Control")).toBe("no-store");
+    expect(json).toEqual({ message: "Live dispatch data is temporarily unavailable" });
+  });
+
   describe("GET /v1/dispatch/latest", () => {
     beforeEach(async () => {
       await env.dispatch_kv.put("latestDispatch", JSON.stringify(latestDispatch));
@@ -124,7 +132,7 @@ describe("dispatch api", () => {
       const { response, json } = await getJson("/v1/dispatch/recent");
 
       expect(response.status).toBe(200);
-      expect(json).toEqual({ series: [], data: [] });
+      expect(json).toEqual({ series: [], data: [], pricing: [] });
     });
   });
 

@@ -17,6 +17,14 @@ describe("legacy dispatch api", () => {
     vi.setSystemTime(new Date("2026-10-14T09:01:00Z"));
   });
 
+  it.each(["/v1/dispatch/legacy/generators", "/v1/dispatch/legacy/nzgrid"])("%s returns 503 before the live dispatch has been synced", async (path) => {
+    const { response, json } = await getJson(path);
+
+    expect(response.status).toBe(503);
+    expect(response.headers.get("Cache-Control")).toBe("no-store");
+    expect(json).toEqual({ message: "Live dispatch data is temporarily unavailable" });
+  });
+
   describe("GET /v1/dispatch/legacy/generators", () => {
     beforeEach(async () => {
       await env.dispatch_kv.put("latestDispatch", JSON.stringify([

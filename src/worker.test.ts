@@ -1,3 +1,4 @@
+import { env } from "cloudflare:workers";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import worker from "./worker";
@@ -64,6 +65,16 @@ describe("routes", () => {
     const { response } = await requestWorker("/v1/unknown");
 
     expect(response.status).toBe(404);
+  });
+
+  it("returns unexpected errors as JSON, without caching them", async () => {
+    vi.spyOn(env.dispatch, "get").mockRejectedValue(new Error("R2 is unavailable"));
+
+    const { response } = await requestWorker("/v1/dispatch/2026-10-12");
+
+    expect(response.status).toBe(500);
+    expect(response.headers.get("Cache-Control")).toBe("no-store");
+    expect(await response.json()).toEqual({ message: "Internal server error" });
   });
 });
 

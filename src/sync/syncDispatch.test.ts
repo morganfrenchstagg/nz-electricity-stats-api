@@ -13,10 +13,10 @@ const latestDispatch = [
   rtd("ALB0331", 0, 20, 130),
 ];
 
-function mockApis({ dispatch = latestDispatch, dispatchStatus = 200, outages = [] as PocpOutage[] } = {}) {
+function mockApis({ dispatch = latestDispatch, dispatchStatus = 200, outages = [outage("ATI_0")] as PocpOutage[], outagesStatus = 200 } = {}) {
   return mockFetch({
     [EMI_RTD_URL]: () => Response.json(dispatch, { status: dispatchStatus }),
-    [POCP_OUTAGES_URL]: () => Response.json({ items: outages }),
+    [POCP_OUTAGES_URL]: () => Response.json({ items: outages }, { status: outagesStatus }),
     [env.SLACK_WEBHOOK_URL as string]: () => new Response("ok"),
   });
 }
@@ -97,6 +97,21 @@ describe("syncDispatch", () => {
     expect(JSON.parse((await env.dispatch_kv.get("latestOutages"))!)).toEqual({
       "ATI2201 ATI0": [outages[0]],
     });
+  });
+
+  it.each([
+    { problem: "returns an error", outagesStatus: 500, outages: [outage("HLY_1")] },
+    { problem: "returns no outages", outagesStatus: 200, outages: [] },
+  ])("keeps the cached outages when POCP $problem", async ({ outagesStatus, outages }) => {
+    const cachedOutages = JSON.stringify({ "ATI2201 ATI0": [outage("ATI_0")] });
+    await env.dispatch_kv.put("latestOutages", cachedOutages);
+    mockApis({ outagesStatus, outages });
+
+    await syncDispatch();
+
+    expect(await env.dispatch_kv.get("latestOutages")).toBe(cachedOutages);
+    // the dispatch is still synced
+    expect(await env.dispatch_kv.get("latestDispatchTime")).toBe(JSON.stringify("2026-10-14T22:00:00"));
   });
 
   it("still refreshes outages when the EMI API fails", async () => {
