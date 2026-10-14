@@ -16,6 +16,13 @@ const app = new Hono();
 
 app.use(cors());
 
+// catches anything the routes (including the mounted sub-apps) don't handle themselves, so callers get a JSON
+// body instead of Hono's plain-text 500
+app.onError((err, c) => {
+  console.error(`Unhandled error for ${c.req.method} ${c.req.path}`, err);
+  return c.json({ message: "Internal server error" }, 500, { "Cache-Control": "no-store" });
+});
+
 app.get('/', async (c) => {
   return c.redirect("https://electricitymap.frenchsta.gg/");
 });
