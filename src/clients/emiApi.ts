@@ -1,9 +1,11 @@
 import { env } from "cloudflare:workers";
+import { RealTimeDispatch } from "../models/realTimeDispatch";
 const emiApiUrl = "https://emi.azure-api.net/real-time-dispatch/";
 
-export async function fetchCachedDataFromEmiApi() {
+// null until the dispatch sync has stored its first response
+export async function fetchCachedDataFromEmiApi(): Promise<RealTimeDispatch[] | null> {
   const cachedData = await env.dispatch_kv.get("latestDispatch");
-  return JSON.parse(cachedData!);
+  return cachedData ? JSON.parse(cachedData) as RealTimeDispatch[] : null;
 }
 
 export async function fetchDataFromEmiApi() {
