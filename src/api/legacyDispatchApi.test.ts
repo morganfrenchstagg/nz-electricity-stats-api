@@ -105,6 +105,25 @@ describe("legacy dispatch api", () => {
       });
       expect(response.headers.get("Cache-Control")).toBe("max-age=300");
     });
+
+    it("returns substations missing from the latest dispatch with nothing connected", async () => {
+      const substations = await getSubstations();
+      await env.dispatch_kv.put("latestDispatch", JSON.stringify(
+        substations.filter(substation => substation.siteId !== "ALB").map(substation => rtd(`${substation.siteId}2201`, 0, 10, 100)),
+      ));
+
+      const { response, json } = await getJson("/v1/dispatch/legacy/nzgrid");
+
+      expect(response.status).toBe(200);
+      expect(json.sites).toHaveLength(substations.length);
+      expect(json.sites.find((site: any) => site.siteId === "ALB")).toMatchObject({
+        busbars: {},
+        totalGenerationMW: 0,
+        totalLoadMW: 0,
+        netImportMW: 0,
+        totalGenerationCapacityMW: 0,
+      });
+    });
   });
 
   describe("GET /v1/dispatch/legacy/history/generation/:date", () => {

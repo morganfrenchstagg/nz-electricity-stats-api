@@ -119,6 +119,13 @@ describe("dispatch api", () => {
 
       expect(response.headers.get("Cache-Control")).toBe("max-age=30");
     });
+
+    it("returns an empty timeseries before anything has been synced", async () => {
+      const { response, json } = await getJson("/v1/dispatch/recent");
+
+      expect(response.status).toBe(200);
+      expect(json).toEqual({ series: [], data: [] });
+    });
   });
 
   describe("GET /v1/dispatch/:date", () => {

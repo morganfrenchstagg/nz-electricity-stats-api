@@ -10,7 +10,12 @@ app.get(":date", async (c) => {
     let date = c.req.param("date");
 
     if (date === "latest") {
-        date = (await env.dispatch_kv.get("latestSyncedOffers"))!;
+        const latestDate = await env.dispatch_kv.get("latestSyncedOffers");
+        if (!latestDate) {
+            c.status(404);
+            return c.json({ message: "No offers have been synced yet" });
+        }
+        date = latestDate;
     }
 
     const formattedDate = date.replace(/-/g, '');

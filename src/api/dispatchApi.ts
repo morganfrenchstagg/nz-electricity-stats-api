@@ -45,13 +45,12 @@ app.get("/rtd", async (c) => {
 })
 
 app.get("/recent", async (c) => {
-	const timeseries = (await env.dispatch.get("timeseries"))!
-	const json = await timeseries.json() as Timeseries;
-	if (timeseries) {
-		return getJsonResponseWithHeaders(json, { "Cache-Control": `max-age=${calculateMaxAgeHeader(json)}` });
-	} else {
+	const timeseries = await env.dispatch.get("timeseries");
+	if (!timeseries) {
 		return c.json({ series: [], data: [] });
 	}
+	const json = await timeseries.json() as Timeseries;
+	return getJsonResponseWithHeaders(json, { "Cache-Control": `max-age=${calculateMaxAgeHeader(json)}` });
 })
 
 const DEFAULT_MAX_AGE = 30;

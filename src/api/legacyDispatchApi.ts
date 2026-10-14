@@ -97,7 +97,8 @@ app.get("/nzgrid", async (c) => {
 		let totalLoadMW = 0;
 		let netImportMW = 0;
 		let totalGenerationCapacityMW = 0;
-		for (const unit of units[substation.siteId]) {
+		// a substation can be missing from the dispatch, e.g. if it's been added to the definitions before it's commissioned
+		for (const unit of units[substation.siteId] ?? []) {
 
 			let generatorInfo = {}
 			if (unit.PointOfConnectionCode.split(' ').length == 2) {

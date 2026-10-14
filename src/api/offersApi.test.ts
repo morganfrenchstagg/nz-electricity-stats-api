@@ -28,6 +28,13 @@ describe("offers api", () => {
     expect(response.headers.get("Cache-Control")).toBe("max-age=3600");
   });
 
+  it("returns 404 for the latest offers before any have been synced", async () => {
+    const { response } = await requestWorker("/v1/offers/latest");
+
+    expect(response.status).toBe(404);
+    expect(await response.json()).toEqual({ message: "No offers have been synced yet" });
+  });
+
   it("returns 404 for a day that hasn't been synced", async () => {
     const { response } = await requestWorker("/v1/offers/2026-10-13");
 
