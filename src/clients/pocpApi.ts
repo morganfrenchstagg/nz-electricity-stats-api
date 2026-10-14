@@ -1,5 +1,6 @@
 import { env } from "cloudflare:workers";
 import { PocpOutage } from "../models/pocpOutage";
+import { isValidPocpOutageResponse } from "../services/outageMapping/pocpResponse";
 
 export async function getOutageListFromCache(): Promise<Record<string, PocpOutage[]>> {
     const cachedOutages = await env.dispatch_kv.get("latestOutages");
@@ -24,8 +25,14 @@ export async function getOutageListFromPocp(): Promise<PocpOutage[]> {
     console.log("Fetching outages from POCP with url", urlString);
 
     const response = await fetch(urlString);
+    if (!response.ok) {
+        throw new Error(`POCP outages request failed with status ${response.status}`);
+    }
 
     const json = await response.json() as any;
+    if (!isValidPocpOutageResponse(json)) {
+        throw new Error("POCP outages response had no outage items");
+    }
 
     return json.items as PocpOutage[];
 }

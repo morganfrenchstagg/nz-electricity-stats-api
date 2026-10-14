@@ -1,7 +1,7 @@
 import { env } from "cloudflare:workers";
 import { Hono } from "hono";
 import { cors } from "hono/cors";
-import { getJsonResponseWithHeaders, ONE_DAY_IN_SECONDS, ONE_HOUR_IN_SECONDS } from "../utilities/utilities";
+import { getJsonResponseWithHeaders, getServiceUnavailableResponse, ONE_DAY_IN_SECONDS, ONE_HOUR_IN_SECONDS } from "../utilities/utilities";
 
 const app = new Hono();
 app.use(cors());
@@ -10,12 +10,11 @@ app.get(":date", async (c) => {
     let date = c.req.param("date");
 
     if (date === "latest") {
-        const latestDate = await env.dispatch_kv.get("latestSyncedOffers");
-        if (!latestDate) {
-            c.status(404);
-            return c.json({ message: "No offers have been synced yet" });
+        const latestSyncedOffers = await env.dispatch_kv.get("latestSyncedOffers");
+        if (!latestSyncedOffers) {
+            return getServiceUnavailableResponse("Offers have not been synced yet");
         }
-        date = latestDate;
+        date = latestSyncedOffers;
     }
 
     const formattedDate = date.replace(/-/g, '');

@@ -22,3 +22,10 @@ export function getJsonResponseWithHeaders(json: any, headers: Record<string, st
 
     return resp;
 }
+
+export function getServiceUnavailableResponse(message: string) {
+    return Response.json({ message }, {
+        status: 503,
+        headers: { "Cache-Control": "no-store" }
+    });
+}

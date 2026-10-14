@@ -3,7 +3,6 @@ import { Hono } from "hono";
 import { cors } from "hono/cors";
 import { checkForMissingUnits } from "../services/missingUnits/missingUnitChecker";
 import { fetchDataFromEmiApi, fetchCachedDataFromEmiApi } from "../clients/emiApi";
-import { RealTimeDispatch } from "../models/realTimeDispatch";
 import legacyDispatchApi from "./legacyDispatchApi";
 import aggregatesApi from "./aggregatesApi";
 import { getSubstations } from "../clients/substations";
@@ -13,7 +12,7 @@ import { mapByPointOfConnectionCode } from "../services/rtdMapping/mapByPointOfC
 import { generateTimeseries } from "../services/timeseries/timeseries";
 import { getOutageListFromCache } from "../clients/pocpApi";
 import { HistoricalDispatchRecord } from "../models/historicalDispatchRecord";
-import { getJsonResponseWithHeaders, getJsonResponseWithMaxAgeHeader } from "../utilities/utilities";
+import { getJsonResponseWithHeaders, getJsonResponseWithMaxAgeHeader, getServiceUnavailableResponse } from "../utilities/utilities";
 import { getNZDateTime } from "../services/nzDateTime";
 import { Timeseries } from "../models/timeseries";
 
@@ -25,8 +24,10 @@ app.route('/aggregates', aggregatesApi);
 
 
 app.get("/delta", async (c) => {
-	const rtd = await fetchCachedDataFromEmiApi();
-	const rtdData = rtd as RealTimeDispatch[];
+	const rtdData = await fetchCachedDataFromEmiApi();
+	if (!rtdData) {
+		return getServiceUnavailableResponse("Live dispatch data is temporarily unavailable");
+	}
 
 	const dispatchList = rtdData.map(item => item.PointOfConnectionCode) as string[];
 
@@ -47,8 +48,9 @@ app.get("/rtd", async (c) => {
 app.get("/recent", async (c) => {
 	const timeseries = await env.dispatch.get("timeseries");
 	if (!timeseries) {
-		return c.json({ series: [], data: [] });
+		return c.json({ series: [], data: [], pricing: [] });
 	}
+
 	const json = await timeseries.json() as Timeseries;
 	return getJsonResponseWithHeaders(json, { "Cache-Control": `max-age=${calculateMaxAgeHeader(json)}` });
 })
@@ -67,14 +69,17 @@ function calculateMaxAgeHeader(timeseries: Timeseries): number {
 }
 
 app.get("/latest", async (c) => {
-	const [rtd, outages, substations, generators] = await Promise.all([
+	const [rtdData, outages, substations, generators] = await Promise.all([
 		fetchCachedDataFromEmiApi(),
 		getOutageListFromCache(),
 		getSubstations(),
 		getGenerators()
 	]);
 
-	const rtdData = rtd as RealTimeDispatch[];
+	if (!rtdData) {
+		return getServiceUnavailableResponse("Live dispatch data is temporarily unavailable");
+	}
+
 	const siteCodeMap = mapBySiteCode(rtdData);
 	const pointOfConnectionCodeMap = mapByPointOfConnectionCode(rtdData);
 

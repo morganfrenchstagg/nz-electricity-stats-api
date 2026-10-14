@@ -6,7 +6,7 @@ import { getSubstations } from "../clients/substations";
 import { RealTimeDispatch } from "../models/realTimeDispatch";
 import { env } from "cloudflare:workers";
 import { getOutageListFromCache } from "../clients/pocpApi";
-import { getJsonResponseWithHeaders, getJsonResponseWithMaxAgeHeader } from "../utilities/utilities";
+import { getJsonResponseWithHeaders, getJsonResponseWithMaxAgeHeader, getServiceUnavailableResponse } from "../utilities/utilities";
 import { HistoricalDispatchRecord } from "../models/historicalDispatchRecord";
 import { Timeseries } from "../models/timeseries";
 import { getNZDateTime } from "../services/nzDateTime";
@@ -20,8 +20,10 @@ app.get("/generators", async (c) => {
 	const generators = await getGenerators();
 	let generatorsOutput = [];
 
-	const rtd = await fetchCachedDataFromEmiApi();
-	const rtdData = rtd as RealTimeDispatch[];
+	const rtdData = await fetchCachedDataFromEmiApi();
+	if (!rtdData) {
+		return getServiceUnavailableResponse("Live dispatch data is temporarily unavailable");
+	}
 
 	const outagesByUnit = await getOutageListFromCache();
 
@@ -74,8 +76,10 @@ app.get("/nzgrid", async (c) => {
 	const substations = await getSubstations();
 	const generators = await getGenerators();
 
-	const rtd = await fetchCachedDataFromEmiApi();
-	const rtdData = rtd as RealTimeDispatch[];
+	const rtdData = await fetchCachedDataFromEmiApi();
+	if (!rtdData) {
+		return getServiceUnavailableResponse("Live dispatch data is temporarily unavailable");
+	}
 
 	const units = {} as Record<string, any>;
 	for (const unit of rtdData) {
@@ -97,7 +101,7 @@ app.get("/nzgrid", async (c) => {
 		let totalLoadMW = 0;
 		let netImportMW = 0;
 		let totalGenerationCapacityMW = 0;
-		// a substation can be missing from the dispatch, e.g. if it's been added to the definitions before it's commissioned
+		// substations with nothing in the latest dispatch are returned with no busbars and zero totals
 		for (const unit of units[substation.siteId] ?? []) {
 
 			let generatorInfo = {}

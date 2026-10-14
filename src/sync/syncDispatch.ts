@@ -6,6 +6,7 @@ import { getOutageListFromPocp } from "../clients/pocpApi";
 import { mapOutagesByUnit } from "../services/outageMapping/outageMapper";
 import { getGenerators } from "../clients/generators";
 import { Timeseries } from "../models/timeseries";
+import { PocpOutage } from "../models/pocpOutage";
 
 export async function syncDispatch() {
   console.log("Syncing dispatch");
@@ -47,8 +48,13 @@ export async function syncDispatch() {
     await checkForMissingUnitsAndNotify(data);
   }
 
-  const outageList = await getOutageListFromPocp();
-  // todo - handle if pocp returns an error or is down, we don't want to overwrite the existing outage data with an empty list
+  let outageList: PocpOutage[];
+  try {
+    outageList = await getOutageListFromPocp();
+  } catch (e) {
+    console.error("Failed to fetch outages from POCP, keeping cached outages", e);
+    return;
+  }
   const generators = await getGenerators();
   const outagesByUnit = mapOutagesByUnit(outageList, generators);
   await env.dispatch_kv.put("latestOutages", JSON.stringify(outagesByUnit));
