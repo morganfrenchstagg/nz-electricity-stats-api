@@ -252,7 +252,7 @@
         "name": "Argyle",
         "units": [
             {
-                "name": "Wairau & Argyle",
+                "name": "Argyle",
                 "unitCode": "BRR0",
                 "node": "ARG1101 BRR0",
                 "capacity": 11,
@@ -493,7 +493,7 @@
                 "fuelCode": "CLG"
             },
             {
-                "name": "Huntly BESS",
+                "name": "Huntly Battery",
                 "unitCode": "HLY11",
                 "node": "HLY2201 HLY11",
                 "capacity": 100,
@@ -501,7 +501,7 @@
                 "fuelCode": "BESS"
             },
             {
-                "name": "Huntly BESS",
+                "name": "Huntly Battery",
                 "unitCode": "HLY11",
                 "node": "HLY2201 HLY91",
                 "capacity": -100,
@@ -1941,7 +1941,7 @@
         "name": "Ruakākā",
         "units": [
             {
-                "name": "Ruakākā BESS",
+                "name": "Ruakākā Battery",
                 "unitCode": "RUK0",
                 "node": "BRB0331 RUK0",
                 "capacity": 100,
@@ -1949,7 +1949,7 @@
                 "fuelCode": "BESS"
             },
             {
-                "name": "Ruakākā BESS",
+                "name": "Ruakākā Battery",
                 "unitCode": "RUK99",
                 "node": "BRB0331 RUK99",
                 "capacity": -100,
