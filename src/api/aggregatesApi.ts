@@ -3,8 +3,11 @@ import { Context, Hono } from "hono";
 import { cors } from "hono/cors";
 import { AggregateResolution, DispatchAggregate } from "../models/dispatchAggregate";
 import { getAggregateKey, getMonthBounds, toTimeseries } from "../services/dispatchAggregation/dispatchAggregation";
-import { LATEST_AGGREGATED_DATE_KEY } from "../sync/syncDispatchAggregates";
-import { getJsonResponseWithHeaders, ONE_DAY_IN_SECONDS, ONE_HOUR_IN_SECONDS } from "../utilities/utilities";
+import { LATEST_AGGREGATED_DATE_KEY, LatestAggregatedDateMetadata } from "../sync/syncDispatchAggregates";
+import { getJsonResponseWithHeaders, ONE_DAY_IN_SECONDS } from "../utilities/utilities";
+
+// how long to cache periods still receiving data once their next day is overdue
+const OVERDUE_MAX_AGE_SECONDS = 5 * 60;
 
 const app = new Hono();
 app.use(cors());
@@ -54,12 +57,22 @@ async function getAggregateResponse(c: Context, resolution: AggregateResolution,
 	const nodeFilter = c.req.query("nodes")?.split(",").map(node => node.trim()).filter(node => node.length > 0);
 	const timeseries = toTimeseries(aggregate, nodeFilter);
 
-	// files for periods still receiving data are refreshed daily, so only cache them briefly
-	const latestDate = await env.dispatch_kv.get(LATEST_AGGREGATED_DATE_KEY);
+	const { value: latestDate, metadata } = await env.dispatch_kv.getWithMetadata<LatestAggregatedDateMetadata>(LATEST_AGGREGATED_DATE_KEY);
 	const isComplete = resolution !== "annual" && latestDate !== null && getPeriodEnd(resolution, period) < latestDate;
-	const maxAgeSeconds = isComplete ? ONE_DAY_IN_SECONDS : ONE_HOUR_IN_SECONDS;
+	const maxAgeSeconds = isComplete ? ONE_DAY_IN_SECONDS : getSecondsUntilNextDayIsDue(metadata);
 
 	return getJsonResponseWithHeaders(timeseries, { "Cache-Control": `max-age=${maxAgeSeconds}` });
+}
+
+// a new day is aggregated about once a day (when EMI publishes the previous day's file), so periods still receiving
+// data won't change until about a day after the last one was added. once that's passed it could land on any
+// hourly sync, so only cache briefly until it does
+function getSecondsUntilNextDayIsDue(metadata: LatestAggregatedDateMetadata | null): number {
+	if (!metadata) {
+		return OVERDUE_MAX_AGE_SECONDS;
+	}
+	const secondsSinceUpdate = Math.floor((Date.now() - metadata.updatedAt) / 1000);
+	return Math.max(ONE_DAY_IN_SECONDS - secondsSinceUpdate, OVERDUE_MAX_AGE_SECONDS);
 }
 
 function getPeriodEnd(resolution: AggregateResolution, period: string): string {
