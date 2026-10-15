@@ -1158,7 +1158,7 @@
         "name": "Roxburgh",
         "units": [
             {
-                "name": "Roxburgh 110kV",
+                "name": "Roxburgh",
                 "unitCode": "ROX0",
                 "node": "ROX1101 ROX0",
                 "capacity": 120,
@@ -1166,7 +1166,7 @@
                 "fuelCode": "HYD"
             },
             {
-                "name": "Roxburgh 220kV",
+                "name": "Roxburgh",
                 "unitCode": "ROX1",
                 "node": "ROX2201 ROX0",
                 "capacity": 200,
@@ -1585,7 +1585,7 @@
         "name": "West Wind",
         "units": [
             {
-                "name": "West Wind 1",
+                "name": "West Wind",
                 "unitCode": "WWD0",
                 "node": "WWD1102 WWD0",
                 "capacity": 71.3,
@@ -1593,7 +1593,7 @@
                 "fuelCode": "WIN"
             },
             {
-                "name": "West Wind 2",
+                "name": "West Wind",
                 "unitCode": "WWD0",
                 "node": "WWD1103 WWD0",
                 "capacity": 71.3,
@@ -1957,7 +1957,7 @@
                 "fuelCode": "BESS-C"
             },
             {
-                "name": "Ruakākā Solar",
+                "name": "Ruakākā Solar Farm",
                 "unitCode": "RUS0",
                 "node": "BRB0331 RUS0",
                 "capacity": 130,
