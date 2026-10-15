@@ -1446,7 +1446,7 @@
         "name": "Turitea",
         "units": [
             {
-                "name": "Turitea Wind Farm",
+                "name": "Turitea",
                 "unitCode": "TUR0",
                 "node": "LTN2201 TUR0",
                 "capacity": 221,
