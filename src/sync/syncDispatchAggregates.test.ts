@@ -1,5 +1,5 @@
 import { env } from "cloudflare:workers";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
 import { queueForReaggregation, syncDispatchAggregates } from "./syncDispatchAggregates";
 
@@ -126,6 +126,37 @@ describe("syncDispatchAggregates", () => {
     });
     expect(await env.dispatch_kv.get("latestAggregatedDispatchDate")).toBe("2026-10-06");
     expect(await env.dispatch_kv.get("dispatchDatesToReaggregate")).toBe("[]");
+  });
+
+  it("records when new days were last aggregated, but not when only recalculating", async () => {
+    const getLatest = () => env.dispatch_kv.getWithMetadata("latestAggregatedDispatchDate");
+    vi.useFakeTimers({ toFake: ["Date"] });
+
+    vi.setSystemTime(new Date("2026-10-07T08:02:00Z"));
+    await storeDailyFile("2026-10-06", 20);
+    await env.dispatch_kv.put("latestDailySyncDate", "20261006");
+    await syncDispatchAggregates();
+
+    // EMI republished the 6th later that day
+    vi.setSystemTime(new Date("2026-10-07T15:02:00Z"));
+    await storeDailyFile("2026-10-06", 30);
+    await queueForReaggregation(["20261006"]);
+    await syncDispatchAggregates();
+
+    expect(await getLatest()).toEqual({
+      value: "2026-10-06",
+      metadata: { updatedAt: new Date("2026-10-07T08:02:00Z").getTime() },
+    });
+
+    vi.setSystemTime(new Date("2026-10-08T08:02:00Z"));
+    await storeDailyFile("2026-10-07", 20);
+    await env.dispatch_kv.put("latestDailySyncDate", "20261007");
+    await syncDispatchAggregates();
+
+    expect(await getLatest()).toEqual({
+      value: "2026-10-07",
+      metadata: { updatedAt: new Date("2026-10-08T08:02:00Z").getTime() },
+    });
   });
 
   it("skips queued days whose daily file no longer exists", async () => {

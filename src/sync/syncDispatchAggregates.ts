@@ -12,6 +12,11 @@ import {
 } from "../services/dispatchAggregation/dispatchAggregation";
 
 export const LATEST_AGGREGATED_DATE_KEY = "latestAggregatedDispatchDate";
+
+// stored alongside the latest aggregated date, so the api can tell when the next day's data is due
+export type LatestAggregatedDateMetadata = {
+    updatedAt: number; // when new days were last aggregated (ms since epoch)
+}
 const DATES_TO_REAGGREGATE_KEY = "dispatchDatesToReaggregate";
 
 // caps how much work a single run does, so a backfill is spread over several runs (~50ms of CPU per day)
@@ -103,7 +108,8 @@ export async function syncDispatchAggregates() {
         const lastDate = monthDates[monthDates.length - 1];
         if (!latestAggregatedDate || lastDate > latestAggregatedDate) {
             latestAggregatedDate = lastDate;
-            await env.dispatch_kv.put(LATEST_AGGREGATED_DATE_KEY, latestAggregatedDate);
+            const metadata: LatestAggregatedDateMetadata = { updatedAt: Date.now() };
+            await env.dispatch_kv.put(LATEST_AGGREGATED_DATE_KEY, latestAggregatedDate, { metadata });
         }
         if (remainingToReaggregate.some(date => monthDates.includes(date))) {
             remainingToReaggregate = remainingToReaggregate.filter(date => !monthDates.includes(date));

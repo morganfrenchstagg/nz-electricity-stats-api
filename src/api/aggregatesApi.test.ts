@@ -1,5 +1,5 @@
 import { env } from "cloudflare:workers";
-import { describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { requestWorker } from "../testing/requestWorker";
 import { DispatchAggregate } from "../models/dispatchAggregate";
@@ -95,10 +95,19 @@ describe("aggregates api", () => {
   });
 
   describe("caching", () => {
-    async function getCacheControl(path: string, key: string, latestDate?: string) {
+    const NOW = new Date("2026-10-15T09:00:00Z").getTime();
+    const HOUR_MS = 60 * 60 * 1000;
+
+    beforeEach(() => {
+      vi.useFakeTimers({ toFake: ["Date"] });
+      vi.setSystemTime(NOW);
+    });
+
+    // updatedAt is when new days were last aggregated, as stored by syncDispatchAggregates
+    async function getCacheControl(path: string, key: string, latestDate?: string, updatedAt = NOW - 6 * HOUR_MS) {
       await storeAggregate(key, aggregate("2026-01-01"));
       if (latestDate) {
-        await env.dispatch_kv.put("latestAggregatedDispatchDate", latestDate);
+        await env.dispatch_kv.put("latestAggregatedDispatchDate", latestDate, { metadata: { updatedAt } });
       }
       const { response } = await requestWorker(path);
       return response.headers.get("Cache-Control");
@@ -109,23 +118,40 @@ describe("aggregates api", () => {
       expect(await getCacheControl("/v1/dispatch/aggregates/2025/monthly", "aggregate-monthly-2025", "2026-01-01")).toBe("max-age=86400");
     });
 
-    it("caches periods that are still receiving data for an hour", async () => {
-      expect(await getCacheControl("/v1/dispatch/aggregates/2026/10", "aggregate-daily-2026-10", "2026-10-12")).toBe("max-age=3600");
-      expect(await getCacheControl("/v1/dispatch/aggregates/2026/10", "aggregate-daily-2026-10", "2026-10-31")).toBe("max-age=3600");
+    it("caches periods that are still receiving data until a day after the last update", async () => {
+      // updated 6 hours ago, so the next day is due in 18 hours
+      expect(await getCacheControl("/v1/dispatch/aggregates/2026/10", "aggregate-daily-2026-10", "2026-10-12")).toBe("max-age=64800");
+      expect(await getCacheControl("/v1/dispatch/aggregates/2026/10", "aggregate-daily-2026-10", "2026-10-31")).toBe("max-age=64800");
+      expect(await getCacheControl("/v1/dispatch/aggregates/2026/10", "aggregate-daily-2026-10", "2026-10-14", NOW - 1000)).toBe("max-age=86399");
+    });
+
+    it("caches periods that are still receiving data briefly once the next day is overdue", async () => {
+      expect(await getCacheControl("/v1/dispatch/aggregates/2026/10", "aggregate-daily-2026-10", "2026-10-13", NOW - 24 * HOUR_MS)).toBe("max-age=300");
+      expect(await getCacheControl("/v1/dispatch/aggregates/2026/10", "aggregate-daily-2026-10", "2026-10-12", NOW - 30 * HOUR_MS)).toBe("max-age=300");
+    });
+
+    it("caches periods that are still receiving data briefly if the last update time isn't known", async () => {
+      // e.g. aggregated before the update time was recorded
+      await storeAggregate("aggregate-daily-2026-10", aggregate("2026-10-01"));
+      await env.dispatch_kv.put("latestAggregatedDispatchDate", "2026-10-14");
+
+      const { response } = await requestWorker("/v1/dispatch/aggregates/2026/10");
+
+      expect(response.headers.get("Cache-Control")).toBe("max-age=300");
     });
 
     it("treats weeks as incomplete until the last week of the year could have ended", async () => {
       // the last ISO week of 2025 runs until Sunday 4 January 2026
-      expect(await getCacheControl("/v1/dispatch/aggregates/2025/weekly", "aggregate-weekly-2025", "2026-01-03")).toBe("max-age=3600");
+      expect(await getCacheControl("/v1/dispatch/aggregates/2025/weekly", "aggregate-weekly-2025", "2026-01-03")).toBe("max-age=64800");
       expect(await getCacheControl("/v1/dispatch/aggregates/2025/weekly", "aggregate-weekly-2025", "2026-01-04")).toBe("max-age=86400");
     });
 
-    it("caches annual totals for an hour, as the current year is always included", async () => {
-      expect(await getCacheControl("/v1/dispatch/aggregates/annual", "aggregate-annual", "2030-01-01")).toBe("max-age=3600");
+    it("treats annual totals as incomplete, as the current year is always included", async () => {
+      expect(await getCacheControl("/v1/dispatch/aggregates/annual", "aggregate-annual", "2030-01-01")).toBe("max-age=64800");
     });
 
-    it("caches for an hour before anything has been aggregated", async () => {
-      expect(await getCacheControl("/v1/dispatch/aggregates/2026/9", "aggregate-daily-2026-09")).toBe("max-age=3600");
+    it("caches briefly before anything has been aggregated", async () => {
+      expect(await getCacheControl("/v1/dispatch/aggregates/2026/9", "aggregate-daily-2026-09")).toBe("max-age=300");
     });
   });
 });
