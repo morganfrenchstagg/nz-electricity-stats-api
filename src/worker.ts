@@ -13,6 +13,7 @@ import offersApi from "./api/offersApi";
 import { getJsonResponseWithMaxAgeHeader } from "./utilities/utilities";
 import outagesApi from "./api/outagesApi";
 import transmissionLinesApi from "./api/transmissionLinesApi";
+import { ATTRIBUTION, ATTRIBUTION_LINK } from "./attribution";
 
 const app = new Hono();
 
@@ -25,12 +26,22 @@ app.onError((err, c) => {
   return c.json({ message: "Internal server error" }, 500, { "Cache-Control": "no-store" });
 });
 
+// every data response points to where its sources and licences are credited (see attribution.ts)
+app.use('/v1/*', async (c, next) => {
+  await next();
+  c.header("Link", ATTRIBUTION_LINK, { append: true });
+});
+
 app.get('/', async (c) => {
   return c.redirect("https://electricitymap.frenchsta.gg/");
 });
 
 app.get('ping', async (c) => {
   return c.text("pong");
+});
+
+app.get('/v1/attribution', async (c) => {
+  return getJsonResponseWithMaxAgeHeader(ATTRIBUTION);
 });
 
 app.get('/v1/definitions', async (c) => {
