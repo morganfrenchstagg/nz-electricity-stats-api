@@ -1,6 +1,6 @@
 import { checkForMissingUnits } from "./missingUnitChecker";
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { getGenerators } from "../../clients/generators";
+import { getGenerators, UnitDefinition } from "../../clients/generators";
 import { getSubstations } from "../../clients/substations";
 
 vi.mock("../../clients/generators");
@@ -41,7 +41,8 @@ describe("checkForMissingUnits", () => {
             unitCode: "",
             capacity: 0,
             fuel: "",
-            fuelCode: ""
+            fuelCode: "",
+            commissioned: "1899-12-31T12:30:00.000Z"
           },
         ],
         site: "",
@@ -79,7 +80,8 @@ describe("checkForMissingUnits", () => {
             unitCode: "",
             capacity: 0,
             fuel: "",
-            fuelCode: ""
+            fuelCode: "",
+            commissioned: "1899-12-31T12:30:00.000Z"
           },
         ],
         site: "",
@@ -107,42 +109,73 @@ describe("checkForMissingUnits", () => {
     });
   });
 
-  it("should return an empty array of missing units if there are missing units in the dispatch list but the unit is listed as inactive in the generator list", async () => {
-    mockedGetGenerators.mockResolvedValue([
-      {
-        units: [
-          {
-            node: "1234567890 ABCD",
-            active: false,
-            name: "",
-            unitCode: "",
-            capacity: 0,
-            fuel: "",
-            fuelCode: ""
-          },
-        ],
-        site: "",
-        name: "",
-        location: {
-          lat: 0,
-          long: 0
-        },
-        gridZone: "",
-        operator: ""
-      },
-    ]);
-    mockedGetSubstations.mockResolvedValue([]);
+  describe("units in and out of service", () => {
+    beforeEach(() => {
+      vi.useFakeTimers({ toFake: ["Date"] });
+      vi.setSystemTime(new Date("2026-10-14T09:00:00Z"));
+    });
 
-    const result = await checkForMissingUnits([]);
-    expect(result).toEqual({
-      generation: {
-        notInDispatchList: [],
-        notInGeneratorList: [],
-      },
-      substations: {
-        notInDispatchList: [],
-        notInSubstationList: [],
-      },
+    function mockUnit(unit: Partial<UnitDefinition>) {
+      mockedGetGenerators.mockResolvedValue([
+        {
+          units: [
+            {
+              node: "1234567890 ABCD",
+              name: "",
+              unitCode: "",
+              capacity: 0,
+              fuel: "",
+              fuelCode: "",
+              commissioned: "1899-12-31T12:30:00.000Z",
+              ...unit,
+            },
+          ],
+          site: "",
+          name: "",
+          location: {
+            lat: 0,
+            long: 0
+          },
+          gridZone: "",
+          operator: ""
+        },
+      ]);
+      mockedGetSubstations.mockResolvedValue([]);
+    }
+
+    it("should not report a unit missing from the dispatch list once it has been decommissioned", async () => {
+      mockUnit({ decomissioned: "2026-10-14T08:59:59.000Z" });
+
+      const result = await checkForMissingUnits([]);
+      expect(result.generation.notInDispatchList).toEqual([]);
+    });
+
+    it("should still report a unit missing from the dispatch list before its decommissioning date", async () => {
+      mockUnit({ decomissioned: "2026-10-14T09:00:01.000Z" });
+
+      const result = await checkForMissingUnits([]);
+      expect(result.generation.notInDispatchList).toEqual(["1234567890 ABCD"]);
+    });
+
+    it("should not report a unit missing from the dispatch list while it's still being commissioned", async () => {
+      mockUnit({ commissioned: undefined });
+
+      const result = await checkForMissingUnits([]);
+      expect(result.generation.notInDispatchList).toEqual([]);
+    });
+
+    it("should not report a unit missing from the dispatch list before its commissioning date", async () => {
+      mockUnit({ commissioned: "2026-10-14T09:00:01.000Z" });
+
+      const result = await checkForMissingUnits([]);
+      expect(result.generation.notInDispatchList).toEqual([]);
+    });
+
+    it("should report a unit missing from the dispatch list from its commissioning date", async () => {
+      mockUnit({ commissioned: "2026-10-14T09:00:00.000Z" });
+
+      const result = await checkForMissingUnits([]);
+      expect(result.generation.notInDispatchList).toEqual(["1234567890 ABCD"]);
     });
   });
 
@@ -173,7 +206,8 @@ describe("checkForMissingUnits", () => {
             unitCode: "",
             capacity: 0,
             fuel: "",
-            fuelCode: ""
+            fuelCode: "",
+            commissioned: "1899-12-31T12:30:00.000Z"
           },
         ],
         site: "",
@@ -211,7 +245,8 @@ describe("checkForMissingUnits", () => {
             unitCode: "",
             capacity: 0,
             fuel: "",
-            fuelCode: ""
+            fuelCode: "",
+            commissioned: "1899-12-31T12:30:00.000Z"
           },
         ],
         site: "",
@@ -323,7 +358,8 @@ describe("checkForMissingUnits", () => {
             unitCode: "",
             capacity: 0,
             fuel: "",
-            fuelCode: ""
+            fuelCode: "",
+            commissioned: "1899-12-31T12:30:00.000Z"
           },
         ],
         site: "",
