@@ -118,6 +118,19 @@ describe("checkForNewGenerationRecords", () => {
     expect(await getKvJson("liveGenerationRecords")).toEqual({ [ATIAMURI]: { mw: 83, time: "2026-10-15T12:00:00" } });
   });
 
+  it("posts a unit's first generation, then only records it climbing the rest of the day", async () => {
+    await storeHistoricalRecords("20261013", 80);
+    const requests = mockSlack();
+
+    await checkForNewGenerationRecords([rtd("ISL0661 KPS0", 3, 0, 100, "2026-10-14T09:00:00")]);
+    await checkForNewGenerationRecords([rtd("ISL0661 KPS0", 8.7, 0, 100, "2026-10-14T09:05:00")]);
+
+    expect(await slackMessages(requests)).toEqual([
+      "🆕 *Kōwhai Park* (`ISL0661 KPS0`) is generating for the first time on record (*3 MW*)",
+    ]);
+    expect(await getKvJson("liveGenerationRecords")).toEqual({ "ISL0661 KPS0": { mw: 8.7, time: "2026-10-14T09:05:00" } });
+  });
+
   it("compares against the records from the daily files when they've since gone higher", async () => {
     await env.dispatch_kv.put("liveGenerationRecords", JSON.stringify({ [ATIAMURI]: { mw: 81, time: "2026-10-10T12:00:00" } }));
     await storeHistoricalRecords("20261013", 83);

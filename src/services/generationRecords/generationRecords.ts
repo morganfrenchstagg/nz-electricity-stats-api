@@ -14,7 +14,7 @@ const MONTHS = ["January", "February", "March", "April", "May", "June", "July", 
 export type NewGenerationRecord = {
     node: string;
     record: GenerationRecord;
-    previous: GenerationRecord;
+    previous?: GenerationRecord; // missing when it's the unit's first generation on record
 }
 
 // each generating unit's generation (MW) in an interval of real time dispatch
@@ -57,7 +57,7 @@ export function mergeRecords(a: Record<string, GenerationRecord>, b: Record<stri
  *
  * Units often climb past their record over several intervals (e.g. a solar farm towards midday), so only the first
  * time a unit beats a record set on an earlier day is alerted - beating it again the same day just updates the
- * record. A unit with no record yet (e.g. one that's new) gets one without an alert.
+ * record. A unit with no record yet (e.g. one that's new) is alerted for its first generation.
  */
 export function findNewRecords(generation: Map<string, number>, time: string, records: Record<string, GenerationRecord>) {
     const updated = {} as Record<string, GenerationRecord>;
@@ -71,7 +71,7 @@ export function findNewRecords(generation: Map<string, number>, time: string, re
 
         const record = { mw, time };
         updated[node] = record;
-        if (previous && getDate(previous.time) !== getDate(time)) {
+        if (!previous || getDate(previous.time) !== getDate(time)) {
             newRecords.push({ node, record, previous });
         }
     }
@@ -92,6 +92,10 @@ export function formatNewRecordsMessage(newRecords: NewGenerationRecord[], gener
     return newRecords.map(({ node, record, previous }) => {
         const name = unitNames.get(node);
         const unit = name ? `*${name}* (\`${node}\`)` : `\`${node}\``;
+        // the daily files only go back to 2020, so a unit that last generated before then is also "first"
+        if (!previous) {
+            return `🆕 ${unit} is generating for the first time on record (*${formatMw(record.mw)}*)`;
+        }
         return `🏆 ${unit} is generating *${formatMw(record.mw)}*, a new record (previously ${formatMw(previous.mw)} at ${formatTime(previous.time)})`;
     }).join("\n");
 }
