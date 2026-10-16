@@ -58,3 +58,13 @@ function ensureRowsAreAlignedWithCurrentSeries(existingTimeseries: Timeseries, n
 	});
 	return { data, pricing };
 }
+
+// keeps only the rows after `since`. timestamps are all NZ times in the same format (e.g. 2026-10-14T22:00:00), so
+// they can be compared as strings
+export function filterTimeseriesSince(timeseries: Timeseries, since: string): Timeseries {
+	return {
+		series: timeseries.series,
+		data: timeseries.data.filter((row: any[]) => row[0] > since),
+		pricing: timeseries.pricing.filter((row: any[]) => row[0] > since)
+	};
+}

@@ -9,7 +9,7 @@ import { getSubstations } from "../clients/substations";
 import { mapBySiteCode } from "../services/rtdMapping/mapBySiteCode";
 import { getGenerators } from "../clients/generators";
 import { mapByPointOfConnectionCode } from "../services/rtdMapping/mapByPointOfConnectionCode";
-import { generateTimeseries } from "../services/timeseries/timeseries";
+import { filterTimeseriesSince } from "../services/timeseries/timeseries";
 import { getOutageListFromCache } from "../clients/pocpApi";
 import { HistoricalDispatchRecord } from "../models/historicalDispatchRecord";
 import { getJsonResponseWithHeaders, getJsonResponseWithMaxAgeHeader, getServiceUnavailableResponse } from "../utilities/utilities";
@@ -45,14 +45,27 @@ app.get("/rtd", async (c) => {
 	return c.json(rtdData);
 })
 
+// timestamps are NZ times, in the same format as the ones returned
+const SINCE_FORMAT = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}$/;
+
+// optionally only return the intervals after a timestamp, e.g. ?since=2026-10-14T21:55:00
 app.get("/recent", async (c) => {
+	const since = c.req.query("since");
+	if (since !== undefined && !SINCE_FORMAT.test(since)) {
+		c.status(400);
+		return c.json({ message: "Invalid since, expected an NZ time like 2026-10-14T21:55:00" });
+	}
+
 	const timeseries = await env.dispatch.get("timeseries");
 	if (!timeseries) {
 		return c.json({ series: [], data: [], pricing: [] });
 	}
 
 	const json = await timeseries.json() as Timeseries;
-	return getJsonResponseWithHeaders(json, { "Cache-Control": `max-age=${calculateMaxAgeHeader(json)}` });
+	// based on the full timeseries, as the filtered one can be empty
+	const maxAge = calculateMaxAgeHeader(json);
+
+	return getJsonResponseWithHeaders(since ? filterTimeseriesSince(json, since) : json, { "Cache-Control": `max-age=${maxAge}` });
 })
 
 const DEFAULT_MAX_AGE = 30;
