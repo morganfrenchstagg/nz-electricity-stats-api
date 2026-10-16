@@ -60,7 +60,7 @@ describe("dispatch api", () => {
         capacity: 84,
         fuel: "Hydro",
         fuelCode: "HYD",
-        commissioned: "1899-12-31T12:30:00.000Z",
+        commissioned: "1958-11-16T12:00:00.000Z",
         dispatch: { load: 0, generation: 50, price: 120.5 },
         outages: [{
           outageBlock: "ATI_0",
