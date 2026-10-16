@@ -75,7 +75,11 @@ describe("syncDailyDispatch", () => {
       ],
     });
     expect(await env.dispatch.get("dispatch-20261011")).not.toBeNull();
-    expect(await env.dispatch_kv.get("latestDailySyncDate")).toBe("20261012");
+    // records when it last got new data, for the stale data check
+    expect(await env.dispatch_kv.getWithMetadata("latestDailySyncDate")).toEqual({
+      value: "20261012",
+      metadata: { updatedAt: Date.now() },
+    });
   });
 
   it("only downloads files published since the last sync", async () => {

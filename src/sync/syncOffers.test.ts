@@ -59,6 +59,8 @@ function mockEmi(files: OffersFile[], { otherBlobs = [] as ListedBlob[], onDownl
 
 describe("syncOffers", () => {
   it("stores the latest energy offers for each unit by trading period", async () => {
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(new Date("2026-10-14T02:00:00Z"));
     const requests = mockEmi([{
       date: "20261012",
       rows: [
@@ -89,7 +91,11 @@ describe("syncOffers", () => {
         "WWD1102 WWD1": [{ tranche: 1, megawatts: 63.5, price: 0 }],
       },
     });
-    expect(await env.dispatch_kv.get("latestSyncedOffers")).toBe("20261012");
+    // records when it last got new data, for the stale data check
+    expect(await env.dispatch_kv.getWithMetadata("latestSyncedOffers")).toEqual({
+      value: "20261012",
+      metadata: { updatedAt: Date.now() },
+    });
   });
 
   it("only downloads files after the last synced date", async () => {

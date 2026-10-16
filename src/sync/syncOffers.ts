@@ -3,6 +3,7 @@ import { OfferRecord } from "../models/offerRecord";
 import { listEmiDatasetBlobs } from "../clients/emiDatasets";
 import { CsvRecordParser } from "../services/csvToJson/csvToJson";
 import { LineFilter } from "../services/lineFilter/lineFilter";
+import { CheckpointMetadata } from "../models/checkpointMetadata";
 
 // files are downloaded in parallel batches. only the few rows we keep are parsed, so 3 files in progress use
 // ~10MB of memory (~30MB including garbage) - well within the 128MB limit
@@ -44,7 +45,8 @@ export async function syncOffers() {
       await env.offers.put("offers-" + file.date, JSON.stringify(data));
     }));
 
-    await env.dispatch_kv.put("latestSyncedOffers", batch[batch.length - 1].date);
+    const metadata: CheckpointMetadata = { updatedAt: Date.now() };
+    await env.dispatch_kv.put("latestSyncedOffers", batch[batch.length - 1].date, { metadata });
     console.log("Synced " + batch.map(file => file.date).join(", "));
   }
 

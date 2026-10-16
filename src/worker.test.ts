@@ -9,10 +9,12 @@ import { syncDispatch } from "./sync/syncDispatch";
 import { syncDailyDispatch } from "./sync/syncDailyDispatch";
 import { syncDispatchAggregates } from "./sync/syncDispatchAggregates";
 import { syncOffers } from "./sync/syncOffers";
+import { checkForStaleData } from "./sync/staleDataCheck";
 
 vi.mock("./sync/syncDispatch", () => ({ syncDispatch: vi.fn() }));
 vi.mock("./sync/syncDailyDispatch", () => ({ syncDailyDispatch: vi.fn() }));
 vi.mock("./sync/syncOffers", () => ({ syncOffers: vi.fn() }));
+vi.mock("./sync/staleDataCheck", () => ({ checkForStaleData: vi.fn() }));
 vi.mock("./sync/syncDispatchAggregates", async (importOriginal) => ({
   ...await importOriginal<typeof import("./sync/syncDispatchAggregates")>(),
   syncDispatchAggregates: vi.fn(),
@@ -87,13 +89,22 @@ describe("scheduled", () => {
     return worker.scheduled({ cron, scheduledTime: Date.now(), noRetry: () => { } });
   }
 
-  it("syncs real time dispatch every 2 minutes", async () => {
+  it("syncs real time dispatch and checks for stale data every 2 minutes", async () => {
     await runCron("*/2 * * * *");
 
     expect(syncDispatch).toHaveBeenCalledOnce();
+    expect(checkForStaleData).toHaveBeenCalledOnce();
     expect(syncDailyDispatch).not.toHaveBeenCalled();
     expect(syncDispatchAggregates).not.toHaveBeenCalled();
     expect(syncOffers).not.toHaveBeenCalled();
+  });
+
+  it("still checks for stale data when the real time dispatch sync fails", async () => {
+    vi.mocked(syncDispatch).mockRejectedValueOnce(new Error("EMI is down"));
+
+    await expect(runCron("*/2 * * * *")).rejects.toThrow("EMI is down");
+
+    expect(checkForStaleData).toHaveBeenCalledOnce();
   });
 
   it("syncs the daily dispatch files hourly, and aggregates them once they've finished syncing", async () => {
@@ -125,6 +136,7 @@ describe("scheduled", () => {
   it("ignores unknown schedules", async () => {
     await runCron("0 0 * * *");
 
+    expect(checkForStaleData).not.toHaveBeenCalled();
     expect(syncDispatch).not.toHaveBeenCalled();
     expect(syncDailyDispatch).not.toHaveBeenCalled();
     expect(syncDispatchAggregates).not.toHaveBeenCalled();

@@ -11,6 +11,7 @@ import { sendSlackMessage } from "../clients/slack";
 import { checkForNewGenerationRecords } from "./syncGenerationRecords";
 import { findUnitsOverCapacity, formatUnitsOverCapacityMessage } from "../services/overCapacity/overCapacityChecker";
 import { RealTimeDispatch } from "../models/realTimeDispatch";
+import { CheckpointMetadata } from "../models/checkpointMetadata";
 
 export async function syncDispatch() {
   console.log("Syncing dispatch");
@@ -46,7 +47,8 @@ export async function syncDispatch() {
 
     const timeseries = await generateTimeseries(existingTimeseriesJson, data);
     await env.dispatch.put("timeseries", JSON.stringify(timeseries));
-    await env.dispatch_kv.put("latestDispatchTime", JSON.stringify(lastUpdatedRtd));
+    const metadata: CheckpointMetadata = { updatedAt: Date.now() };
+    await env.dispatch_kv.put("latestDispatchTime", JSON.stringify(lastUpdatedRtd), { metadata });
     await env.dispatch_kv.put("latestDispatch", JSON.stringify(data))
 
     await checkForMissingUnitsAndNotify(data);
