@@ -726,8 +726,8 @@
                 "unitCode": "KIN0",
                 "node": "KIN0112 KIN0",
                 "capacity": 32,
-                "fuel": "Gas",
-                "fuelCode": "GAS"
+                "fuel": "Biomass",
+                "fuelCode": "BIO"
             }
         ],
         "location": {
