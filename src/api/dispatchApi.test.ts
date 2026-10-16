@@ -167,6 +167,58 @@ describe("dispatch api", () => {
       expect(response.headers.get("Cache-Control")).toBe("max-age=86400");
     });
 
+    it("returns a day's metered generation by trading period before the daily dispatch files begin, without prices", async () => {
+      await env.dispatch.put("metered-19970801", JSON.stringify({
+        "1997-08-01T00:00:00": [{ p: "ATI2201 ATI0", g: 50, l: 0 }, { p: "HLY2201 huntly_1_4", g: 700.5, l: 0 }],
+        "1997-08-01T00:30:00": [{ p: "ATI2201 ATI0", g: 0, l: 0.4 }],
+      }));
+
+      const { response, json } = await getJson("/v1/dispatch/1997-08-01");
+
+      expect(json).toEqual({
+        series: ["ATI2201 ATI0", "HLY2201 huntly_1_4"],
+        data: [
+          ["1997-08-01T00:00:00", 50, 700.5],
+          ["1997-08-01T00:30:00", -0.4, 0],
+        ],
+        pricing: [
+          ["1997-08-01T00:00:00", null, null],
+          ["1997-08-01T00:30:00", null, null],
+        ],
+      });
+      expect(response.headers.get("Cache-Control")).toBe("max-age=86400");
+    });
+
+    it("prefers a day's dispatch to its metered generation once the dispatch aggregates start", async () => {
+      await env.dispatch.put("metered-20261012", JSON.stringify({ "2026-10-12T00:00:00": [{ p: "ATI2201 ATI0", g: 1, l: 0 }] }));
+
+      const { json } = await getJson("/v1/dispatch/2026-10-12");
+
+      expect((json as { data: unknown[] }).data[0]).toEqual(["2026-10-12T00:00:00", 50, -20]);
+    });
+
+    describe("the first, partial, day of dispatch files", () => {
+      const dispatch = { "2020-09-10T09:35:00": [{ p: "ATI2201 ATI0", g: "50", l: "0", c: "100" }] };
+      const metered = { "2020-09-10T00:00:00": [{ p: "ATI2201 ATI0", g: 40, l: 0 }] };
+
+      it("uses its metered generation, as its aggregates do", async () => {
+        await env.dispatch.put("dispatch-20200910", JSON.stringify(dispatch));
+        await env.dispatch.put("metered-20200910", JSON.stringify(metered));
+
+        const { json } = await getJson("/v1/dispatch/2020-09-10");
+
+        expect((json as { data: unknown[] }).data).toEqual([["2020-09-10T00:00:00", 40]]);
+      });
+
+      it("uses its dispatch until its metered generation has been backfilled", async () => {
+        await env.dispatch.put("dispatch-20200910", JSON.stringify(dispatch));
+
+        const { json } = await getJson("/v1/dispatch/20200910");
+
+        expect((json as { data: unknown[] }).data).toEqual([["2020-09-10T09:35:00", 50]]);
+      });
+    });
+
     it("accepts dates without dashes", async () => {
       const { json } = await getJson("/v1/dispatch/20261012");
 

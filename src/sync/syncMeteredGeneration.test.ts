@@ -68,6 +68,18 @@ describe("syncMeteredGeneration", () => {
     expect(await getAggregate("aggregate-annual")).toEqual({ data: [dataPoint("1997-01-01", "1997-12-31", 960)] });
   });
 
+  it("stores each day's generation by trading period", async () => {
+    mockEmi([{ month: "199708", rows: [row("1997-08-01", 10), row("1997-08-02", 20)] }]);
+
+    await syncMeteredGeneration(codes);
+
+    const day = await getAggregate("metered-19970801") as Record<string, unknown>;
+    expect(Object.keys(day)).toHaveLength(48);
+    expect(day["1997-08-01T00:00:00"]).toEqual([{ p: NODE, g: 10, l: 0 }]);
+    expect(day["1997-08-01T23:30:00"]).toEqual([{ p: NODE, g: 10, l: 0 }]);
+    expect((await getAggregate("metered-19970802") as Record<string, unknown>)["1997-08-02T12:00:00"]).toEqual([{ p: NODE, g: 20, l: 0 }]);
+  });
+
   it("stops at the day before the dispatch aggregates start, and adds to that month's dispatch days", async () => {
     // 11 September 2020 onwards are already aggregated from the daily dispatch files
     await env.dispatch.put("aggregate-daily-2020-09", JSON.stringify({ data: [day("2020-09-10", 999), day("2020-09-11", 100)] }));
@@ -81,6 +93,8 @@ describe("syncMeteredGeneration", () => {
     expect(downloadedDates(requests)).toEqual(["202009"]);
     expect(await getAggregate("aggregate-daily-2020-09")).toEqual({ data: [day("2020-09-10", 240), day("2020-09-11", 100)] });
     expect(await getAggregate("aggregate-monthly-2020")).toEqual({ data: [dataPoint("2020-09-01", "2020-09-30", 340)] });
+    expect(await env.dispatch.get("metered-20200910")).not.toBeNull();
+    expect(await env.dispatch.get("metered-20200911")).toBeNull();
   });
 
   it("week totals span months aggregated in different runs", async () => {

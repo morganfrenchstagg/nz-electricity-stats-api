@@ -4,7 +4,8 @@ import { sendSlackMessage } from "../clients/slack";
 import { csvToJson } from "../services/csvToJson/csvToJson";
 import { DISPATCH_AGGREGATES_START } from "../services/dispatchAggregation/dispatchAggregation";
 import {
-    calculateMeteredDailyEnergy,
+    calculateMeteredGeneration,
+    METERED_DAY_PREFIX,
     METERED_GENERATION_CODES,
     MeteredGenerationCode
 } from "../services/meteredGeneration/meteredGeneration";
@@ -36,8 +37,9 @@ const LAST_MONTH = DISPATCH_AGGREGATES_START.slice(0, 7).replace("-", "");
 
 /**
  * Aggregates EMI's metered generation (the Generation_MD dataset, from August 1997) for the days before the daily
- * dispatch files begin, so the daily, weekly, monthly and annual aggregates go back to 1997. Each generator's
- * generation is attributed to a unit in generators.json using meteredGenerationCodes.json.
+ * dispatch files begin, so the daily, weekly, monthly and annual aggregates go back to 1997, and stores each of those
+ * days by trading period (see METERED_DAY_PREFIX). Each generator's generation is attributed to a unit in
+ * generators.json using meteredGenerationCodes.json.
  *
  * A month is aggregated again when EMI republishes its file, and every month is when the codes change, so a fix to
  * how a generator is attributed reaches all of its history. Metered generation has no load, other than generators'
@@ -73,11 +75,14 @@ export async function syncMeteredGeneration(codes: MeteredGenerationCode[] = MET
             break;
         }
 
-        const { days, unlisted: monthUnlisted } = calculateMeteredDailyEnergy(await downloadFile(file.url), codes);
+        const { days, unlisted: monthUnlisted } = calculateMeteredGeneration(await downloadFile(file.url), codes);
 
         const dates = [...days.keys()].filter(date => date < DISPATCH_AGGREGATES_START).sort();
+        await Promise.all(dates.map(date =>
+            env.dispatch.put(METERED_DAY_PREFIX + date.replace(/-/g, ""), JSON.stringify(days.get(date)!.periods))));
+
         for (const date of dates) {
-            await store.upsert("daily", date.slice(0, 7), { from: date, to: date, nodes: days.get(date)! });
+            await store.upsert("daily", date.slice(0, 7), { from: date, to: date, nodes: days.get(date)!.energy });
         }
 
         // a file only has its own month's trading days

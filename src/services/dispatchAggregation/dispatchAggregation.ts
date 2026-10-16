@@ -132,6 +132,19 @@ export function hoursInNzDay(date: string): number {
     return 24 + (startOffset - endOffset) / 60;
 }
 
+// when each of a trading day's first n periods starts, in NZ time without an offset as the daily dispatch files have it
+// (e.g. 2026-10-12T00:30:00). periods are the half hours since midnight, so on the day daylight saving ends, the
+// repeated hour's periods start at the same times as the hour before them
+export function getTradingPeriodStarts(date: string, periods: number): string[] {
+    // 12:00 UTC the day before is 00:00/01:00 on the day in NZ, which is before the 02:00/03:00 daylight saving changeover
+    const midnight = parseDate(date) - getNzOffsetMinutes(parseDate(date) - ONE_DAY_IN_MS / 2) * 60000;
+
+    return Array.from({ length: periods }, (_, period) => {
+        const start = midnight + period * ONE_DAY_IN_MS / 48;
+        return new Date(start + getNzOffsetMinutes(start) * 60000).toISOString().slice(0, 19);
+    });
+}
+
 function getNzOffsetMinutes(instant: number): number {
     const parts = nzDateTimeFormat.formatToParts(new Date(instant));
     const get = (type: Intl.DateTimeFormatPartTypes) => +parts.find(part => part.type === type)!.value;

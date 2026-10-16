@@ -1,5 +1,7 @@
 import codes from "../../data/meteredGenerationCodes.json" with { type: "json" };
 import { NodeEnergy } from "../../models/dispatchAggregate";
+import { MeteredGenerationRecord } from "../../models/meteredGenerationRecord";
+import { getTradingPeriodStarts } from "../dispatchAggregation/dispatchAggregation";
 
 /**
  * How a generator in EMI's metered generation data (Generation_MD) is attributed to a unit in generators.json.
@@ -20,9 +22,24 @@ export type MeteredGenerationCode = {
 
 export const METERED_GENERATION_CODES: MeteredGenerationCode[] = codes;
 
-// a day of metered generation by node, and generation from codes that aren't listed (MWh by code)
-export type MeteredDailyEnergy = {
-    days: Map<string, Record<string, NodeEnergy>>; // by trading date (e.g. 1997-08-01)
+// each day's metered generation by trading period is stored as metered-YYYYMMDD, as the daily dispatch files are
+// stored as dispatch-YYYYMMDD
+export const METERED_DAY_PREFIX = "metered-";
+
+// from 2009 EMI numbers a day's trading periods by the half hours since midnight (46 on the day daylight saving starts,
+// and 50 on the day it ends). before then it numbered them by the clock, so there were always 48: the hour skipped when
+// daylight saving starts is blank, and the hour repeated when it ends only appears once
+const PERIODS_SINCE_MIDNIGHT_FROM = "2009-01-01";
+
+// a day of metered generation: each node's energy over the day, and its average generation over each trading period
+export type MeteredDay = {
+    energy: Record<string, NodeEnergy>; // MWh by node
+    periods: Record<string, MeteredGenerationRecord[]>; // by when the trading period starts (see getTradingPeriodStarts)
+}
+
+// a month of metered generation by trading date (e.g. 1997-08-01), and generation from codes that aren't listed (MWh by code)
+export type MeteredGeneration = {
+    days: Map<string, MeteredDay>;
     unlisted: Map<string, number>;
 }
 
@@ -43,19 +60,20 @@ export function getMeteredCode(record: Record<string, string>): string {
  * Periods where a generator used more than it generated (e.g. its station load while it's idle) count as load,
  * as they do in the dispatch data.
  */
-export function calculateMeteredDailyEnergy(records: Record<string, string>[], codes: MeteredGenerationCode[]): MeteredDailyEnergy {
+export function calculateMeteredGeneration(records: Record<string, string>[], codes: MeteredGenerationCode[]): MeteredGeneration {
     const codesByCode = Map.groupBy(codes, code => code.code);
-    const days = new Map<string, Record<string, NodeEnergy>>();
+    // average MW by trading date, trading period (1-50) and node
+    const generation = new Map<string, Map<number, Map<string, NodeEnergy>>>();
     const unlisted = new Map<string, number>();
 
     for (const record of records) {
         // the column is Trading_date in older files and Trading_Date in newer ones
         const date = record.Trading_date ?? record.Trading_Date;
-        const nodes = days.get(date) ?? {};
-        days.set(date, nodes); // so a day with nothing attributed still replaces what was there before
+        const day = generation.get(date) ?? new Map<number, Map<string, NodeEnergy>>();
+        generation.set(date, day); // so a day with nothing attributed still replaces what was there before
 
-        const { generation, load } = sumTradingPeriods(record);
-        if (generation === 0 && load === 0) {
+        const periods = getTradingPeriods(record);
+        if (periods.size === 0) {
             continue;
         }
 
@@ -63,37 +81,74 @@ export function calculateMeteredDailyEnergy(records: Record<string, string>[], c
         const match = codesByCode.get(code)?.find(entry => (entry.from ?? "") <= date && date <= (entry.to ?? "9999"));
 
         if (!match) {
-            unlisted.set(code, (unlisted.get(code) ?? 0) + generation - load);
-        } else if (match.node) {
-            const existing = nodes[match.node] ?? { g: 0, l: 0 };
-            nodes[match.node] = { g: existing.g + generation, l: existing.l + load };
+            unlisted.set(code, (unlisted.get(code) ?? 0) + [...periods.values()].reduce((sum, kwh) => sum + kwh / 1000, 0));
+            continue;
+        }
+        if (!match.node) {
+            continue;
+        }
+
+        for (const [period, kwh] of periods) {
+            const nodes = day.get(period) ?? new Map<string, NodeEnergy>();
+            day.set(period, nodes);
+
+            // kWh over half an hour, as average MW
+            const mw = kwh / 500;
+            const existing = nodes.get(match.node) ?? { g: 0, l: 0 };
+            nodes.set(match.node, mw > 0 ? { g: existing.g + mw, l: existing.l } : { g: existing.g, l: existing.l - mw });
         }
     }
 
-    for (const nodes of days.values()) {
-        for (const node in nodes) {
-            nodes[node] = { g: round(nodes[node].g), l: round(nodes[node].l) };
-        }
-    }
-
-    return { days, unlisted };
+    return {
+        days: new Map([...generation].map(([date, day]) => [date, toMeteredDay(date, day)])),
+        unlisted,
+    };
 }
 
-// MWh from the trading period columns (TP1-TP50), which are kWh
-function sumTradingPeriods(record: Record<string, string>): { generation: number; load: number } {
-    let generation = 0;
-    let load = 0;
+function toMeteredDay(date: string, day: Map<number, Map<string, NodeEnergy>>): MeteredDay {
+    const energy = {} as Record<string, NodeEnergy>;
+    const periods = {} as Record<string, MeteredGenerationRecord[]>;
 
-    for (const column in record) {
-        const kwh = /^TP\d+$/.test(column) && record[column] !== "" ? +record[column] : 0;
-        if (kwh > 0) {
-            generation += kwh / 1000;
-        } else if (kwh < 0) {
-            load -= kwh / 1000;
+    const numbers = [...day.keys()].sort((a, b) => a - b);
+    const starts = date < PERIODS_SINCE_MIDNIGHT_FROM
+        ? getClockPeriodStarts(date)
+        : getTradingPeriodStarts(date, Math.max(0, ...numbers));
+
+    for (const period of numbers) {
+        for (const [node, mw] of day.get(period)!) {
+            (periods[starts[period - 1]] ??= []).push({ p: node, g: round(mw.g), l: round(mw.l) });
+
+            const existing = energy[node] ?? { g: 0, l: 0 };
+            energy[node] = { g: existing.g + mw.g / 2, l: existing.l + mw.l / 2 };
         }
     }
 
-    return { generation, load };
+    for (const node in energy) {
+        energy[node] = { g: round(energy[node].g), l: round(energy[node].l) };
+    }
+
+    return { energy, periods };
+}
+
+// e.g. 1997-08-01T00:00:00, 1997-08-01T00:30:00 ... 1997-08-01T23:30:00
+function getClockPeriodStarts(date: string): string[] {
+    return Array.from({ length: 48 }, (_, period) =>
+        `${date}T${String(Math.floor(period / 2)).padStart(2, "0")}:${period % 2 === 0 ? "00" : "30"}:00`);
+}
+
+// the trading periods (TP1-TP50) a generator generated or used anything in, with their kWh by period number
+function getTradingPeriods(record: Record<string, string>): Map<number, number> {
+    const periods = new Map<number, number>();
+
+    for (const column in record) {
+        const period = /^TP(\d+)$/.exec(column);
+        const kwh = period && record[column] !== "" ? +record[column] : 0;
+        if (kwh !== 0) {
+            periods.set(+period![1], kwh);
+        }
+    }
+
+    return periods;
 }
 
 function round(value: number): number {

@@ -15,7 +15,7 @@ npm run dev
 
 The API republishes data from:
 
-- [Electricity Market Information (EMI)](https://www.emi.ea.govt.nz): real-time dispatch, nodal prices and volumes, metered generation, and bids and offers (`/v1/dispatch`, `/v1/offers`). The dispatch aggregates before 11 September 2020 come from metered generation (see below). © [Electricity Authority](https://www.ea.govt.nz/copyright-disclaimer-transparency/), licensed under [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/).
+- [Electricity Market Information (EMI)](https://www.emi.ea.govt.nz): real-time dispatch, nodal prices and volumes, metered generation, and bids and offers (`/v1/dispatch`, `/v1/offers`). Dispatch before 11 September 2020 comes from metered generation (see below). © [Electricity Authority](https://www.ea.govt.nz/copyright-disclaimer-transparency/), licensed under [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/).
 - [Transpower open data](https://data-transpower.opendata.arcgis.com/): transmission lines (`/v1/transmission-lines`). © [Transpower New Zealand](https://www.transpower.co.nz), licensed under [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/).
 - Transpower's [Planned Outage Coordination Process (POCP)](https://customerportal.transpower.co.nz/pocp/outages): generation outages (`/v1/outages`).
 
@@ -25,7 +25,7 @@ This API isn't affiliated with or endorsed by the Electricity Authority, Transpo
 
 ## Generation before the dispatch data
 
-EMI's daily dispatch files start in September 2020, so the dispatch aggregates (`/v1/dispatch/aggregates`) before 11 September 2020 are filled in from EMI's metered generation ([Generation_MD](https://www.emi.ea.govt.nz/Wholesale/Datasets/Generation/Generation_MD)), which goes back to August 1997. They're generation only, as the metered data has no load other than generators' own.
+EMI's daily dispatch files start in September 2020, so the dispatch aggregates (`/v1/dispatch/aggregates`) before 11 September 2020 are filled in from EMI's metered generation ([Generation_MD](https://www.emi.ea.govt.nz/Wholesale/Datasets/Generation/Generation_MD)), which goes back to August 1997. For those days `/v1/dispatch/:date` also returns each unit's average generation (MW) in each half-hour trading period, without prices (including 10 September 2020, as EMI's first daily dispatch file only starts at 9:35am that day). They're generation only, as the metered data has no load other than generators' own.
 
 The metered data identifies generators by their point of connection and a generator code (e.g. `HLY2201 huntly_e3p`) rather than the dispatch data's unit code (`HLY2201 HLY5`), so `src/data/meteredGenerationCodes.json` lists the unit each code is attributed to, or why it's excluded. It follows these rules:
 

@@ -15,6 +15,9 @@ import { HistoricalDispatchRecord } from "../models/historicalDispatchRecord";
 import { getJsonResponseWithHeaders, getJsonResponseWithMaxAgeHeader, getServiceUnavailableResponse } from "../utilities/utilities";
 import { getNZDateTime } from "../services/nzDateTime";
 import { Timeseries } from "../models/timeseries";
+import { MeteredGenerationRecord } from "../models/meteredGenerationRecord";
+import { METERED_DAY_PREFIX } from "../services/meteredGeneration/meteredGeneration";
+import { DISPATCH_AGGREGATES_START } from "../services/dispatchAggregation/dispatchAggregation";
 
 const app = new Hono();
 app.use(cors());
@@ -106,51 +109,49 @@ app.get("/latest", async (c) => {
 	});
 })
 
+// a day's dispatch by interval, or its metered generation by trading period for the days the aggregates take from
+// metered generation (including the first, partial, day of dispatch files). each falls back to the other, e.g. while
+// the metered generation is still being backfilled
 app.get("/:date", async (c) => {
-	const date = c.req.param("date");
-	const formattedDate = date.replace(/-/g, '');
-	const response = await env.dispatch.get(`dispatch-${formattedDate}`);
+	const date = c.req.param("date").replace(/-/g, '');
+	const keys = date < DISPATCH_AGGREGATES_START.replace(/-/g, '')
+		? [METERED_DAY_PREFIX + date, `dispatch-${date}`]
+		: [`dispatch-${date}`, METERED_DAY_PREFIX + date];
+	const file = await env.dispatch.get(keys[0]) ?? await env.dispatch.get(keys[1]);
 
-	if (!response) {
+	if (!file) {
 		c.status(404);
 		return c.json({ message: "No data for this date" });
 	}
 
-	const json = (await response.json()) as Record<string, HistoricalDispatchRecord[]>;
-
-	let timeseries = { series: [], data: [], pricing: [] } as any;
-
-	// construct list of 'series'
-	for (const timestamp in json) {
-		for (const dp in json[timestamp]) {
-			const dataPoint = json[timestamp][dp]
-			if (!timeseries.series.includes(dataPoint.p)) {
-				timeseries.series.push(dataPoint.p)
-			}
-		}
-	}
-
-	// populate data and pricing
-	// the daily files leave out most nodes while they're at 0MW generation and load, so a node missing from an
-	// interval is 0 rather than unknown. intervals missing from the file entirely are still left out
-	for (const timestamp in json) {
-		let dataArr = new Array(timeseries.series.length + 1).fill(0);
-		let priceArr = new Array(timeseries.series.length + 1).fill(null);
-		dataArr[0] = timestamp;
-		priceArr[0] = timestamp;
-
-		for (const dp in json[timestamp]) {
-			const dataPoint = json[timestamp][dp];
-			dataArr[timeseries.series.indexOf(dataPoint.p) + 1] = (+dataPoint.g - +dataPoint.l);
-			priceArr[timeseries.series.indexOf(dataPoint.p) + 1] = +dataPoint.c;
-		}
-
-		timeseries.data.push(dataArr);
-		timeseries.pricing.push(priceArr);
-	}
-
-	return getJsonResponseWithMaxAgeHeader(timeseries);
+	const intervals = await file.json() as Record<string, (HistoricalDispatchRecord | MeteredGenerationRecord)[]>;
+	return getJsonResponseWithMaxAgeHeader(toDayTimeseries(intervals));
 })
 
+// the daily files leave out most nodes while they're at 0MW generation and load, so a node missing from an interval
+// is 0 rather than unknown. intervals missing from the file entirely are still left out. metered generation has no
+// prices, so its prices are all null
+function toDayTimeseries(intervals: Record<string, (HistoricalDispatchRecord | MeteredGenerationRecord)[]>): Timeseries {
+	const series = [...new Set(Object.values(intervals).flatMap(records => records.map(record => record.p)))];
+	const columns = new Map(series.map((node, index) => [node, index + 1]));
+
+	const data = [] as (string | number)[][];
+	const pricing = [] as (string | number | null)[][];
+
+	for (const timestamp in intervals) {
+		const dataRow: (string | number)[] = [timestamp, ...series.map(() => 0)];
+		const priceRow: (string | number | null)[] = [timestamp, ...series.map(() => null)];
+
+		for (const record of intervals[timestamp]) {
+			dataRow[columns.get(record.p)!] = +record.g - +record.l;
+			priceRow[columns.get(record.p)!] = "c" in record ? +record.c : null;
+		}
+
+		data.push(dataRow);
+		pricing.push(priceRow);
+	}
+
+	return { series, data, pricing };
+}
 
 export default app;
