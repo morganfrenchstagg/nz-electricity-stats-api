@@ -104,10 +104,10 @@ describe("findNewRecords", () => {
     });
   });
 
-  it("records a unit's first generation without alerting", () => {
+  it("alerts for a unit's first generation, but not for units that aren't generating", () => {
     expect(findNewRecords(new Map([[HUNTLY_1, 40], ["HLY2201 HLY6", 0]]), time, records)).toEqual({
       updated: { [HUNTLY_1]: { mw: 40, time } },
-      newRecords: [],
+      newRecords: [{ node: HUNTLY_1, record: { mw: 40, time } }],
     });
   });
 });
@@ -142,5 +142,13 @@ describe("formatNewRecordsMessage", () => {
     ], generators);
 
     expect(message).toBe("🏆 `XYZ2201 XYZ0` is generating *12 MW*, a new record (previously 10 MW at 12:00pm on 13 October 2026)");
+  });
+
+  it("says when it's a unit's first generation", () => {
+    const message = formatNewRecordsMessage([
+      { node: HUNTLY_1, record: { mw: 8.72, time: "2026-10-14T12:00:00" } },
+    ], generators);
+
+    expect(message).toBe("🆕 *Huntly Rankine 1* (`HLY2201 HLY1`) is generating for the first time on record (*8.7 MW*)");
   });
 });
