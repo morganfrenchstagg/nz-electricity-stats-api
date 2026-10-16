@@ -7,6 +7,8 @@ import { mapOutagesByUnit } from "../services/outageMapping/outageMapper";
 import { getGenerators } from "../clients/generators";
 import { Timeseries } from "../models/timeseries";
 import { PocpOutage } from "../models/pocpOutage";
+import { sendSlackMessage } from "../clients/slack";
+import { checkForNewGenerationRecords } from "./syncGenerationRecords";
 
 export async function syncDispatch() {
   console.log("Syncing dispatch");
@@ -46,6 +48,7 @@ export async function syncDispatch() {
     await env.dispatch_kv.put("latestDispatch", JSON.stringify(data))
 
     await checkForMissingUnitsAndNotify(data);
+    await checkForNewGenerationRecords(data);
   }
 
   let outageList: PocpOutage[];
@@ -72,7 +75,7 @@ async function checkForMissingUnitsAndNotify(lastDispatch: any[]) {
     const previousMissingUnitJson = JSON.parse(previousMissingUnitResponse);
     if (!deepEqual(missingUnitResponse, previousMissingUnitJson)) {
       console.log("Missing units not equal, will notify!")
-      sendMissingUnitsToSlack(missingUnitResponse);
+      await sendMissingUnitsToSlack(missingUnitResponse);
     }
   }
 
@@ -114,13 +117,5 @@ async function sendMissingUnitsToSlack(missingUnitResponse: any) {
     return;
   }
   console.log("Sending missing units to Slack");
-  await fetch(env.SLACK_WEBHOOK_URL, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json'
-    },
-    body: JSON.stringify({
-      text: slackMessage
-    })
-  });
+  await sendSlackMessage(slackMessage);
 }

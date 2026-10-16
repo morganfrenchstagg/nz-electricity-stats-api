@@ -166,4 +166,17 @@ describe("syncDispatch", () => {
       expect(slackRequests(requests)).toEqual([]);
     });
   });
+
+  it("notifies Slack when a unit beats its generation record", async () => {
+    await env.dispatch_kv.put("historicalGenerationRecords", JSON.stringify({
+      syncedTo: "20261013",
+      records: { "ATI2201 ATI0": { mw: 45, time: "2024-03-03T18:30:00" } },
+    }));
+    const requests = mockApis();
+
+    await syncDispatch();
+
+    const [slackRequest] = requests.filter(request => request.url === env.SLACK_WEBHOOK_URL);
+    expect((await slackRequest.json() as { text: string }).text).toContain("*Ātiamuri* (`ATI2201 ATI0`) is generating *50 MW*, a new record");
+  });
 });
