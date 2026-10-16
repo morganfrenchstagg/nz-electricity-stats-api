@@ -2002,7 +2002,7 @@
                 "name": "Te Herenga o Te Rā",
                 "unitCode": "HTR0",
                 "node": "WAI0331 HTR0",
-                "capacity": 33,
+                "capacity": 34,
                 "fuel": "Solar",
                 "fuelCode": "SOL"
             }
