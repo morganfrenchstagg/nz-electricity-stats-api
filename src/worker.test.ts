@@ -21,11 +21,11 @@ vi.mock("./sync/syncDispatchAggregates", async (importOriginal) => ({
 }));
 
 describe("routes", () => {
-  it("redirects the root to the electricity map", async () => {
+  it("responds OK at the root, without redirecting", async () => {
     const { response } = await requestWorker("/");
 
-    expect(response.status).toBe(302);
-    expect(response.headers.get("Location")).toBe("https://electricitymap.frenchsta.gg/");
+    expect(response.status).toBe(200);
+    expect(response.headers.get("Location")).toBeNull();
   });
 
   it("responds to ping", async () => {
