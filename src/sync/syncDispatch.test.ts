@@ -47,7 +47,11 @@ describe("syncDispatch", () => {
     await syncDispatch();
 
     expect(requests[0].headers.get("Ocp-Apim-Subscription-Key")).toBe(env.EMI_API_KEY);
-    expect(await env.dispatch_kv.get("latestDispatchTime")).toBe(JSON.stringify("2026-10-14T22:00:00"));
+    // records when it last got new data, for the stale data check
+    expect(await env.dispatch_kv.getWithMetadata("latestDispatchTime")).toEqual({
+      value: JSON.stringify("2026-10-14T22:00:00"),
+      metadata: { updatedAt: Date.now() },
+    });
     expect(JSON.parse((await env.dispatch_kv.get("latestDispatch"))!)).toEqual(latestDispatch);
     expect(await getJson(env.dispatch, "timeseries")).toEqual({
       series: ["ATI2201 ATI0", "ALB0331"],

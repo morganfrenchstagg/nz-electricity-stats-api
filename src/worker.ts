@@ -8,6 +8,7 @@ import { getSubstations } from "./clients/substations";
 import { syncDailyDispatch } from "./sync/syncDailyDispatch";
 import { syncDispatchAggregates } from "./sync/syncDispatchAggregates";
 import { syncGenerationRecords } from "./sync/syncGenerationRecords";
+import { checkForStaleData } from "./sync/staleDataCheck";
 import offersApi from "./api/offersApi";
 import { getJsonResponseWithMaxAgeHeader } from "./utilities/utilities";
 import outagesApi from "./api/outagesApi";
@@ -61,7 +62,12 @@ app.route('/v1/transmission-lines', transmissionLinesApi);
 async function scheduled(controller: ScheduledController) {
   switch (controller.cron) {
     case "*/2 * * * *":
-      await syncDispatch();
+      try {
+        await syncDispatch();
+      } finally {
+        // checked even when the sync fails, as that's when the data goes stale
+        await checkForStaleData();
+      }
       break;
     case "02 * * * *":
       await syncDailyDispatch();

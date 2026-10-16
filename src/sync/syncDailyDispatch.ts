@@ -4,6 +4,7 @@ import { CsvRecordParser } from "../services/csvToJson/csvToJson";
 import { EmiDailyFile, selectFilesToDownload } from "../services/dailyDispatchFiles/selectFilesToDownload";
 import { queueForReaggregation } from "./syncDispatchAggregates";
 import { listEmiDatasetBlobs } from "../clients/emiDatasets";
+import { CheckpointMetadata } from "../models/checkpointMetadata";
 
 // files are downloaded in parallel batches. each file in progress uses up to ~20MB of memory - 3 at a time
 // stays comfortably within the 128MB limit, 4 caused heavy garbage collection with the largest files
@@ -60,7 +61,8 @@ export async function syncDailyDispatch() {
         const lastDate = batch[batch.length - 1].date;
         if (!checkpoint || lastDate > checkpoint) {
             checkpoint = lastDate;
-            await env.dispatch_kv.put("latestDailySyncDate", checkpoint);
+            const metadata: CheckpointMetadata = { updatedAt: Date.now() };
+            await env.dispatch_kv.put("latestDailySyncDate", checkpoint, { metadata });
         }
 
         console.log("Synced " + batch.map(file => file.date).join(", "));
