@@ -1,6 +1,6 @@
 import { checkForMissingUnits } from "./missingUnitChecker";
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { getGenerators } from "../../clients/generators";
+import { getGenerators, UnitDefinition } from "../../clients/generators";
 import { getSubstations } from "../../clients/substations";
 
 vi.mock("../../clients/generators");
@@ -107,42 +107,51 @@ describe("checkForMissingUnits", () => {
     });
   });
 
-  it("should return an empty array of missing units if there are missing units in the dispatch list but the unit is listed as inactive in the generator list", async () => {
-    mockedGetGenerators.mockResolvedValue([
-      {
-        units: [
-          {
-            node: "1234567890 ABCD",
-            active: false,
-            name: "",
-            unitCode: "",
-            capacity: 0,
-            fuel: "",
-            fuelCode: ""
-          },
-        ],
-        site: "",
-        name: "",
-        location: {
-          lat: 0,
-          long: 0
-        },
-        gridZone: "",
-        operator: ""
-      },
-    ]);
-    mockedGetSubstations.mockResolvedValue([]);
+  describe("decommissioned units", () => {
+    beforeEach(() => {
+      vi.useFakeTimers({ toFake: ["Date"] });
+      vi.setSystemTime(new Date("2026-10-14T09:00:00Z"));
+    });
 
-    const result = await checkForMissingUnits([]);
-    expect(result).toEqual({
-      generation: {
-        notInDispatchList: [],
-        notInGeneratorList: [],
-      },
-      substations: {
-        notInDispatchList: [],
-        notInSubstationList: [],
-      },
+    function mockUnit(unit: Partial<UnitDefinition>) {
+      mockedGetGenerators.mockResolvedValue([
+        {
+          units: [
+            {
+              node: "1234567890 ABCD",
+              name: "",
+              unitCode: "",
+              capacity: 0,
+              fuel: "",
+              fuelCode: "",
+              ...unit,
+            },
+          ],
+          site: "",
+          name: "",
+          location: {
+            lat: 0,
+            long: 0
+          },
+          gridZone: "",
+          operator: ""
+        },
+      ]);
+      mockedGetSubstations.mockResolvedValue([]);
+    }
+
+    it("should not report a unit missing from the dispatch list once it has been decommissioned", async () => {
+      mockUnit({ decomissioned: "2026-10-14T08:59:59.000Z" });
+
+      const result = await checkForMissingUnits([]);
+      expect(result.generation.notInDispatchList).toEqual([]);
+    });
+
+    it("should still report a unit missing from the dispatch list before its decommissioning date", async () => {
+      mockUnit({ decomissioned: "2026-10-14T09:00:01.000Z" });
+
+      const result = await checkForMissingUnits([]);
+      expect(result.generation.notInDispatchList).toEqual(["1234567890 ABCD"]);
     });
   });
 

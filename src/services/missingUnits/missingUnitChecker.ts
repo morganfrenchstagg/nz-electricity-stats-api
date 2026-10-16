@@ -1,5 +1,8 @@
-import { getGenerators } from "../../clients/generators";
+import { getGenerators, UnitDefinition } from "../../clients/generators";
 import { getSubstations } from "../../clients/substations";
+
+const isDecommissioned = (unit: UnitDefinition) =>
+  unit.decomissioned !== undefined && Date.parse(unit.decomissioned) <= Date.now();
 
 export const checkForMissingUnits = async (dispatchList: string[]) => {
   const generators = await getGenerators();
@@ -17,7 +20,7 @@ export const checkForMissingUnits = async (dispatchList: string[]) => {
           unitsNotInGeneratorList.indexOf(unit.node),
           1,
         );
-      } else if (unit.active === undefined || unit.active === true) {
+      } else if (!isDecommissioned(unit)) {
         unitsNotInDispatchList.push(unit.node);
       }
     }
