@@ -10,7 +10,7 @@
                 "capacity": 84,
                 "fuel": "Hydro",
                 "fuelCode": "HYD",
-                "commissioned": "1899-12-31T12:30:00.000Z"
+                "commissioned": "1958-11-16T12:00:00.000Z"
             }
         ],
         "location": {
@@ -33,7 +33,7 @@
                 "capacity": 25,
                 "fuel": "Hydro",
                 "fuelCode": "HYD",
-                "commissioned": "1899-12-31T12:30:00.000Z"
+                "commissioned": "1980-10-02T12:00:00.000Z"
             }
         ],
         "location": {
@@ -55,7 +55,7 @@
                 "capacity": 44,
                 "fuel": "Geothermal",
                 "fuelCode": "GEO",
-                "commissioned": "1899-12-31T12:30:00.000Z"
+                "commissioned": "1988-12-31T11:00:00.000Z"
             }
         ],
         "location": {
@@ -77,7 +77,7 @@
                 "capacity": 106,
                 "fuel": "Hydro",
                 "fuelCode": "HYD",
-                "commissioned": "1899-12-31T12:30:00.000Z"
+                "commissioned": "1960-12-31T12:00:00.000Z"
             }
         ],
         "location": {
@@ -100,7 +100,7 @@
                 "capacity": 254,
                 "fuel": "Hydro",
                 "fuelCode": "HYD",
-                "commissioned": "1899-12-31T12:30:00.000Z"
+                "commissioned": "1978-12-31T11:00:00.000Z"
             }
         ],
         "location": {
@@ -123,7 +123,7 @@
                 "capacity": 220,
                 "fuel": "Hydro",
                 "fuelCode": "HYD",
-                "commissioned": "1899-12-31T12:30:00.000Z"
+                "commissioned": "1983-12-31T11:00:00.000Z"
             }
         ],
         "location": {
@@ -146,7 +146,7 @@
                 "capacity": 220,
                 "fuel": "Hydro",
                 "fuelCode": "HYD",
-                "commissioned": "1899-12-31T12:30:00.000Z"
+                "commissioned": "1984-12-31T11:00:00.000Z"
             }
         ],
         "location": {
@@ -169,7 +169,7 @@
                 "capacity": 85,
                 "fuel": "Hydro",
                 "fuelCode": "HYD",
-                "commissioned": "1899-12-31T12:30:00.000Z"
+                "commissioned": "1937-12-31T12:00:00.000Z"
             },
             {
                 "name": "Arapuni",
@@ -178,7 +178,7 @@
                 "capacity": 111,
                 "fuel": "Hydro",
                 "fuelCode": "HYD",
-                "commissioned": "1899-12-31T12:30:00.000Z"
+                "commissioned": "1929-06-03T12:30:00.000Z"
             }
         ],
         "location": {
@@ -201,7 +201,7 @@
                 "capacity": 78,
                 "fuel": "Hydro",
                 "fuelCode": "HYD",
-                "commissioned": "1899-12-31T12:30:00.000Z"
+                "commissioned": "1964-02-29T12:00:00.000Z"
             }
         ],
         "location": {
@@ -224,7 +224,7 @@
                 "capacity": 220,
                 "fuel": "Hydro",
                 "fuelCode": "HYD",
-                "commissioned": "1899-12-31T12:30:00.000Z"
+                "commissioned": "1968-06-30T12:00:00.000Z"
             }
         ],
         "location": {
@@ -247,7 +247,7 @@
                 "capacity": 570,
                 "fuel": "Hydro",
                 "fuelCode": "HYD",
-                "commissioned": "1899-12-31T12:30:00.000Z"
+                "commissioned": "1964-12-31T12:00:00.000Z"
             }
         ],
         "location": {
@@ -270,7 +270,7 @@
                 "capacity": 11,
                 "fuel": "Hydro",
                 "fuelCode": "HYD",
-                "commissioned": "1899-12-31T12:30:00.000Z"
+                "commissioned": "1982-12-31T11:00:00.000Z"
             }
         ],
         "location": {
@@ -292,7 +292,7 @@
                 "capacity": 49,
                 "fuel": "Geothermal",
                 "fuelCode": "GEO",
-                "commissioned": "1899-12-31T12:30:00.000Z"
+                "commissioned": "1965-12-31T12:00:00.000Z"
             }
         ],
         "location": {
@@ -314,7 +314,7 @@
                 "capacity": 464,
                 "fuel": "Hydro",
                 "fuelCode": "HYD",
-                "commissioned": "1899-12-31T12:30:00.000Z"
+                "commissioned": "1992-04-30T12:00:00.000Z"
             }
         ],
         "location": {
@@ -359,7 +359,7 @@
                 "capacity": 40,
                 "fuel": "Hydro",
                 "fuelCode": "HYD",
-                "commissioned": "1899-12-31T12:30:00.000Z"
+                "commissioned": "1914-10-31T12:30:00.000Z"
             }
         ],
         "location": {
@@ -381,7 +381,7 @@
                 "capacity": 26,
                 "fuel": "Hydro",
                 "fuelCode": "HYD",
-                "commissioned": "1899-12-31T12:30:00.000Z"
+                "commissioned": "1980-12-31T11:00:00.000Z"
             },
             {
                 "name": "Waipori 2A/3/4",
@@ -390,7 +390,7 @@
                 "capacity": 73.6,
                 "fuel": "Hydro",
                 "fuelCode": "HYD",
-                "commissioned": "1899-12-31T12:30:00.000Z"
+                "commissioned": "1953-12-31T12:00:00.000Z"
             }
         ],
         "location": {
@@ -413,7 +413,7 @@
                 "capacity": 50,
                 "fuel": "Gas",
                 "fuelCode": "GAS",
-                "commissioned": "1899-12-31T12:30:00.000Z"
+                "commissioned": "1995-12-31T11:00:00.000Z"
             }
         ],
         "location": {
@@ -459,7 +459,7 @@
                 "capacity": 26.5,
                 "fuel": "Hydro",
                 "fuelCode": "HYD",
-                "commissioned": "1899-12-31T12:30:00.000Z"
+                "commissioned": "1945-06-07T12:00:00.000Z"
             }
         ],
         "location": {
@@ -481,7 +481,7 @@
                 "capacity": 403,
                 "fuel": "Gas",
                 "fuelCode": "GAS",
-                "commissioned": "1899-12-31T12:30:00.000Z"
+                "commissioned": "2006-12-31T11:00:00.000Z"
             },
             {
                 "name": "Huntly Unit 6",
@@ -490,7 +490,7 @@
                 "capacity": 46,
                 "fuel": "Gas",
                 "fuelCode": "GAS",
-                "commissioned": "1899-12-31T12:30:00.000Z"
+                "commissioned": "2003-12-31T11:00:00.000Z"
             },
             {
                 "name": "Huntly Rankine 1",
@@ -499,7 +499,7 @@
                 "capacity": 240,
                 "fuel": "Coal/Gas",
                 "fuelCode": "CLG",
-                "commissioned": "1899-12-31T12:30:00.000Z"
+                "commissioned": "1981-12-31T11:00:00.000Z"
             },
             {
                 "name": "Huntly Rankine 2",
@@ -508,7 +508,7 @@
                 "capacity": 240,
                 "fuel": "Coal/Gas",
                 "fuelCode": "CLG",
-                "commissioned": "1899-12-31T12:30:00.000Z"
+                "commissioned": "1982-12-31T11:00:00.000Z"
             },
             {
                 "name": "Huntly Rankine 4",
@@ -557,7 +557,7 @@
                 "capacity": 100,
                 "fuel": "Gas",
                 "fuelCode": "GAS",
-                "commissioned": "1899-12-31T12:30:00.000Z"
+                "commissioned": "2020-02-29T11:00:00.000Z"
             }
         ],
         "location": {
@@ -579,7 +579,7 @@
                 "capacity": 6,
                 "fuel": "Hydro",
                 "fuelCode": "HYD",
-                "commissioned": "1899-12-31T12:30:00.000Z"
+                "commissioned": "1927-12-31T11:30:00.000Z"
             }
         ],
         "location": {
@@ -601,7 +601,7 @@
                 "capacity": 42.1,
                 "fuel": "Hydro",
                 "fuelCode": "HYD",
-                "commissioned": "1899-12-31T12:30:00.000Z"
+                "commissioned": "1971-12-31T12:00:00.000Z"
             }
         ],
         "location": {
@@ -623,7 +623,7 @@
                 "capacity": 36,
                 "fuel": "Hydro",
                 "fuelCode": "HYD",
-                "commissioned": "1899-12-31T12:30:00.000Z"
+                "commissioned": "1947-03-31T12:00:00.000Z"
             }
         ],
         "location": {
@@ -668,7 +668,7 @@
                 "capacity": 112.5,
                 "fuel": "Hydro",
                 "fuelCode": "HYD",
-                "commissioned": "1899-12-31T12:30:00.000Z"
+                "commissioned": "1947-04-09T12:00:00.000Z"
             }
         ],
         "location": {
@@ -745,7 +745,7 @@
                 "capacity": 109,
                 "fuel": "Geothermal",
                 "fuelCode": "GEO",
-                "commissioned": "1899-12-31T12:30:00.000Z"
+                "commissioned": "2007-12-31T11:00:00.000Z"
             }
         ],
         "location": {
@@ -767,7 +767,7 @@
                 "capacity": 32,
                 "fuel": "Biomass",
                 "fuelCode": "BIO",
-                "commissioned": "1899-12-31T12:30:00.000Z"
+                "commissioned": "1997-12-31T11:00:00.000Z"
             }
         ],
         "location": {
@@ -789,7 +789,7 @@
                 "capacity": 36,
                 "fuel": "Wind",
                 "fuelCode": "WIN",
-                "commissioned": "1899-12-31T12:30:00.000Z"
+                "commissioned": "2011-02-20T11:00:00.000Z"
             }
         ],
         "location": {
@@ -812,7 +812,7 @@
                 "installedCapacity": 896,
                 "fuel": "Hydro",
                 "fuelCode": "HYD",
-                "commissioned": "1899-12-31T12:30:00.000Z"
+                "commissioned": "1969-09-13T12:00:00.000Z"
             }
         ],
         "location": {
@@ -856,7 +856,7 @@
                 "capacity": 360,
                 "fuel": "Hydro",
                 "fuelCode": "HYD",
-                "commissioned": "1899-12-31T12:30:00.000Z"
+                "commissioned": "1952-10-30T12:00:00.000Z"
             }
         ],
         "location": {
@@ -879,7 +879,7 @@
                 "capacity": 80,
                 "fuel": "Hydro",
                 "fuelCode": "HYD",
-                "commissioned": "1899-12-31T12:30:00.000Z"
+                "commissioned": "1967-01-24T12:00:00.000Z"
             }
         ],
         "location": {
@@ -901,7 +901,7 @@
                 "capacity": 100,
                 "fuel": "Gas",
                 "fuelCode": "GAS",
-                "commissioned": "1899-12-31T12:30:00.000Z"
+                "commissioned": "2011-12-31T11:00:00.000Z"
             }
         ],
         "location": {
@@ -946,7 +946,7 @@
                 "capacity": 116,
                 "fuel": "Geothermal",
                 "fuelCode": "GEO",
-                "commissioned": "1899-12-31T12:30:00.000Z"
+                "commissioned": "1999-12-31T11:00:00.000Z"
             }
         ],
         "location": {
@@ -969,7 +969,7 @@
                 "capacity": 149,
                 "fuel": "Geothermal",
                 "fuelCode": "GEO",
-                "commissioned": "1899-12-31T12:30:00.000Z"
+                "commissioned": "2010-01-17T11:00:00.000Z"
             }
         ],
         "location": {
@@ -992,7 +992,7 @@
                 "capacity": 133,
                 "fuel": "Geothermal",
                 "fuelCode": "GEO",
-                "commissioned": "1899-12-31T12:30:00.000Z"
+                "commissioned": "2013-02-28T11:00:00.000Z"
             }
         ],
         "location": {
@@ -1037,7 +1037,7 @@
                 "capacity": 12.3,
                 "fuel": "Hydro",
                 "fuelCode": "HYD",
-                "commissioned": "1899-12-31T12:30:00.000Z"
+                "commissioned": "1983-12-31T11:00:00.000Z"
             }
         ],
         "location": {
@@ -1059,7 +1059,7 @@
                 "capacity": 11,
                 "fuel": "Hydro",
                 "fuelCode": "HYD",
-                "commissioned": "1899-12-31T12:30:00.000Z",
+                "commissioned": "1984-04-30T12:00:00.000Z",
                 "decomissioned": "2026-06-25T01:59:59.999Z"
             },
             {
@@ -1069,7 +1069,7 @@
                 "capacity": 11,
                 "fuel": "Hydro",
                 "fuelCode": "HYD",
-                "commissioned": "1899-12-31T12:30:00.000Z",
+                "commissioned": "1984-04-30T12:00:00.000Z",
                 "decomissioned": "2026-06-25T01:59:59.999Z"
             },
             {
@@ -1079,7 +1079,7 @@
                 "capacity": 11,
                 "fuel": "Hydro",
                 "fuelCode": "HYD",
-                "commissioned": "1899-12-31T12:30:00.000Z",
+                "commissioned": "1984-04-30T12:00:00.000Z",
                 "decomissioned": "2026-06-25T01:59:59.999Z"
             },
             {
@@ -1129,7 +1129,7 @@
                 "capacity": 42,
                 "fuel": "Hydro",
                 "fuelCode": "HYD",
-                "commissioned": "1899-12-31T12:30:00.000Z"
+                "commissioned": "1942-12-31T12:00:00.000Z"
             }
         ],
         "location": {
@@ -1152,7 +1152,7 @@
                 "capacity": 40,
                 "fuel": "Geothermal",
                 "fuelCode": "GEO",
-                "commissioned": "1899-12-31T12:30:00.000Z"
+                "commissioned": "1996-12-31T11:00:00.000Z"
             }
         ],
         "location": {
@@ -1174,7 +1174,7 @@
                 "capacity": 140,
                 "fuel": "Hydro",
                 "fuelCode": "HYD",
-                "commissioned": "1899-12-31T12:30:00.000Z"
+                "commissioned": "1982-12-31T11:00:00.000Z"
             }
         ],
         "location": {
@@ -1197,7 +1197,7 @@
                 "capacity": 28,
                 "fuel": "Geothermal",
                 "fuelCode": "GEO",
-                "commissioned": "1899-12-31T12:30:00.000Z"
+                "commissioned": "1996-12-31T11:00:00.000Z"
             }
         ],
         "location": {
@@ -1220,7 +1220,7 @@
                 "capacity": 120,
                 "fuel": "Hydro",
                 "fuelCode": "HYD",
-                "commissioned": "1899-12-31T12:30:00.000Z"
+                "commissioned": "1961-08-17T12:00:00.000Z"
             },
             {
                 "name": "Roxburgh",
@@ -1229,7 +1229,7 @@
                 "capacity": 200,
                 "fuel": "Hydro",
                 "fuelCode": "HYD",
-                "commissioned": "1899-12-31T12:30:00.000Z"
+                "commissioned": "1956-07-22T12:00:00.000Z"
             }
         ],
         "location": {
@@ -1252,7 +1252,7 @@
                 "capacity": 105,
                 "fuel": "Gas",
                 "fuelCode": "GAS",
-                "commissioned": "1899-12-31T12:30:00.000Z"
+                "commissioned": "2010-12-31T11:00:00.000Z"
             },
             {
                 "name": "Stratford Peaker 2",
@@ -1261,7 +1261,7 @@
                 "capacity": 103,
                 "fuel": "Gas",
                 "fuelCode": "GAS",
-                "commissioned": "1899-12-31T12:30:00.000Z"
+                "commissioned": "2010-12-31T11:00:00.000Z"
             },
             {
                 "name": "Taranaki Combined Cycle",
@@ -1270,7 +1270,7 @@
                 "capacity": 350,
                 "fuel": "Gas",
                 "fuelCode": "GAS",
-                "commissioned": "1899-12-31T12:30:00.000Z",
+                "commissioned": "1997-12-31T11:00:00.000Z",
                 "decomissioned": "2025-09-05T07:30:00.000Z"
             }
         ],
@@ -1340,7 +1340,7 @@
                 "capacity": 34,
                 "fuel": "Wind",
                 "fuelCode": "WIN",
-                "commissioned": "1899-12-31T12:30:00.000Z"
+                "commissioned": "1998-12-31T11:00:00.000Z"
             },
             {
                 "name": "Tararua Stage 2",
@@ -1349,7 +1349,7 @@
                 "capacity": 34,
                 "fuel": "Wind",
                 "fuelCode": "WIN",
-                "commissioned": "1899-12-31T12:30:00.000Z"
+                "commissioned": "2003-12-31T11:00:00.000Z"
             },
             {
                 "name": "Tararua Stage 3",
@@ -1358,7 +1358,7 @@
                 "capacity": 93,
                 "fuel": "Wind",
                 "fuelCode": "WIN",
-                "commissioned": "1899-12-31T12:30:00.000Z"
+                "commissioned": "2006-12-31T11:00:00.000Z"
             }
         ],
         "location": {
@@ -1381,7 +1381,7 @@
                 "capacity": 90.75,
                 "fuel": "Wind",
                 "fuelCode": "WIN",
-                "commissioned": "1899-12-31T12:30:00.000Z"
+                "commissioned": "2004-06-30T12:00:00.000Z"
             }
         ],
         "location": {
@@ -1404,7 +1404,7 @@
                 "capacity": 83,
                 "fuel": "Geothermal",
                 "fuelCode": "GEO",
-                "commissioned": "1899-12-31T12:30:00.000Z"
+                "commissioned": "2013-09-30T11:00:00.000Z"
             },
             {
                 "name": "Te Mihi Unit 2",
@@ -1413,7 +1413,7 @@
                 "capacity": 86,
                 "fuel": "Geothermal",
                 "fuelCode": "GEO",
-                "commissioned": "1899-12-31T12:30:00.000Z"
+                "commissioned": "2013-10-31T11:00:00.000Z"
             }
         ],
         "location": {
@@ -1435,7 +1435,7 @@
                 "capacity": 49,
                 "fuel": "Wind",
                 "fuelCode": "WIN",
-                "commissioned": "1899-12-31T12:30:00.000Z"
+                "commissioned": "2006-08-31T12:00:00.000Z"
             }
         ],
         "location": {
@@ -1458,7 +1458,7 @@
                 "capacity": 66,
                 "fuel": "Wind",
                 "fuelCode": "WIN",
-                "commissioned": "1899-12-31T12:30:00.000Z"
+                "commissioned": "2010-11-12T11:00:00.000Z"
             }
         ],
         "location": {
@@ -1480,7 +1480,7 @@
                 "capacity": 240,
                 "fuel": "Hydro",
                 "fuelCode": "HYD",
-                "commissioned": "1899-12-31T12:30:00.000Z"
+                "commissioned": "1972-12-31T12:00:00.000Z"
             }
         ],
         "location": {
@@ -1503,7 +1503,7 @@
                 "capacity": 62,
                 "fuel": "Hydro",
                 "fuelCode": "HYD",
-                "commissioned": "1899-12-31T12:30:00.000Z"
+                "commissioned": "1928-12-31T12:00:00.000Z"
             }
         ],
         "location": {
@@ -1549,7 +1549,7 @@
                 "capacity": 54,
                 "fuel": "Hydro",
                 "fuelCode": "HYD",
-                "commissioned": "1899-12-31T12:30:00.000Z"
+                "commissioned": "1961-03-31T12:00:00.000Z"
             }
         ],
         "location": {
@@ -1594,7 +1594,7 @@
                 "capacity": 27,
                 "fuel": "Geothermal",
                 "fuelCode": "GEO",
-                "commissioned": "1899-12-31T12:30:00.000Z"
+                "commissioned": "2010-04-30T12:00:00.000Z"
             },
             {
                 "name": "Te Huka Unit 3",
@@ -1627,7 +1627,7 @@
                 "capacity": 168,
                 "fuel": "Geothermal",
                 "fuelCode": "GEO",
-                "commissioned": "1899-12-31T12:30:00.000Z"
+                "commissioned": "1958-11-14T12:00:00.000Z"
             }
         ],
         "location": {
@@ -1649,7 +1649,7 @@
                 "capacity": 105,
                 "fuel": "Hydro",
                 "fuelCode": "HYD",
-                "commissioned": "1899-12-31T12:30:00.000Z"
+                "commissioned": "1934-12-31T12:00:00.000Z"
             }
         ],
         "location": {
@@ -1672,7 +1672,7 @@
                 "capacity": 71.3,
                 "fuel": "Wind",
                 "fuelCode": "WIN",
-                "commissioned": "1899-12-31T12:30:00.000Z"
+                "commissioned": "2009-03-31T11:00:00.000Z"
             },
             {
                 "name": "West Wind",
@@ -1681,7 +1681,7 @@
                 "capacity": 71.3,
                 "fuel": "Wind",
                 "fuelCode": "WIN",
-                "commissioned": "1899-12-31T12:30:00.000Z"
+                "commissioned": "2009-03-31T11:00:00.000Z"
             }
         ],
         "location": {
@@ -1704,7 +1704,7 @@
                 "capacity": 124,
                 "fuel": "Hydro",
                 "fuelCode": "HYD",
-                "commissioned": "1899-12-31T12:30:00.000Z"
+                "commissioned": "1955-12-31T12:00:00.000Z"
             }
         ],
         "location": {
@@ -1727,7 +1727,7 @@
                 "capacity": 26,
                 "fuel": "Hydro",
                 "fuelCode": "HYD",
-                "commissioned": "1899-12-31T12:30:00.000Z"
+                "commissioned": "1984-04-30T12:00:00.000Z"
             }
         ],
         "location": {
@@ -1776,7 +1776,7 @@
                 "capacity": 52,
                 "fuel": "Diesel",
                 "fuelCode": "DIE",
-                "commissioned": "1899-12-31T12:30:00.000Z",
+                "commissioned": "2004-03-31T12:00:00.000Z",
                 "decomissioned": "2023-11-08T20:59:59.000Z"
             }
         ],
@@ -1799,7 +1799,7 @@
                 "capacity": 58,
                 "fuel": "Wind",
                 "fuelCode": "WIN",
-                "commissioned": "1899-12-31T12:30:00.000Z"
+                "commissioned": "2007-05-31T12:00:00.000Z"
             }
         ],
         "location": {
@@ -2383,7 +2383,7 @@
                 "capacity": 44,
                 "fuel": "Gas",
                 "fuelCode": "GAS",
-                "commissioned": "1899-12-31T12:30:00.000Z",
+                "commissioned": "1998-12-31T11:00:00.000Z",
                 "decomissioned": "2023-05-29T12:00:00.000Z"
             }
         ],
