@@ -9,6 +9,8 @@ import { Timeseries } from "../models/timeseries";
 import { PocpOutage } from "../models/pocpOutage";
 import { sendSlackMessage } from "../clients/slack";
 import { checkForNewGenerationRecords } from "./syncGenerationRecords";
+import { findUnitsOverCapacity, formatUnitsOverCapacityMessage } from "../services/overCapacity/overCapacityChecker";
+import { RealTimeDispatch } from "../models/realTimeDispatch";
 
 export async function syncDispatch() {
   console.log("Syncing dispatch");
@@ -49,6 +51,7 @@ export async function syncDispatch() {
 
     await checkForMissingUnitsAndNotify(data);
     await checkForNewGenerationRecords(data);
+    await checkForUnitsOverCapacityAndNotify(data);
   }
 
   let outageList: PocpOutage[];
@@ -80,6 +83,32 @@ async function checkForMissingUnitsAndNotify(lastDispatch: any[]) {
   }
 
   await env.dispatch_kv.put("missingUnit", JSON.stringify(missingUnitResponse));
+}
+
+// each unit is only alerted once, until its capacity in the generator list is changed (e.g. if it's raised, but the
+// unit still goes over it)
+async function checkForUnitsOverCapacityAndNotify(dispatch: RealTimeDispatch[]) {
+  const overCapacity = findUnitsOverCapacity(dispatch, await getGenerators());
+  if (overCapacity.length === 0) {
+    return;
+  }
+
+  // node => the capacity it was alerted for
+  const previousAlerts = await env.dispatch_kv.get("unitsOverCapacity");
+  const alerted = previousAlerts ? JSON.parse(previousAlerts) as Record<string, number> : {};
+
+  const newlyOverCapacity = overCapacity.filter(unit => alerted[unit.node] !== unit.capacity);
+  if (newlyOverCapacity.length === 0) {
+    return;
+  }
+
+  for (const unit of newlyOverCapacity) {
+    alerted[unit.node] = unit.capacity;
+  }
+  await env.dispatch_kv.put("unitsOverCapacity", JSON.stringify(alerted));
+
+  console.log("Units over capacity: " + newlyOverCapacity.map(unit => unit.node).join(", "));
+  await sendSlackMessage(formatUnitsOverCapacityMessage(newlyOverCapacity));
 }
 
 function deepEqual(a: any, b: any): boolean {
