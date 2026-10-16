@@ -78,6 +78,13 @@ describe("units combining others' metered generation", () => {
     }
   });
 
+  it("were commissioned with the oldest unit they combine", () => {
+    const commissioned = new Map(units.map(unit => [unit.node, unit.commissioned]));
+    for (const unit of combinedUnits) {
+      expect(unit.commissioned, unit.node).toBe(unit.combines!.map(node => commissioned.get(node)!).sort()[0]);
+    }
+  });
+
   it("have no capacity of their own, as the units they combine have it", () => {
     for (const unit of combinedUnits) {
       expect(unit.capacity, unit.node).toBe(0);

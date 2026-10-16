@@ -256,7 +256,7 @@
                 "capacity": 270,
                 "fuel": "Hydro",
                 "fuelCode": "HYD",
-                "commissioned": "1899-12-31T12:30:00.000Z",
+                "commissioned": "1964-12-31T12:00:00.000Z",
                 "decomissioned": "2012-10-28T10:59:59.000Z"
             },
             {
@@ -266,7 +266,7 @@
                 "capacity": 270,
                 "fuel": "Hydro",
                 "fuelCode": "HYD",
-                "commissioned": "1899-12-31T12:30:00.000Z",
+                "commissioned": "1964-12-31T12:00:00.000Z",
                 "decomissioned": "2011-08-09T11:59:59.000Z"
             }
         ],
@@ -366,7 +366,7 @@
                 "capacity": 36,
                 "fuel": "Hydro",
                 "fuelCode": "HYD",
-                "commissioned": "1899-12-31T12:30:00.000Z",
+                "commissioned": "1944-05-31T12:00:00.000Z",
                 "decomissioned": "2015-01-31T10:59:59.000Z"
             }
         ],
@@ -584,7 +584,7 @@
                 "capacity": 0,
                 "fuel": "Coal/Gas",
                 "fuelCode": "CLG",
-                "commissioned": "1899-12-31T12:30:00.000Z",
+                "commissioned": "1981-12-31T11:00:00.000Z",
                 "decomissioned": "2020-09-10T11:59:59.999Z",
                 "combines": [
                     "HLY2201 HLY1",
@@ -1182,7 +1182,7 @@
                 "capacity": 0,
                 "fuel": "Hydro",
                 "fuelCode": "HYD",
-                "commissioned": "1899-12-31T12:30:00.000Z",
+                "commissioned": "1984-04-30T12:00:00.000Z",
                 "decomissioned": "2020-09-10T11:59:59.999Z",
                 "combines": [
                     "HWA1101 PTA1",
@@ -1361,7 +1361,7 @@
                 "capacity": 0,
                 "fuel": "Gas",
                 "fuelCode": "GAS",
-                "commissioned": "1899-12-31T12:30:00.000Z",
+                "commissioned": "1997-12-31T11:00:00.000Z",
                 "decomissioned": "2020-09-10T11:59:59.999Z",
                 "combines": [
                     "SFD2201 SPL0",
@@ -1399,7 +1399,7 @@
                 "capacity": 30,
                 "fuel": "Hydro",
                 "fuelCode": "HYD",
-                "commissioned": "1899-12-31T12:00:00.000Z",
+                "commissioned": "1950-12-31T12:00:00.000Z",
                 "decomissioned": "2011-05-31T11:59:59.000Z"
             }
         ],
@@ -1432,7 +1432,7 @@
                 "capacity": 160,
                 "fuel": "Hydro",
                 "fuelCode": "HYD",
-                "commissioned": "1899-12-31T12:00:00.000Z",
+                "commissioned": "1976-12-31T11:00:00.000Z",
                 "decomissioned": "2011-05-31T11:59:59.000Z"
             }
         ],
@@ -1538,7 +1538,7 @@
                 "capacity": 0,
                 "fuel": "Geothermal",
                 "fuelCode": "GEO",
-                "commissioned": "1899-12-31T12:30:00.000Z",
+                "commissioned": "2013-09-30T11:00:00.000Z",
                 "decomissioned": "2020-09-10T11:59:59.999Z",
                 "combines": [
                     "THI2201 THI1",
@@ -1642,7 +1642,7 @@
                 "capacity": 0,
                 "fuel": "Hydro",
                 "fuelCode": "HYD",
-                "commissioned": "1899-12-31T12:30:00.000Z",
+                "commissioned": "1928-12-31T12:00:00.000Z",
                 "decomissioned": "2020-09-10T11:59:59.999Z",
                 "combines": [
                     "TUI1101 TUI0",
@@ -2641,13 +2641,13 @@
                 "capacity": 600,
                 "fuel": "Gas",
                 "fuelCode": "GAS",
-                "commissioned": "1899-12-31T12:30:00.000Z",
+                "commissioned": "1974-01-31T12:00:00.000Z",
                 "decomissioned": "2010-03-30T00:30:00.000Z"
             }
         ],
         "location": {
-            "lat": -39.0622,
-            "long": 174.03
+            "lat": -39.05778,
+            "long": 174.02722
         },
         "gridZone": "LNI",
         "island": "NI",
@@ -2661,10 +2661,10 @@
                 "name": "Te Awamutu",
                 "unitCode": "te_awamutu",
                 "node": "TMU1101 te_awamutu",
-                "capacity": 60,
+                "capacity": 54,
                 "fuel": "Gas",
                 "fuelCode": "GAS",
-                "commissioned": "1899-12-31T12:30:00.000Z",
+                "commissioned": "1992-12-31T11:00:00.000Z",
                 "decomissioned": "2007-05-23T07:30:00.000Z"
             }
         ],

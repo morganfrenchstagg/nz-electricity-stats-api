@@ -26,7 +26,8 @@ export type UnitDefinition = {
 	// otherwise when the node entered EMI's dispatched generation plant register. Plant that was already running when the
 	// register began (which EMI dates 1899) instead uses roughly when it first generated, from the owner, Wikipedia and
 	// similar, as midnight NZ time on the 1st of the month or year where that's all that's known. For a node covering
-	// several stations, it's the oldest still running. It's absent while a unit is still being commissioned.
+	// several stations, it's the oldest still running, and a unit combining others (see combines) uses the oldest of
+	// theirs. It's absent while a unit is still being commissioned.
 	// decomissioned is when the node left the register, or when it stopped dispatching (or, before the dispatch data,
 	// generating) if the register still lists it.
 	commissioned?: string;
