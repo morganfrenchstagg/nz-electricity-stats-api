@@ -3,6 +3,10 @@ import { HistoricalDispatchRecord } from "../../models/historicalDispatchRecord"
 
 const ONE_DAY_IN_MS = 24 * 60 * 60 * 1000;
 
+// the first day aggregated from the daily dispatch files. EMI's first file (10 September 2020) only starts at 9:35am,
+// so that day and every day before it are aggregated from metered generation instead (see syncMeteredGeneration)
+export const DISPATCH_AGGREGATES_START = "2020-09-11";
+
 const nzDateTimeFormat = new Intl.DateTimeFormat("en-US", {
     timeZone: "Pacific/Auckland",
     hourCycle: "h23",
@@ -126,6 +130,19 @@ export function hoursInNzDay(date: string): number {
     const startOffset = getNzOffsetMinutes(middayUtc - ONE_DAY_IN_MS);
     const endOffset = getNzOffsetMinutes(middayUtc);
     return 24 + (startOffset - endOffset) / 60;
+}
+
+// when each of a trading day's first n periods starts, in NZ time without an offset as the daily dispatch files have it
+// (e.g. 2026-10-12T00:30:00). periods are the half hours since midnight, so on the day daylight saving ends, the
+// repeated hour's periods start at the same times as the hour before them
+export function getTradingPeriodStarts(date: string, periods: number): string[] {
+    // 12:00 UTC the day before is 00:00/01:00 on the day in NZ, which is before the 02:00/03:00 daylight saving changeover
+    const midnight = parseDate(date) - getNzOffsetMinutes(parseDate(date) - ONE_DAY_IN_MS / 2) * 60000;
+
+    return Array.from({ length: periods }, (_, period) => {
+        const start = midnight + period * ONE_DAY_IN_MS / 48;
+        return new Date(start + getNzOffsetMinutes(start) * 60000).toISOString().slice(0, 19);
+    });
 }
 
 function getNzOffsetMinutes(instant: number): number {

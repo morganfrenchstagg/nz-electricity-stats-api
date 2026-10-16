@@ -8,6 +8,7 @@ import { getSubstations } from "./clients/substations";
 import { syncDailyDispatch } from "./sync/syncDailyDispatch";
 import { syncDispatchAggregates } from "./sync/syncDispatchAggregates";
 import { syncGenerationRecords } from "./sync/syncGenerationRecords";
+import { syncMeteredGeneration } from "./sync/syncMeteredGeneration";
 import { checkForStaleData } from "./sync/staleDataCheck";
 import offersApi from "./api/offersApi";
 import { getJsonResponseWithMaxAgeHeader } from "./utilities/utilities";
@@ -84,6 +85,7 @@ async function scheduled(controller: ScheduledController) {
       await syncDailyDispatch();
       await syncDispatchAggregates();
       await syncGenerationRecords();
+      await syncMeteredGeneration();
       break;
     case "45 * * * *":
       await syncOffers();

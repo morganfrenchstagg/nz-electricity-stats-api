@@ -5,6 +5,7 @@ import {
   getDatesBetween,
   getIsoWeek,
   getMonthBounds,
+  getTradingPeriodStarts,
   hoursInNzDay,
   sumDataPoints,
   toTimeseries,
@@ -89,6 +90,35 @@ describe("calculateDailyEnergy", () => {
 
   it("empty file gives no nodes", () => {
     expect(calculateDailyEnergy("2026-10-08", {}).nodes).toEqual({});
+  });
+});
+
+describe("getTradingPeriodStarts", () => {
+  it("starts a period every half hour from midnight", () => {
+    const starts = getTradingPeriodStarts("2026-10-08", 48);
+
+    expect(starts.slice(0, 3)).toEqual(["2026-10-08T00:00:00", "2026-10-08T00:30:00", "2026-10-08T01:00:00"]);
+    expect(starts[47]).toBe("2026-10-08T23:30:00");
+  });
+
+  it("skips the hour daylight saving starts", () => {
+    const starts = getTradingPeriodStarts("2026-09-27", 46);
+
+    expect(starts.slice(3, 5)).toEqual(["2026-09-27T01:30:00", "2026-09-27T03:00:00"]);
+    expect(starts[45]).toBe("2026-09-27T23:30:00");
+  });
+
+  it("repeats the hour daylight saving ends", () => {
+    const starts = getTradingPeriodStarts("2026-04-05", 50);
+
+    expect(starts.slice(4, 8)).toEqual(["2026-04-05T02:00:00", "2026-04-05T02:30:00", "2026-04-05T02:00:00", "2026-04-05T02:30:00"]);
+    expect(starts[49]).toBe("2026-04-05T23:30:00");
+  });
+
+  it("follows the daylight saving rules of the time", () => {
+    // daylight saving ended in March until 2007, and NZ didn't have it at all before 1974
+    expect(getTradingPeriodStarts("2006-03-19", 50)[6]).toBe("2006-03-19T02:00:00");
+    expect(getTradingPeriodStarts("1973-03-04", 48)[47]).toBe("1973-03-04T23:30:00");
   });
 });
 

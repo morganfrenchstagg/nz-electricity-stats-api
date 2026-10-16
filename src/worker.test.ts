@@ -9,11 +9,13 @@ import { syncDispatch } from "./sync/syncDispatch";
 import { syncDailyDispatch } from "./sync/syncDailyDispatch";
 import { syncDispatchAggregates } from "./sync/syncDispatchAggregates";
 import { syncOffers } from "./sync/syncOffers";
+import { syncMeteredGeneration } from "./sync/syncMeteredGeneration";
 import { checkForStaleData } from "./sync/staleDataCheck";
 
 vi.mock("./sync/syncDispatch", () => ({ syncDispatch: vi.fn() }));
 vi.mock("./sync/syncDailyDispatch", () => ({ syncDailyDispatch: vi.fn() }));
 vi.mock("./sync/syncOffers", () => ({ syncOffers: vi.fn() }));
+vi.mock("./sync/syncMeteredGeneration", () => ({ syncMeteredGeneration: vi.fn() }));
 vi.mock("./sync/staleDataCheck", () => ({ checkForStaleData: vi.fn() }));
 vi.mock("./sync/syncDispatchAggregates", async (importOriginal) => ({
   ...await importOriginal<typeof import("./sync/syncDispatchAggregates")>(),
@@ -135,7 +137,7 @@ describe("scheduled", () => {
     expect(checkForStaleData).toHaveBeenCalledOnce();
   });
 
-  it("syncs the daily dispatch files hourly, and aggregates them once they've finished syncing", async () => {
+  it("syncs the daily dispatch files hourly, and aggregates them and the metered generation once they've finished syncing", async () => {
     let finishDailySync = () => { };
     vi.mocked(syncDailyDispatch).mockReturnValue(new Promise(resolve => finishDailySync = resolve));
 
@@ -144,11 +146,13 @@ describe("scheduled", () => {
     await Promise.resolve();
     expect(syncDailyDispatch).toHaveBeenCalledOnce();
     expect(syncDispatchAggregates).not.toHaveBeenCalled();
+    expect(syncMeteredGeneration).not.toHaveBeenCalled();
 
     finishDailySync();
     await run;
 
     expect(syncDispatchAggregates).toHaveBeenCalledOnce();
+    expect(syncMeteredGeneration).toHaveBeenCalledOnce();
     expect(syncDispatch).not.toHaveBeenCalled();
     expect(syncOffers).not.toHaveBeenCalled();
   });

@@ -159,6 +159,17 @@ describe("syncDispatchAggregates", () => {
     });
   });
 
+  it("leaves the first, partial, day of dispatch files to metered generation", async () => {
+    await storeDailyFile("2020-09-10", 10);
+    await storeDailyFile("2020-09-11", 20);
+    await env.dispatch_kv.put("latestDailySyncDate", "20200911");
+
+    await syncDispatchAggregates();
+
+    expect(await getAggregate("aggregate-daily-2020-09")).toEqual({ data: [day("2020-09-11", 480)] });
+    expect(await env.dispatch_kv.get("latestAggregatedDispatchDate")).toBe("2020-09-11");
+  });
+
   it("skips queued days whose daily file no longer exists", async () => {
     await storeDailyFile("2026-10-06", 20);
     await env.dispatch_kv.put("latestDailySyncDate", "20261006");
@@ -185,6 +196,14 @@ describe("queueForReaggregation", () => {
     await queueForReaggregation(["20261007", "20261008"]);
 
     expect(await env.dispatch_kv.get("dispatchDatesToReaggregate")).toBeNull();
+  });
+
+  it("ignores days aggregated from metered generation", async () => {
+    await env.dispatch_kv.put("latestAggregatedDispatchDate", "2026-10-06");
+
+    await queueForReaggregation(["20200910", "20200911"]);
+
+    expect(await env.dispatch_kv.get("dispatchDatesToReaggregate")).toBe(JSON.stringify(["2020-09-11"]));
   });
 
   it("adds aggregated days to the queue, in date order without duplicates", async () => {
