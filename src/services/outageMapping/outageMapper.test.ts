@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { mapOutagesByUnit } from "./outageMapper";
 import { PocpOutage } from "../../models/pocpOutage";
 import { GeneratorDefinition } from "../../clients/generators";
@@ -321,4 +321,185 @@ describe("outageMapper", () => {
         const result = mapOutagesByUnit(outages, generatorDefinitions);
         expect(result).toEqual({});
     })
+
+    describe("units that are in and out of service", () => {
+        beforeEach(() => {
+            vi.useFakeTimers({ toFake: ["Date"] });
+            vi.setSystemTime(new Date("2026-10-17T00:00:00Z"));
+        });
+
+        afterEach(() => {
+            vi.useRealTimers();
+        });
+
+        // Pātea moved from HWA1101 to OHG1101, so each unit code is listed at both nodes
+        const movedUnitGenerators = [
+            {
+                site: "PTA",
+                units: [
+                    {
+                        unitCode: "PTA1",
+                        node: "HWA1101 PTA1",
+                        commissioned: "1899-12-31T12:30:00.000Z",
+                        decomissioned: "2026-06-25T01:59:59.999Z"
+                    },
+                    {
+                        unitCode: "PTA2",
+                        node: "HWA1101 PTA2",
+                        commissioned: "1899-12-31T12:30:00.000Z",
+                        decomissioned: "2026-06-25T01:59:59.999Z"
+                    },
+                    {
+                        unitCode: "PTA1",
+                        node: "OHG1101 PTA1",
+                        commissioned: "2026-06-25T02:00:00.000Z"
+                    },
+                    {
+                        unitCode: "PTA2",
+                        node: "OHG1101 PTA2",
+                        commissioned: "2026-06-25T02:00:00.000Z"
+                    }
+                ]
+            }
+        ] as GeneratorDefinition[];
+
+        it("maps a unit that moved node to its new node", () => {
+            const outages = [
+                {
+                    outageBlock: "PTA_1"
+                },
+                {
+                    outageBlock: "PTA_2"
+                },
+                {
+                    outageBlock: "PTA_STN"
+                }
+            ] as PocpOutage[];
+
+            const result = mapOutagesByUnit(outages, movedUnitGenerators);
+            expect(result).toEqual({
+                "OHG1101 PTA1": [
+                    {
+                        outageBlock: "PTA_1"
+                    },
+                    {
+                        outageBlock: "PTA_STN"
+                    }
+                ],
+                "OHG1101 PTA2": [
+                    {
+                        outageBlock: "PTA_2"
+                    }
+                ]
+            });
+        })
+
+        it("maps a unit to its old node until it moves", () => {
+            vi.setSystemTime(new Date("2026-06-25T01:59:59.000Z"));
+
+            const outages = [
+                {
+                    outageBlock: "PTA_1"
+                }
+            ] as PocpOutage[];
+
+            const result = mapOutagesByUnit(outages, movedUnitGenerators);
+            expect(result).toEqual({
+                "HWA1101 PTA1": [
+                    {
+                        outageBlock: "PTA_1"
+                    }
+                ]
+            });
+        })
+
+        it("maps a unit to its new node from when it's commissioned", () => {
+            vi.setSystemTime(new Date("2026-06-25T02:00:00.000Z"));
+
+            const outages = [
+                {
+                    outageBlock: "PTA_1"
+                }
+            ] as PocpOutage[];
+
+            const result = mapOutagesByUnit(outages, movedUnitGenerators);
+            expect(result).toEqual({
+                "OHG1101 PTA1": [
+                    {
+                        outageBlock: "PTA_1"
+                    }
+                ]
+            });
+        })
+
+        it("maps a site/alias match to the generator's in-service unit", () => {
+            const outages = [
+                {
+                    outageBlock: "KTS"
+                }
+            ] as PocpOutage[];
+
+            const generatorDefinitions = [
+                {
+                    site: "KSF",
+                    units: [
+                        {
+                            unitCode: "KSF0",
+                            node: "ABC1101 KSF0",
+                            decomissioned: "2025-01-01T00:00:00.000Z"
+                        },
+                        {
+                            unitCode: "KSF0",
+                            node: "KOE1101 KSF0"
+                        }
+                    ],
+                    alias: "KTS"
+                }
+            ] as GeneratorDefinition[];
+
+            const result = mapOutagesByUnit(outages, generatorDefinitions);
+            expect(result).toEqual({
+                "KOE1101 KSF0": [
+                    {
+                        outageBlock: "KTS"
+                    }
+                ]
+            });
+        })
+
+        it("keeps an outage on a retired unit rather than moving it to a looser in-service match", () => {
+            const outages = [
+                {
+                    outageBlock: "TCC_Stn"
+                }
+            ] as PocpOutage[];
+
+            const generatorDefinitions = [
+                {
+                    site: "SFD",
+                    units: [
+                        {
+                            unitCode: "SFD21",
+                            node: "SFD2201 SFD21"
+                        },
+                        {
+                            unitCode: "TCC1",
+                            node: "SFD2201 SPL0",
+                            decomissioned: "2025-09-05T07:30:00.000Z"
+                        }
+                    ],
+                    alias: "TCC"
+                }
+            ] as GeneratorDefinition[];
+
+            const result = mapOutagesByUnit(outages, generatorDefinitions);
+            expect(result).toEqual({
+                "SFD2201 SPL0": [
+                    {
+                        outageBlock: "TCC_Stn"
+                    }
+                ]
+            });
+        })
+    });
 });
