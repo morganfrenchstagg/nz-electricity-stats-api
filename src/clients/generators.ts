@@ -24,7 +24,7 @@ export type UnitDefinition = {
 	fuelCode: string;
 	// UTC. commissioned is the first dispatch interval for sites new since the daily dispatch data began (Sep 2020),
 	// otherwise when the node entered EMI's dispatched generation plant register. EMI uses 1899-12-31T12:30:00.000Z for
-	// plant that was already running when the register began.
+	// plant that was already running when the register began, and it's absent while a unit is still being commissioned.
 	// decomissioned is when the node left the register, or when it stopped dispatching if the register still lists it.
 	commissioned?: string;
 	decomissioned?: string;

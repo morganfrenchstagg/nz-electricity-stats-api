@@ -1,8 +1,11 @@
 import { getGenerators, UnitDefinition } from "../../clients/generators";
 import { getSubstations } from "../../clients/substations";
 
-const isDecommissioned = (unit: UnitDefinition) =>
-  unit.decomissioned !== undefined && Date.parse(unit.decomissioned) <= Date.now();
+// A unit is expected in dispatch from its commissioning until its decommissioning. One without a commissioning date
+// is still being commissioned, so isn't expected yet.
+const isInService = (unit: UnitDefinition) =>
+  unit.commissioned !== undefined && Date.parse(unit.commissioned) <= Date.now() &&
+  (unit.decomissioned === undefined || Date.parse(unit.decomissioned) > Date.now());
 
 export const checkForMissingUnits = async (dispatchList: string[]) => {
   const generators = await getGenerators();
@@ -20,7 +23,7 @@ export const checkForMissingUnits = async (dispatchList: string[]) => {
           unitsNotInGeneratorList.indexOf(unit.node),
           1,
         );
-      } else if (!isDecommissioned(unit)) {
+      } else if (isInService(unit)) {
         unitsNotInDispatchList.push(unit.node);
       }
     }

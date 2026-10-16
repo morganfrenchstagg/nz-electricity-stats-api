@@ -41,7 +41,8 @@ describe("checkForMissingUnits", () => {
             unitCode: "",
             capacity: 0,
             fuel: "",
-            fuelCode: ""
+            fuelCode: "",
+            commissioned: "1899-12-31T12:30:00.000Z"
           },
         ],
         site: "",
@@ -79,7 +80,8 @@ describe("checkForMissingUnits", () => {
             unitCode: "",
             capacity: 0,
             fuel: "",
-            fuelCode: ""
+            fuelCode: "",
+            commissioned: "1899-12-31T12:30:00.000Z"
           },
         ],
         site: "",
@@ -107,7 +109,7 @@ describe("checkForMissingUnits", () => {
     });
   });
 
-  describe("decommissioned units", () => {
+  describe("units in and out of service", () => {
     beforeEach(() => {
       vi.useFakeTimers({ toFake: ["Date"] });
       vi.setSystemTime(new Date("2026-10-14T09:00:00Z"));
@@ -124,6 +126,7 @@ describe("checkForMissingUnits", () => {
               capacity: 0,
               fuel: "",
               fuelCode: "",
+              commissioned: "1899-12-31T12:30:00.000Z",
               ...unit,
             },
           ],
@@ -149,6 +152,27 @@ describe("checkForMissingUnits", () => {
 
     it("should still report a unit missing from the dispatch list before its decommissioning date", async () => {
       mockUnit({ decomissioned: "2026-10-14T09:00:01.000Z" });
+
+      const result = await checkForMissingUnits([]);
+      expect(result.generation.notInDispatchList).toEqual(["1234567890 ABCD"]);
+    });
+
+    it("should not report a unit missing from the dispatch list while it's still being commissioned", async () => {
+      mockUnit({ commissioned: undefined });
+
+      const result = await checkForMissingUnits([]);
+      expect(result.generation.notInDispatchList).toEqual([]);
+    });
+
+    it("should not report a unit missing from the dispatch list before its commissioning date", async () => {
+      mockUnit({ commissioned: "2026-10-14T09:00:01.000Z" });
+
+      const result = await checkForMissingUnits([]);
+      expect(result.generation.notInDispatchList).toEqual([]);
+    });
+
+    it("should report a unit missing from the dispatch list from its commissioning date", async () => {
+      mockUnit({ commissioned: "2026-10-14T09:00:00.000Z" });
 
       const result = await checkForMissingUnits([]);
       expect(result.generation.notInDispatchList).toEqual(["1234567890 ABCD"]);
@@ -182,7 +206,8 @@ describe("checkForMissingUnits", () => {
             unitCode: "",
             capacity: 0,
             fuel: "",
-            fuelCode: ""
+            fuelCode: "",
+            commissioned: "1899-12-31T12:30:00.000Z"
           },
         ],
         site: "",
@@ -220,7 +245,8 @@ describe("checkForMissingUnits", () => {
             unitCode: "",
             capacity: 0,
             fuel: "",
-            fuelCode: ""
+            fuelCode: "",
+            commissioned: "1899-12-31T12:30:00.000Z"
           },
         ],
         site: "",
@@ -332,7 +358,8 @@ describe("checkForMissingUnits", () => {
             unitCode: "",
             capacity: 0,
             fuel: "",
-            fuelCode: ""
+            fuelCode: "",
+            commissioned: "1899-12-31T12:30:00.000Z"
           },
         ],
         site: "",
