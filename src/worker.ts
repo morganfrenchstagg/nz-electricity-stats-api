@@ -33,7 +33,7 @@ app.use('/v1/*', async (c, next) => {
 });
 
 app.get('/', async (c) => {
-  return c.redirect("https://electricitymap.frenchsta.gg/");
+  return c.body(null, 200);
 });
 
 app.get('ping', async (c) => {
