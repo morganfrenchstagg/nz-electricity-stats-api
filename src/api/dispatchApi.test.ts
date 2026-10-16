@@ -135,6 +135,37 @@ describe("dispatch api", () => {
       expect(response.status).toBe(200);
       expect(json).toEqual({ series: [], data: [], pricing: [] });
     });
+
+    describe("?since", () => {
+      beforeEach(async () => {
+        await env.dispatch.put("timeseries", JSON.stringify(timeseries("2026-10-14T22:00:00")));
+      });
+
+      it("only returns the intervals after the timestamp", async () => {
+        const { response, json } = await getJson("/v1/dispatch/recent?since=2026-10-14T21:45:00");
+
+        expect(json).toEqual({
+          series: ["ATI2201 ATI0"],
+          data: [["2026-10-14T22:00:00", 50]],
+          pricing: [["2026-10-14T22:00:00", 120.5]],
+        });
+        expect(response.headers.get("Cache-Control")).toBe("max-age=300");
+      });
+
+      it("returns no intervals, cached until the next one should be available, when there's nothing newer", async () => {
+        const { response, json } = await getJson("/v1/dispatch/recent?since=2026-10-14T22:00:00");
+
+        expect(json).toEqual({ series: ["ATI2201 ATI0"], data: [], pricing: [] });
+        expect(response.headers.get("Cache-Control")).toBe("max-age=300");
+      });
+
+      it.each(["2026-10-14", "2026-10-14T22:00:00Z", "yesterday", ""])("returns 400 for since=%s", async (since) => {
+        const { response, json } = await getJson(`/v1/dispatch/recent?since=${encodeURIComponent(since)}`);
+
+        expect(response.status).toBe(400);
+        expect(json).toEqual({ message: "Invalid since, expected an NZ time like 2026-10-14T21:55:00" });
+      });
+    });
   });
 
   describe("GET /v1/dispatch/:date", () => {

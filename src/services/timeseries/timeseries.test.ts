@@ -1,6 +1,6 @@
 import { it, describe, expect } from "vitest";
 
-import { generateTimeseries } from "./timeseries";
+import { filterTimeseriesSince, generateTimeseries } from "./timeseries";
 import { RealTimeDispatch } from "../../models/realTimeDispatch";
 
 describe("generateTimeseries", () => {
@@ -370,4 +370,42 @@ describe("generateTimeseries", () => {
       ]
     });
   })
+});
+
+describe("filterTimeseriesSince", () => {
+  const timeseries = {
+    series: ["ABY0111", "ARA2201 ARA0"],
+    data: [
+      ["2026-05-29T23:55:00", -2.5, 70],
+      ["2026-05-30T00:00:00", -2.576, 72],
+      ["2026-05-30T00:05:00", -3, 71],
+    ],
+    pricing: [
+      ["2026-05-29T23:55:00", 93, 99],
+      ["2026-05-30T00:00:00", 94.08, 100.27],
+      ["2026-05-30T00:05:00", 95, 101],
+    ],
+  };
+
+  it("keeps only the rows after the timestamp", () => {
+    expect(filterTimeseriesSince(timeseries, "2026-05-29T23:55:00")).toEqual({
+      series: ["ABY0111", "ARA2201 ARA0"],
+      data: [
+        ["2026-05-30T00:00:00", -2.576, 72],
+        ["2026-05-30T00:05:00", -3, 71],
+      ],
+      pricing: [
+        ["2026-05-30T00:00:00", 94.08, 100.27],
+        ["2026-05-30T00:05:00", 95, 101],
+      ],
+    });
+  });
+
+  it("keeps the series when there are no rows after the timestamp", () => {
+    expect(filterTimeseriesSince(timeseries, "2026-05-30T00:05:00")).toEqual({
+      series: ["ABY0111", "ARA2201 ARA0"],
+      data: [],
+      pricing: [],
+    });
+  });
 });
