@@ -1,15 +1,7 @@
 import { env } from "cloudflare:workers";
-import { AggregateDataPoint, AggregateResolution, DispatchAggregate } from "../models/dispatchAggregate";
 import { HistoricalDispatchRecord } from "../models/historicalDispatchRecord";
-import {
-    calculateDailyEnergy,
-    getAggregateKey,
-    getDatesBetween,
-    getIsoWeek,
-    getMonthBounds,
-    sumDataPoints,
-    upsertDataPoint
-} from "../services/dispatchAggregation/dispatchAggregation";
+import { calculateDailyEnergy, DISPATCH_AGGREGATES_START } from "../services/dispatchAggregation/dispatchAggregation";
+import { AggregateStore, recalculateMonth, recalculateWeeks, recalculateYear } from "./aggregateStore";
 
 export const LATEST_AGGREGATED_DATE_KEY = "latestAggregatedDispatchDate";
 
@@ -30,7 +22,7 @@ export async function queueForReaggregation(dates: string[]) {
         return;
     }
 
-    const alreadyAggregated = dates.map(toIsoDate).filter(date => date <= lastAggregatedDate);
+    const alreadyAggregated = dates.map(toIsoDate).filter(date => DISPATCH_AGGREGATES_START <= date && date <= lastAggregatedDate);
     if (alreadyAggregated.length === 0) {
         return;
     }
@@ -67,7 +59,11 @@ export async function syncDispatchAggregates() {
         .filter(date => /^\d{8}$/.test(date) && date <= lastDailySyncDate)
         .map(toIsoDate);
 
-    const dates = [...new Set([...datesToReaggregate, ...newDates])].sort().slice(0, MAX_DAYS_PER_RUN);
+    // earlier days come from metered generation instead
+    const dates = [...new Set([...datesToReaggregate, ...newDates])]
+        .filter(date => date >= DISPATCH_AGGREGATES_START)
+        .sort()
+        .slice(0, MAX_DAYS_PER_RUN);
 
     if (dates.length === 0) {
         console.log("No new daily dispatch files to aggregate");
@@ -128,63 +124,4 @@ async function getDatesToReaggregate(): Promise<string[]> {
 // 20261008 => 2026-10-08
 function toIsoDate(date: string): string {
     return `${date.slice(0, 4)}-${date.slice(4, 6)}-${date.slice(6, 8)}`;
-}
-
-// weeks are rebuilt from the daily data, as a week can span two months
-async function recalculateWeeks(store: AggregateStore, dates: string[]) {
-    const weeks = new Map(dates.map(date => getIsoWeek(date)).map(week => [week.from, week]));
-
-    for (const week of weeks.values()) {
-        const days = [];
-        for (const date of getDatesBetween(week.from, week.to)) {
-            const daily = await store.get("daily", date.slice(0, 7));
-            const day = daily.data.find(item => item.from === date);
-            if (day) {
-                days.push(day);
-            }
-        }
-        await store.upsert("weekly", week.year, sumDataPoints(week.from, week.to, days));
-    }
-}
-
-async function recalculateMonth(store: AggregateStore, month: string) {
-    const daily = await store.get("daily", month);
-    const { from, to } = getMonthBounds(month);
-    await store.upsert("monthly", month.slice(0, 4), sumDataPoints(from, to, daily.data));
-}
-
-async function recalculateYear(store: AggregateStore, year: string) {
-    const monthly = await store.get("monthly", year);
-    await store.upsert("annual", "all", sumDataPoints(`${year}-01-01`, `${year}-12-31`, monthly.data));
-}
-
-// caches aggregate files in memory during a run, and only writes back the ones that changed
-class AggregateStore {
-    private files = new Map<string, DispatchAggregate>();
-    private changed = new Set<string>();
-
-    async get(resolution: AggregateResolution, period: string): Promise<DispatchAggregate> {
-        const key = getAggregateKey(resolution, period);
-        let aggregate = this.files.get(key);
-        if (!aggregate) {
-            const file = await env.dispatch.get(key);
-            aggregate = file ? await file.json() as DispatchAggregate : { data: [] };
-            this.files.set(key, aggregate);
-        }
-        return aggregate;
-    }
-
-    async upsert(resolution: AggregateResolution, period: string, dataPoint: AggregateDataPoint) {
-        const aggregate = await this.get(resolution, period);
-        const key = getAggregateKey(resolution, period);
-        this.files.set(key, upsertDataPoint(aggregate, dataPoint));
-        this.changed.add(key);
-    }
-
-    async flush() {
-        for (const key of this.changed) {
-            await env.dispatch.put(key, JSON.stringify(this.files.get(key)));
-        }
-        this.changed.clear();
-    }
 }

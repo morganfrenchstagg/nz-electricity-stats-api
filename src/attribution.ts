@@ -6,7 +6,7 @@ const CC_BY = { name: "CC BY 4.0", url: "https://creativecommons.org/licenses/by
 export const ATTRIBUTION = {
   sources: [
     {
-      data: "Real-time dispatch, nodal prices and volumes, and bids and offers",
+      data: "Real-time dispatch, nodal prices and volumes, metered generation, and bids and offers",
       endpoints: ["/v1/dispatch", "/v1/offers"],
       source: { name: "Electricity Market Information (EMI)", url: "https://www.emi.ea.govt.nz" },
       copyright: { holder: "Electricity Authority", url: "https://www.ea.govt.nz/copyright-disclaimer-transparency/" },

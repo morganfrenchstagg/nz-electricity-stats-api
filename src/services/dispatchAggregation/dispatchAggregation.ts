@@ -3,6 +3,10 @@ import { HistoricalDispatchRecord } from "../../models/historicalDispatchRecord"
 
 const ONE_DAY_IN_MS = 24 * 60 * 60 * 1000;
 
+// the first day aggregated from the daily dispatch files. EMI's first file (10 September 2020) only starts at 9:35am,
+// so that day and every day before it are aggregated from metered generation instead (see syncMeteredGeneration)
+export const DISPATCH_AGGREGATES_START = "2020-09-11";
+
 const nzDateTimeFormat = new Intl.DateTimeFormat("en-US", {
     timeZone: "Pacific/Auckland",
     hourCycle: "h23",
