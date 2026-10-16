@@ -765,8 +765,8 @@
                 "unitCode": "KIN0",
                 "node": "KIN0112 KIN0",
                 "capacity": 32,
-                "fuel": "Gas",
-                "fuelCode": "GAS",
+                "fuel": "Biomass",
+                "fuelCode": "BIO",
                 "commissioned": "1899-12-31T12:30:00.000Z"
             }
         ],
