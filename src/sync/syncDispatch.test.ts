@@ -179,4 +179,44 @@ describe("syncDispatch", () => {
     const [slackRequest] = requests.filter(request => request.url === env.SLACK_WEBHOOK_URL);
     expect((await slackRequest.json() as { text: string }).text).toContain("*Ātiamuri* (`ATI2201 ATI0`) is generating *50 MW*, a new record");
   });
+
+  describe("units over capacity", () => {
+    // Ātiamuri's capacity is 84MW
+    const overCapacity = [rtd("ATI2201 ATI0", 90, 0, 120.5), rtd("ALB0331", 0, 20, 130)];
+
+    async function slackMessages(requests: Request[]) {
+      const slackRequests = requests.filter(request => request.url === env.SLACK_WEBHOOK_URL);
+      return await Promise.all(slackRequests.map(async request => (await request.json() as { text: string }).text));
+    }
+
+    it("notifies Slack when a unit generates more than its capacity", async () => {
+      const requests = mockApis({ dispatch: overCapacity });
+
+      await syncDispatch();
+
+      expect(await slackMessages(requests)).toEqual([
+        "⚠️ *Ātiamuri* (`ATI2201 ATI0`) is generating *90 MW*, above its capacity of 84 MW in the generator list",
+      ]);
+      expect(JSON.parse((await env.dispatch_kv.get("unitsOverCapacity"))!)).toEqual({ "ATI2201 ATI0": 84 });
+    });
+
+    it("doesn't notify Slack again for a unit it's already notified about", async () => {
+      await env.dispatch_kv.put("unitsOverCapacity", JSON.stringify({ "ATI2201 ATI0": 84 }));
+      const requests = mockApis({ dispatch: overCapacity });
+
+      await syncDispatch();
+
+      expect(await slackMessages(requests)).toEqual([]);
+    });
+
+    it("notifies Slack again when the unit's capacity has changed since", async () => {
+      await env.dispatch_kv.put("unitsOverCapacity", JSON.stringify({ "ATI2201 ATI0": 80 }));
+      const requests = mockApis({ dispatch: overCapacity });
+
+      await syncDispatch();
+
+      expect(await slackMessages(requests)).toHaveLength(1);
+      expect(JSON.parse((await env.dispatch_kv.get("unitsOverCapacity"))!)).toEqual({ "ATI2201 ATI0": 84 });
+    });
+  });
 });
