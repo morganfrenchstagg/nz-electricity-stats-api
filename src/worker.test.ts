@@ -57,6 +57,34 @@ describe("routes", () => {
     });
   });
 
+  it("credits each data source and its licence, cached for a day", async () => {
+    const { response } = await requestWorker("/v1/attribution");
+    const { sources } = await response.json() as { sources: { endpoints: string[]; credit: string }[] };
+
+    const creditFor = (endpoint: string) => sources.find(s => s.endpoints.includes(endpoint))?.credit;
+    expect(creditFor("/v1/dispatch")).toBe("© Electricity Authority, licensed under CC BY 4.0");
+    expect(creditFor("/v1/offers")).toBe("© Electricity Authority, licensed under CC BY 4.0");
+    expect(creditFor("/v1/transmission-lines")).toBe("© Transpower New Zealand, licensed under CC BY 4.0");
+    expect(creditFor("/v1/outages")).toBe("Outages from Transpower's Planned Outage Coordination Process (POCP)");
+    expect(response.headers.get("Cache-Control")).toBe("max-age=86400");
+  });
+
+  it("links every v1 response to the attribution", async () => {
+    for (const path of ["/v1/generators", "/v1/outages", "/v1/unknown"]) {
+      const { response } = await requestWorker(path);
+
+      expect(response.headers.get("Link")).toBe('</v1/attribution>; rel="license"');
+    }
+  });
+
+  it("returns unexpected errors with the attribution link too", async () => {
+    vi.spyOn(env.dispatch, "get").mockRejectedValue(new Error("R2 is unavailable"));
+
+    const { response } = await requestWorker("/v1/dispatch/2026-10-12");
+
+    expect(response.headers.get("Link")).toBe('</v1/attribution>; rel="license"');
+  });
+
   it("allows cross origin requests", async () => {
     const { response } = await requestWorker("/v1/generators");
 
