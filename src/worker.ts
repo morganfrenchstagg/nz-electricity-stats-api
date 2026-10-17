@@ -85,6 +85,11 @@ async function scheduled(controller: ScheduledController) {
       await syncDailyDispatch();
       await syncDispatchAggregates();
       await syncGenerationRecords();
+      break;
+    // the metered generation backfill is mostly waiting on R2, so it has runs of its own to get through it sooner.
+    // it rewrites the annual aggregates too, so it starts after the hourly sync above has had time to finish (it can
+    // take ~10 minutes when it's catching up), and each run stops before the next one (see syncMeteredGeneration)
+    case "15,30,45 * * * *":
       await syncMeteredGeneration();
       break;
     case "45 * * * *":

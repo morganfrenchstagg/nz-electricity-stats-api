@@ -137,7 +137,7 @@ describe("scheduled", () => {
     expect(checkForStaleData).toHaveBeenCalledOnce();
   });
 
-  it("syncs the daily dispatch files hourly, and aggregates them and the metered generation once they've finished syncing", async () => {
+  it("syncs the daily dispatch files hourly, and aggregates them once they've finished syncing", async () => {
     let finishDailySync = () => { };
     vi.mocked(syncDailyDispatch).mockReturnValue(new Promise(resolve => finishDailySync = resolve));
 
@@ -146,14 +146,22 @@ describe("scheduled", () => {
     await Promise.resolve();
     expect(syncDailyDispatch).toHaveBeenCalledOnce();
     expect(syncDispatchAggregates).not.toHaveBeenCalled();
-    expect(syncMeteredGeneration).not.toHaveBeenCalled();
 
     finishDailySync();
     await run;
 
     expect(syncDispatchAggregates).toHaveBeenCalledOnce();
-    expect(syncMeteredGeneration).toHaveBeenCalledOnce();
+    expect(syncMeteredGeneration).not.toHaveBeenCalled();
     expect(syncDispatch).not.toHaveBeenCalled();
+    expect(syncOffers).not.toHaveBeenCalled();
+  });
+
+  it("syncs metered generation three times an hour, apart from the hourly sync", async () => {
+    await runCron("15,30,45 * * * *");
+
+    expect(syncMeteredGeneration).toHaveBeenCalledOnce();
+    expect(syncDailyDispatch).not.toHaveBeenCalled();
+    expect(syncDispatchAggregates).not.toHaveBeenCalled();
     expect(syncOffers).not.toHaveBeenCalled();
   });
 
@@ -173,5 +181,6 @@ describe("scheduled", () => {
     expect(syncDailyDispatch).not.toHaveBeenCalled();
     expect(syncDispatchAggregates).not.toHaveBeenCalled();
     expect(syncOffers).not.toHaveBeenCalled();
+    expect(syncMeteredGeneration).not.toHaveBeenCalled();
   });
 });

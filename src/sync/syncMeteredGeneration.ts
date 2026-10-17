@@ -27,10 +27,12 @@ type MeteredGenerationFile = {
     lastModified: number;
 }
 
-// caps how much work a single run does, so the first backfill (about 280 months) is spread over several runs.
-// a month is about 50ms of CPU, and the run stops starting new months once it's used its time
+// caps how much work a single run does, so the first backfill (about 280 months) is spread over several runs. a month
+// is about 50ms of CPU, well within the 30 seconds a cron that runs more than hourly gets, but most of its time is
+// spent waiting on R2 (about 20 seconds a month when the run is far from the bucket). so a run stops starting new
+// months after 11 minutes, leaving time to finish the last one before the next run starts 15 minutes later
 const MAX_MONTHS_PER_RUN = 60;
-const TIME_BUDGET_MS = 3 * 60 * 1000;
+const TIME_BUDGET_MS = 11 * 60 * 1000;
 
 // the last month with days before the dispatch aggregates start
 const LAST_MONTH = DISPATCH_AGGREGATES_START.slice(0, 7).replace("-", "");
