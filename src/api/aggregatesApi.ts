@@ -9,6 +9,10 @@ import { getJsonResponseWithHeaders, ONE_DAY_IN_SECONDS } from "../utilities/uti
 // how long to cache periods still receiving data once their next day is overdue
 const OVERDUE_MAX_AGE_SECONDS = 5 * 60;
 
+// how long to cache periods that have ended. they only change if EMI republishes a file or the metered generation
+// codes change, which is rare enough to be worth a client seeing an old copy for a while
+const COMPLETE_MAX_AGE_SECONDS = 30 * ONE_DAY_IN_SECONDS;
+
 const app = new Hono();
 app.use(cors());
 
@@ -59,7 +63,7 @@ async function getAggregateResponse(c: Context, resolution: AggregateResolution,
 
 	const { value: latestDate, metadata } = await env.dispatch_kv.getWithMetadata<LatestAggregatedDateMetadata>(LATEST_AGGREGATED_DATE_KEY);
 	const isComplete = resolution !== "annual" && latestDate !== null && getPeriodEnd(resolution, period) < latestDate;
-	const maxAgeSeconds = isComplete ? ONE_DAY_IN_SECONDS : getSecondsUntilNextDayIsDue(metadata);
+	const maxAgeSeconds = isComplete ? COMPLETE_MAX_AGE_SECONDS : getSecondsUntilNextDayIsDue(metadata);
 
 	return getJsonResponseWithHeaders(timeseries, { "Cache-Control": `max-age=${maxAgeSeconds}` });
 }

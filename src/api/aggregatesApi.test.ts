@@ -113,9 +113,9 @@ describe("aggregates api", () => {
       return response.headers.get("Cache-Control");
     }
 
-    it("caches complete periods for a day", async () => {
-      expect(await getCacheControl("/v1/dispatch/aggregates/2026/9", "aggregate-daily-2026-09", "2026-10-01")).toBe("max-age=86400");
-      expect(await getCacheControl("/v1/dispatch/aggregates/2025/monthly", "aggregate-monthly-2025", "2026-01-01")).toBe("max-age=86400");
+    it("caches complete periods for 30 days", async () => {
+      expect(await getCacheControl("/v1/dispatch/aggregates/2026/9", "aggregate-daily-2026-09", "2026-10-01")).toBe("max-age=2592000");
+      expect(await getCacheControl("/v1/dispatch/aggregates/2025/monthly", "aggregate-monthly-2025", "2026-01-01")).toBe("max-age=2592000");
     });
 
     it("caches periods that are still receiving data until a day after the last update", async () => {
@@ -143,7 +143,7 @@ describe("aggregates api", () => {
     it("treats weeks as incomplete until the last week of the year could have ended", async () => {
       // the last ISO week of 2025 runs until Sunday 4 January 2026
       expect(await getCacheControl("/v1/dispatch/aggregates/2025/weekly", "aggregate-weekly-2025", "2026-01-03")).toBe("max-age=64800");
-      expect(await getCacheControl("/v1/dispatch/aggregates/2025/weekly", "aggregate-weekly-2025", "2026-01-04")).toBe("max-age=86400");
+      expect(await getCacheControl("/v1/dispatch/aggregates/2025/weekly", "aggregate-weekly-2025", "2026-01-04")).toBe("max-age=2592000");
     });
 
     it("treats annual totals as incomplete, as the current year is always included", async () => {
