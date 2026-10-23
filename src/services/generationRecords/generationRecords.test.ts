@@ -136,6 +136,18 @@ describe("formatNewRecordsMessage", () => {
     );
   });
 
+  it.each([
+    { mw: 19.13, previous: 19.08, expected: "*19.13 MW*, a new record (previously 19.08 MW" },
+    { mw: 19.104, previous: 19.1, expected: "*19.104 MW*, a new record (previously 19.1 MW" },
+    { mw: 1012.344, previous: 1012.341, expected: "*1,012.344 MW*, a new record (previously 1,012.341 MW" },
+  ])("shows more decimal places when $mw MW and $previous MW would round to the same", ({ mw, previous, expected }) => {
+    const message = formatNewRecordsMessage([
+      { node: HUNTLY_5, record: { mw, time: "2026-10-14T18:00:00" }, previous: { mw: previous, time: "2024-03-03T18:30:00" } },
+    ], generators);
+
+    expect(message).toContain(expected);
+  });
+
   it("uses the node for units that aren't in the generator list", () => {
     const message = formatNewRecordsMessage([
       { node: "XYZ2201 XYZ0", record: { mw: 12, time: "2026-10-14T12:00:00" }, previous: { mw: 10, time: "2026-10-13T12:00:00" } },

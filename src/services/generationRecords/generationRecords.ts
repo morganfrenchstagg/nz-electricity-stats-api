@@ -9,6 +9,9 @@ const ONE_DAY_IN_MS = 24 * 60 * 60 * 1000;
 // ago, so it doesn't alert for units "beating" records that are incomplete (e.g. while the files are first read)
 const MAX_DAYS_BEHIND = 7;
 
+// the dispatch is given to 3 decimal places (e.g. 19.125 MW)
+const MAX_DECIMALS = 3;
+
 const MONTHS = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
 
 export type NewGenerationRecord = {
@@ -96,8 +99,19 @@ export function formatNewRecordsMessage(newRecords: NewGenerationRecord[], gener
         if (!previous) {
             return `🆕 ${unit} is generating for the first time on record (*${formatMw(record.mw)}*)`;
         }
-        return `🏆 ${unit} is generating *${formatMw(record.mw)}*, a new record (previously ${formatMw(previous.mw)} at ${formatTime(previous.time)})`;
+        const decimals = getDecimalsToTellApart(record.mw, previous.mw);
+        return `🏆 ${unit} is generating *${formatMw(record.mw, decimals)}*, a new record (previously ${formatMw(previous.mw, decimals)} at ${formatTime(previous.time)})`;
     }).join("\n");
+}
+
+// a record can beat the previous one by less than 0.1 MW, so both are shown with more decimal places where they'd
+// otherwise look the same (e.g. 19.13 MW and 19.08 MW, rather than 19.1 MW and 19.1 MW)
+function getDecimalsToTellApart(a: number, b: number): number {
+    let decimals = 1;
+    while (decimals < MAX_DECIMALS && formatMw(a, decimals) === formatMw(b, decimals)) {
+        decimals++;
+    }
+    return decimals;
 }
 
 // substations don't have a unit code (e.g. ALB0331), generating units do (e.g. HLY2201 HLY5)
@@ -105,8 +119,8 @@ function isGeneratingUnit(node: string): boolean {
     return node.includes(" ");
 }
 
-function formatMw(mw: number): string {
-    return mw.toLocaleString("en-NZ", { maximumFractionDigits: 1 }) + " MW";
+function formatMw(mw: number, decimals = 1): string {
+    return mw.toLocaleString("en-NZ", { maximumFractionDigits: decimals }) + " MW";
 }
 
 // 2024-03-03T18:30:00 => 6:30pm on 3 March 2024
