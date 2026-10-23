@@ -1963,7 +1963,7 @@
                 "name": "Rangitaiki",
                 "unitCode": "RGT0",
                 "node": "EDG0331 RGT0",
-                "capacity": 23.75,
+                "capacity": 23.76,
                 "fuel": "Solar",
                 "fuelCode": "SOL",
                 "commissioned": "2024-03-06T18:15:00.000Z"
@@ -2114,7 +2114,7 @@
                 "name": "Pukenui",
                 "unitCode": "PSF0",
                 "node": "KOE1101 PSF0",
-                "capacity": 17.25,
+                "capacity": 17.42,
                 "fuel": "Solar",
                 "fuelCode": "SOL",
                 "commissioned": "2025-05-23T01:25:00.000Z"
@@ -2370,7 +2370,7 @@
                 "name": "Pāmu Rā ki Whitianga",
                 "unitCode": "WTA0",
                 "node": "KPU0661 WTA0",
-                "capacity": 23.75,
+                "capacity": 23.78,
                 "fuel": "Solar",
                 "fuelCode": "SOL",
                 "commissioned": "2025-11-25T01:10:00.000Z"
@@ -2436,7 +2436,7 @@
                 "name": "Dannevirke",
                 "unitCode": "DVK0",
                 "node": "DVK0111 DVK0",
-                "capacity": 19,
+                "capacity": 19.05,
                 "fuel": "Solar",
                 "fuelCode": "SOL",
                 "commissioned": "2026-05-01T01:55:00.000Z"
