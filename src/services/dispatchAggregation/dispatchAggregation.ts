@@ -1,5 +1,6 @@
 import { AggregateDataPoint, AggregateResolution, DispatchAggregate, DispatchAggregateTimeseries, NodeEnergy } from "../../models/dispatchAggregate";
 import { HistoricalDispatchRecord } from "../../models/historicalDispatchRecord";
+import { Timeseries } from "../../models/timeseries";
 
 const ONE_DAY_IN_MS = 24 * 60 * 60 * 1000;
 
@@ -68,6 +69,62 @@ export function calculateDailyEnergy(date: string, intervals: Record<string, His
     };
 }
 
+/**
+ * Calculates the energy (MWh) generated/consumed by each node on each day in the live dispatch timeseries, for the
+ * days that haven't had their daily dispatch file published yet.
+ *
+ * The live timeseries regularly misses intervals, so like calculateDailyEnergy they're filled by averaging the
+ * intervals we do have. The last day is only counted up to the end of its latest interval, so today is the energy
+ * so far rather than a projection for the whole day.
+ *
+ * The timeseries only has each node's net MW, so it's counted as generation when positive and load when negative.
+ */
+export function calculateLiveDailyEnergy(timeseries: Timeseries): AggregateDataPoint[] {
+    const rowsByDate = new Map<string, any[][]>();
+    for (const row of timeseries.data) {
+        const date = row[0].slice(0, 10);
+        if (!rowsByDate.has(date)) {
+            rowsByDate.set(date, []);
+        }
+        rowsByDate.get(date)!.push(row);
+    }
+
+    const dates = [...rowsByDate.keys()];
+    // the timeseries only keeps the last few days, so its first day is usually only partly covered
+    if (!timeseries.data[0]?.[0].endsWith("T00:00:00")) {
+        dates.shift();
+    }
+
+    return dates.map((date, index) => {
+        const rows = rowsByDate.get(date)!;
+        const hours = index === dates.length - 1 ? hoursToEndOfInterval(date, rows[rows.length - 1][0]) : hoursInNzDay(date);
+        const nodes = {} as Record<string, NodeEnergy>;
+
+        timeseries.series.forEach((node, column) => {
+            let generation = 0;
+            let load = 0;
+            for (const row of rows) {
+                generation += Math.max(row[column + 1], 0);
+                load += Math.max(-row[column + 1], 0);
+            }
+
+            // most nodes are at 0MW all day, and the daily dispatch files leave them out
+            if (generation > 0 || load > 0) {
+                nodes[node] = {
+                    g: round(generation / rows.length * hours),
+                    l: round(load / rows.length * hours),
+                };
+            }
+        });
+
+        return {
+            from: date,
+            to: date,
+            nodes,
+        };
+    });
+}
+
 export function sumDataPoints(from: string, to: string, dataPoints: AggregateDataPoint[]): AggregateDataPoint {
     const nodes = {} as Record<string, NodeEnergy>;
 
@@ -130,6 +187,15 @@ export function hoursInNzDay(date: string): number {
     const startOffset = getNzOffsetMinutes(middayUtc - ONE_DAY_IN_MS);
     const endOffset = getNzOffsetMinutes(middayUtc);
     return 24 + (startOffset - endOffset) / 60;
+}
+
+// the hours from the start of a trading day to the end of the 5 minute interval starting at timestamp (an NZ time
+// without an offset, e.g. 2026-10-12T13:05:00). the clock is an hour off from 03:00 on the days daylight saving
+// starts and ends (the repeated hour's intervals share timestamps, so only its first occurrence is counted)
+function hoursToEndOfInterval(date: string, timestamp: string): number {
+    const [hour, minute] = timestamp.slice(11, 16).split(":").map(Number);
+    const clockHours = hour + (minute + 5) / 60;
+    return hour >= 3 ? clockHours + hoursInNzDay(date) - 24 : clockHours;
 }
 
 // when each of a trading day's first n periods starts, in NZ time without an offset as the daily dispatch files have it

@@ -2,6 +2,7 @@ import { it, describe, expect } from "vitest";
 
 import {
   calculateDailyEnergy,
+  calculateLiveDailyEnergy,
   getDatesBetween,
   getIsoWeek,
   getMonthBounds,
@@ -13,6 +14,7 @@ import {
 } from "./dispatchAggregation";
 import { HistoricalDispatchRecord } from "../../models/historicalDispatchRecord";
 import { DispatchAggregate } from "../../models/dispatchAggregate";
+import { Timeseries } from "../../models/timeseries";
 
 function record(p: string, g: number, l: number): HistoricalDispatchRecord {
   return { p, g: `${g}`, l: `${l}`, c: "100" };
@@ -90,6 +92,87 @@ describe("calculateDailyEnergy", () => {
 
   it("empty file gives no nodes", () => {
     expect(calculateDailyEnergy("2026-10-08", {}).nodes).toEqual({});
+  });
+});
+
+describe("calculateLiveDailyEnergy", () => {
+  // a live dispatch timeseries, with each node's net MW at each interval
+  function live(series: string[], data: (string | number)[][]): Timeseries {
+    return { series, data, pricing: [] };
+  }
+
+  const intervalTimes = (date: string) => Object.keys(fullDay(date, () => []));
+
+  it("counts complete days over the whole day, and the last day up to the end of its latest interval", () => {
+    const times = [...intervalTimes("2026-10-23"), ...intervalTimes("2026-10-24").slice(0, 144)];
+    const timeseries = live(["ARA2201 ARA0", "ABY0111"], times.map(time => [time, 72, -2.5]));
+
+    expect(calculateLiveDailyEnergy(timeseries)).toEqual([
+      {
+        from: "2026-10-23",
+        to: "2026-10-23",
+        nodes: {
+          "ARA2201 ARA0": { g: 1728, l: 0 },
+          "ABY0111": { g: 0, l: 60 },
+        },
+      },
+      {
+        from: "2026-10-24",
+        to: "2026-10-24",
+        nodes: {
+          "ARA2201 ARA0": { g: 864, l: 0 },
+          "ABY0111": { g: 0, l: 30 },
+        },
+      },
+    ]);
+  });
+
+  it("missing intervals are filled by averaging the intervals that are present", () => {
+    const timeseries = live(["ARA2201 ARA0"], [
+      // only the first half of the day, at 100MW
+      ...intervalTimes("2026-10-23").slice(0, 144).map(time => [time, 100]),
+      // the first 6 hours, with only the first and last intervals
+      ["2026-10-24T00:00:00", 10],
+      ["2026-10-24T05:55:00", 20],
+    ]);
+
+    expect(calculateLiveDailyEnergy(timeseries).map(day => day.nodes["ARA2201 ARA0"])).toEqual([
+      { g: 2400, l: 0 },
+      { g: 90, l: 0 },
+    ]);
+  });
+
+  it("skips the first day unless it starts at midnight, as the timeseries only keeps the last few days", () => {
+    const rows = [["2026-10-23T13:50:00", 50], ["2026-10-24T00:00:00", 50]];
+
+    expect(calculateLiveDailyEnergy(live(["A"], rows)).map(day => day.from)).toEqual(["2026-10-24"]);
+    expect(calculateLiveDailyEnergy(live(["A"], [["2026-10-23T00:00:00", 50], ...rows])).map(day => day.from)).toEqual(["2026-10-23", "2026-10-24"]);
+  });
+
+  it("counts net MW as generation when positive and load when negative, and leaves out nodes at 0MW all day", () => {
+    const timeseries = live(["BATTERY", "IDLE"], [
+      ["2026-10-24T00:00:00", 10, 0],
+      ["2026-10-24T05:55:00", -10, 0],
+    ]);
+
+    expect(calculateLiveDailyEnergy(timeseries)[0].nodes).toEqual({
+      "BATTERY": { g: 30, l: 30 },
+    });
+  });
+
+  it("counts the last day's hours across the daylight saving changes", () => {
+    const lastDay = (date: string, until: string) => calculateLiveDailyEnergy(live(["A"], [[`${date}T00:00:00`, 12], [`${date}T${until}:00`, 12]]))[0].nodes["A"].g;
+
+    // daylight saving starts at 02:00, so 12:00 is 11 hours into the day
+    expect(lastDay("2026-09-27", "01:55")).toBe(24);
+    expect(lastDay("2026-09-27", "11:55")).toBe(132);
+    // daylight saving ends at 03:00, so 12:00 is 13 hours into the day
+    expect(lastDay("2026-04-05", "01:55")).toBe(24);
+    expect(lastDay("2026-04-05", "11:55")).toBe(156);
+  });
+
+  it("returns nothing before anything has been synced", () => {
+    expect(calculateLiveDailyEnergy(live([], []))).toEqual([]);
   });
 });
 

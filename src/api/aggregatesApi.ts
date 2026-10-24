@@ -1,13 +1,23 @@
 import { env } from "cloudflare:workers";
 import { Context, Hono } from "hono";
 import { cors } from "hono/cors";
-import { AggregateResolution, DispatchAggregate } from "../models/dispatchAggregate";
-import { getAggregateKey, getMonthBounds, toTimeseries } from "../services/dispatchAggregation/dispatchAggregation";
+import { AggregateDataPoint, AggregateResolution, DispatchAggregate } from "../models/dispatchAggregate";
+import { Timeseries } from "../models/timeseries";
+import {
+	calculateLiveDailyEnergy,
+	getAggregateKey,
+	getMonthBounds,
+	toTimeseries,
+	upsertDataPoint
+} from "../services/dispatchAggregation/dispatchAggregation";
 import { LATEST_AGGREGATED_DATE_KEY, LatestAggregatedDateMetadata } from "../sync/syncDispatchAggregates";
 import { getJsonResponseWithHeaders, ONE_DAY_IN_SECONDS } from "../utilities/utilities";
 
 // how long to cache periods still receiving data once their next day is overdue
 const OVERDUE_MAX_AGE_SECONDS = 5 * 60;
+
+// how long to cache months that include days from the live dispatch, which gets a new interval every 5 minutes
+const LIVE_MAX_AGE_SECONDS = 5 * 60;
 
 // how long to cache periods that have ended. they only change if EMI republishes a file or the metered generation
 // codes change, which is rare enough to be worth a client seeing an old copy for a while
@@ -48,24 +58,53 @@ app.get("/annual", async (c) => {
 });
 
 async function getAggregateResponse(c: Context, resolution: AggregateResolution, period: string) {
-	const file = await env.dispatch.get(getAggregateKey(resolution, period));
+	const [file, { value: latestDate, metadata }] = await Promise.all([
+		env.dispatch.get(getAggregateKey(resolution, period)),
+		env.dispatch_kv.getWithMetadata<LatestAggregatedDateMetadata>(LATEST_AGGREGATED_DATE_KEY),
+	]);
+	const isComplete = resolution !== "annual" && latestDate !== null && getPeriodEnd(resolution, period) < latestDate;
 
-	if (!file) {
+	let aggregate = file ? await file.json() as DispatchAggregate : null;
+	let maxAgeSeconds = isComplete ? COMPLETE_MAX_AGE_SECONDS : getSecondsUntilNextDayIsDue(metadata);
+
+	// a day's dispatch file is only published the day after, so until it's been aggregated the day comes from the
+	// live dispatch instead (e.g. today so far). it's only added here rather than stored, so the aggregated day
+	// replaces it as soon as it's available
+	if (resolution === "daily" && !isComplete) {
+		const liveDays = await getLiveDays(period, latestDate, aggregate);
+		if (liveDays.length > 0) {
+			aggregate ??= { data: [] };
+			for (const day of liveDays) {
+				aggregate = upsertDataPoint(aggregate, day);
+			}
+			maxAgeSeconds = LIVE_MAX_AGE_SECONDS;
+		}
+	}
+
+	if (!aggregate) {
 		c.status(404);
 		return c.json({ message: "No data for this period" });
 	}
-
-	const aggregate = await file.json() as DispatchAggregate;
 
 	// optionally filter by a comma separated list of node prefixes, e.g. ?nodes=HLY2201,ABY0111
 	const nodeFilter = c.req.query("nodes")?.split(",").map(node => node.trim()).filter(node => node.length > 0);
 	const timeseries = toTimeseries(aggregate, nodeFilter);
 
-	const { value: latestDate, metadata } = await env.dispatch_kv.getWithMetadata<LatestAggregatedDateMetadata>(LATEST_AGGREGATED_DATE_KEY);
-	const isComplete = resolution !== "annual" && latestDate !== null && getPeriodEnd(resolution, period) < latestDate;
-	const maxAgeSeconds = isComplete ? COMPLETE_MAX_AGE_SECONDS : getSecondsUntilNextDayIsDue(metadata);
-
 	return getJsonResponseWithHeaders(timeseries, { "Cache-Control": `max-age=${maxAgeSeconds}` });
+}
+
+// the days in the month (e.g. 2026-10) the live dispatch has that haven't been aggregated yet
+async function getLiveDays(month: string, latestDate: string | null, aggregate: DispatchAggregate | null): Promise<AggregateDataPoint[]> {
+	const file = await env.dispatch.get("timeseries");
+	if (!file) {
+		return [];
+	}
+
+	// KV can lag behind R2 for a little while, so the aggregate file can already have a day after latestDate
+	const aggregated = new Set(aggregate?.data.map(day => day.from));
+
+	return calculateLiveDailyEnergy(await file.json() as Timeseries)
+		.filter(day => day.from.slice(0, 7) === month && (latestDate === null || day.from > latestDate) && !aggregated.has(day.from));
 }
 
 // a new day is aggregated about once a day (when EMI publishes the previous day's file), so periods still receiving
