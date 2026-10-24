@@ -94,6 +94,109 @@ describe("aggregates api", () => {
     expect(json).toEqual({ message: "No data for this period" });
   });
 
+  describe("days that haven't been aggregated yet", () => {
+    // the live dispatch's net MW for each node at each interval
+    async function storeLiveDispatch(data: (string | number)[][]) {
+      await env.dispatch.put("timeseries", JSON.stringify({ series: ["ATI2201 ATI0", "HLY2201 HLY1"], data, pricing: [] }));
+    }
+
+    beforeEach(async () => {
+      await storeLiveDispatch([
+        ["2026-10-23T00:00:00", 50, -1],
+        ["2026-10-23T12:00:00", 50, -1],
+        // today, up to midday
+        ["2026-10-24T00:00:00", 100, 0],
+        ["2026-10-24T11:55:00", 100, 0],
+      ]);
+    });
+
+    it("come from the live dispatch, and are cached for 5 minutes", async () => {
+      await storeAggregate("aggregate-daily-2026-10", aggregate("2026-10-21", "2026-10-22"));
+      await env.dispatch_kv.put("latestAggregatedDispatchDate", "2026-10-22", { metadata: { updatedAt: Date.now() } });
+
+      const { response, json } = await getJson("/v1/dispatch/aggregates/2026/10");
+
+      expect(json).toEqual({
+        series: ["ATI2201 ATI0", "HLY2201 HLY1", "HLY2201 HLY5"],
+        data: [
+          ["2026-10-21", 1200, 2399.5, 9000],
+          ["2026-10-22", 1200, 2399.5, 9000],
+          ["2026-10-23", 1200, -24, 0],
+          ["2026-10-24", 1200, 0, 0],
+        ],
+      });
+      expect(response.headers.get("Cache-Control")).toBe("max-age=300");
+    });
+
+    // the aggregate file can have the day before latestAggregatedDispatchDate does, as KV takes a while to update
+    it.each(["2026-10-23", "2026-10-22"])("are replaced by the aggregated day once it's available (latest date %s)", async (latestDate) => {
+      await storeAggregate("aggregate-daily-2026-10", aggregate("2026-10-22", "2026-10-23"));
+      await env.dispatch_kv.put("latestAggregatedDispatchDate", latestDate);
+
+      const { json } = await getJson("/v1/dispatch/aggregates/2026/10");
+
+      expect(json.data).toEqual([
+        ["2026-10-22", 1200, 2399.5, 9000],
+        ["2026-10-23", 1200, 2399.5, 9000],
+        ["2026-10-24", 1200, 0, 0],
+      ]);
+    });
+
+    it("aren't added for days the daily sync has passed without a file", async () => {
+      await storeAggregate("aggregate-daily-2026-10", aggregate("2026-10-22"));
+      await env.dispatch_kv.put("latestAggregatedDispatchDate", "2026-10-23");
+
+      const { json } = await getJson("/v1/dispatch/aggregates/2026/10");
+
+      expect(json.data.map((row: any[]) => row[0])).toEqual(["2026-10-22", "2026-10-24"]);
+    });
+
+    it("are returned for a month that doesn't have any aggregated days yet", async () => {
+      await storeLiveDispatch([
+        ["2026-10-31T00:00:00", 50, 0],
+        ["2026-11-01T00:00:00", 100, 0],
+      ]);
+      await env.dispatch_kv.put("latestAggregatedDispatchDate", "2026-10-30");
+
+      const { response, json } = await getJson("/v1/dispatch/aggregates/2026/11");
+
+      expect(response.status).toBe(200);
+      expect(json).toEqual({
+        series: ["ATI2201 ATI0"],
+        data: [["2026-11-01", 8.333]],
+      });
+      expect((await getJson("/v1/dispatch/aggregates/2026/10")).json.data).toEqual([["2026-10-31", 1200]]);
+    });
+
+    it("are filtered by node", async () => {
+      await env.dispatch_kv.put("latestAggregatedDispatchDate", "2026-10-22");
+
+      const { json } = await getJson("/v1/dispatch/aggregates/2026/10?nodes=HLY2201");
+
+      expect(json).toEqual({
+        series: ["HLY2201 HLY1"],
+        data: [["2026-10-23", -24], ["2026-10-24", 0]],
+      });
+    });
+
+    // the live dispatch is a few MB, so it's only read when it could have days for the period
+    it("aren't read for months that have ended, or for the weekly, monthly and annual totals", async () => {
+      await env.dispatch_kv.put("latestAggregatedDispatchDate", "2026-10-22");
+      const get = vi.spyOn(env.dispatch, "get");
+
+      for (const [path, key] of [
+        ["/v1/dispatch/aggregates/2026/9", "aggregate-daily-2026-09"],
+        ["/v1/dispatch/aggregates/2026/weekly", "aggregate-weekly-2026"],
+        ["/v1/dispatch/aggregates/2026/monthly", "aggregate-monthly-2026"],
+        ["/v1/dispatch/aggregates/annual", "aggregate-annual"],
+      ]) {
+        await storeAggregate(key, aggregate("2026-01-01"));
+        expect((await getJson(path)).json.data).toEqual([["2026-01-01", 1200, 2399.5, 9000]]);
+      }
+      expect(get).not.toHaveBeenCalledWith("timeseries");
+    });
+  });
+
   describe("caching", () => {
     const NOW = new Date("2026-10-15T09:00:00Z").getTime();
     const HOUR_MS = 60 * 60 * 1000;
