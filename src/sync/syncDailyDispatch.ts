@@ -82,12 +82,23 @@ async function downloadFileAndParse(url: string) {
     // rows are converted as the file downloads, rather than holding the whole file in memory
     const parser = new CsvRecordParser((item) => {
         const time = item.IntervalDateTime.split('.')[0];
-        (out[time] ??= []).push({
-            p: item.PointOfConnectionCode + (item.UnitCode == "N/A" ? "" : ` ${item.UnitCode}`),
-            l: item.LoadMegawatts,
-            g: item.GenerationMegawatts,
-            c: item.DollarsPerMegawattHour,
-        });
+        (out[time] ??= []).push(item.UnitCode == "N/A"
+            // a load node's initial MW is its load, so its generation (always 0) is kept as it is
+            ? {
+                p: item.PointOfConnectionCode,
+                l: item.LoadMegawatts,
+                g: item.GenerationMegawatts,
+                c: item.DollarsPerMegawattHour,
+            }
+            // a unit's generation is its initial MW (what it was generating at the start of the interval), rather
+            // than what it was dispatched to generate by the end of it
+            : {
+                p: `${item.PointOfConnectionCode} ${item.UnitCode}`,
+                l: item.LoadMegawatts,
+                g: item.InitialMegawatts,
+                c: item.DollarsPerMegawattHour,
+                m: +item.InitialMegawatts === +item.GenerationMegawatts,
+            });
     });
 
     const decoder = new TextDecoder();
