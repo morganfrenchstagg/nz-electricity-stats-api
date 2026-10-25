@@ -21,12 +21,6 @@ type OffersFile = {
   url: string;
 }
 
-type Tranche = {
-  tranche: number;
-  megawatts: number;
-  price: number;
-}
-
 export async function syncOffers() {
   console.log("Syncing offers");
   const startTime = Date.now();
@@ -65,9 +59,7 @@ async function downloadFileAndParse(url: string) {
     throw new Error(`Failed to download ${url}: ${response.status}`);
   }
 
-  const output = {} as Record<string, Record<string, Tranche[]>>;
-  // intermittent units (wind, some solar) also give a forecast of generation potential, by trading period and unit
-  const forecasts = {} as Record<string, Record<string, number>>;
+  const output = {} as Record<string, Record<string, { tranche: number, megawatts: number, price: number }[]>>;
 
   const parser = new CsvRecordParser((record) => {
     const item = record as OfferRecord;
@@ -75,16 +67,14 @@ async function downloadFileAndParse(url: string) {
       const pointOfConnectionAndUnit = item.PointOfConnection + " " + item.Unit;
       const tradingPeriod = output[+item.TradingPeriod] ??= {};
 
+      // intermittent units (wind, some solar) also give a forecast of generation potential, which EMI repeats on
+      // each of their tranches. it isn't used here, so each tranche is what was offered in it, even when the unit's
+      // tranches add up to more than its forecast
       (tradingPeriod[pointOfConnectionAndUnit] ??= []).push({
         tranche: +item.Tranche,
         megawatts: +item.Megawatts,
         price: +item.DollarsPerMegawattHour
       });
-
-      // EMI repeats the unit's whole forecast on each of its tranches
-      if (item.ForecastOfGenerationPotentialMegawatts) {
-        (forecasts[+item.TradingPeriod] ??= {})[pointOfConnectionAndUnit] = +item.ForecastOfGenerationPotentialMegawatts;
-      }
     }
   });
 
@@ -100,25 +90,7 @@ async function downloadFileAndParse(url: string) {
   lineFilter.end();
   parser.end();
 
-  // a unit's tranches can be anywhere in the file, so they're only capped once they've all been read
-  for (const [tradingPeriod, units] of Object.entries(forecasts)) {
-    for (const [pointOfConnectionAndUnit, forecast] of Object.entries(units)) {
-      capToForecast(output[tradingPeriod][pointOfConnectionAndUnit], forecast);
-    }
-  }
-
   return output;
-}
-
-// an intermittent unit can't generate more than its forecast, whatever it offers. so its cheapest tranches are
-// filled up to the forecast, and the rest are cut back. a tranche cut back to nothing stays in at 0 MW
-function capToForecast(tranches: Tranche[], forecast: number) {
-  let remaining = forecast;
-  for (const tranche of [...tranches].sort((a, b) => a.price - b.price || a.tranche - b.tranche)) {
-    tranche.megawatts = Math.min(tranche.megawatts, remaining);
-    // EMI gives megawatts to 3 decimal places, so this drops the floating point error from subtracting them
-    remaining = Math.round((remaining - tranche.megawatts) * 1000) / 1000;
-  }
 }
 
 async function getListOfEmiFiles(): Promise<OffersFile[]> {
