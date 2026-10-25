@@ -67,9 +67,12 @@ async function downloadFileAndParse(url: string) {
       const pointOfConnectionAndUnit = item.PointOfConnection + " " + item.Unit;
       const tradingPeriod = output[+item.TradingPeriod] ??= {};
 
+      // intermittent units (wind, some solar) also give a forecast of generation potential, which EMI repeats on
+      // each of their tranches. it isn't used here, so each tranche is what was offered in it, even when the unit's
+      // tranches add up to more than its forecast
       (tradingPeriod[pointOfConnectionAndUnit] ??= []).push({
         tranche: +item.Tranche,
-        megawatts: item.ForecastOfGenerationPotentialMegawatts ? +item.ForecastOfGenerationPotentialMegawatts : +item.Megawatts,
+        megawatts: +item.Megawatts,
         price: +item.DollarsPerMegawattHour
       });
     }
