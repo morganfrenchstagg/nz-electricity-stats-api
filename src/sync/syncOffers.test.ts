@@ -91,6 +91,10 @@ describe("syncOffers", () => {
         "WWD1102 WWD1": [{ tranche: 1, megawatts: 100, price: 0 }],
       },
     });
+    // only the wind farm gives a forecast
+    expect(await (await env.offers.get("fogp-20261012"))!.json()).toEqual({
+      "2": { "WWD1102 WWD1": 63.5 },
+    });
     // records when it last got new data, for the stale data check
     expect(await env.dispatch_kv.getWithMetadata("latestSyncedOffers")).toEqual({
       value: "20261012",
@@ -129,6 +133,34 @@ describe("syncOffers", () => {
       "19": {
         "LTN2201 TUR0": [{ tranche: 1, megawatts: 40, price: 0.01 }],
       },
+    });
+    expect(await (await env.offers.get("fogp-20261024"))!.json()).toEqual({
+      "18": { "LTN2201 TUR0": 178.8 },
+      "19": { "LTN2201 TUR0": 178.8 },
+    });
+  });
+
+  it("stores a unit's forecast of generation potential even when nothing is offered", async () => {
+    mockEmi([{
+      date: "20261024",
+      rows: [
+        offer({ TradingPeriod: "3", PointOfConnection: "LTN2201", Unit: "TUR0", Tranche: "1", Megawatts: "0.000", ForecastOfGenerationPotentialMegawatts: "4.200" }),
+        offer({ TradingPeriod: "3", PointOfConnection: "LTN2201", Unit: "TUR0", Tranche: "2", Megawatts: "0.000", ForecastOfGenerationPotentialMegawatts: "4.200" }),
+        // no wind at all
+        offer({ TradingPeriod: "4", PointOfConnection: "LTN2201", Unit: "TUR0", Megawatts: "0.000", ForecastOfGenerationPotentialMegawatts: "0.000" }),
+        // a superseded forecast
+        offer({ TradingPeriod: "4", PointOfConnection: "WWD1102", Unit: "WWD1", IsLatestYesNo: "N", ForecastOfGenerationPotentialMegawatts: "50" }),
+        // forecasts on reserve offers aren't kept
+        offer({ TradingPeriod: "4", PointOfConnection: "WWD1102", Unit: "WWD1", ProductType: "Reserve", ProductClass: "Spinning", ReserveType: "FIR", ForecastOfGenerationPotentialMegawatts: "50" }),
+      ],
+    }]);
+
+    await syncOffers();
+
+    expect(await (await env.offers.get("offers-20261024"))!.json()).toEqual({});
+    expect(await (await env.offers.get("fogp-20261024"))!.json()).toEqual({
+      "3": { "LTN2201 TUR0": 4.2 },
+      "4": { "LTN2201 TUR0": 0 },
     });
   });
 

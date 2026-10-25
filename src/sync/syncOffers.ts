@@ -41,8 +41,11 @@ export async function syncOffers() {
     const batch = filesToDownload.slice(i, i + MAX_CONCURRENT_DOWNLOADS);
 
     await Promise.all(batch.map(async (file) => {
-      const data = await downloadFileAndParse(file.url);
-      await env.offers.put("offers-" + file.date, JSON.stringify(data));
+      const { offers, forecasts } = await downloadFileAndParse(file.url);
+      await Promise.all([
+        env.offers.put("offers-" + file.date, JSON.stringify(offers)),
+        env.offers.put("fogp-" + file.date, JSON.stringify(forecasts)),
+      ]);
     }));
 
     const metadata: CheckpointMetadata = { updatedAt: Date.now() };
@@ -59,17 +62,27 @@ async function downloadFileAndParse(url: string) {
     throw new Error(`Failed to download ${url}: ${response.status}`);
   }
 
-  const output = {} as Record<string, Record<string, { tranche: number, megawatts: number, price: number }[]>>;
+  const offers = {} as Record<string, Record<string, { tranche: number, megawatts: number, price: number }[]>>;
+  // intermittent units (wind, some solar) also give a forecast of generation potential (FOGP), by trading period
+  // and unit. only units that give one are included
+  const forecasts = {} as Record<string, Record<string, number>>;
 
   const parser = new CsvRecordParser((record) => {
     const item = record as OfferRecord;
-    if (item.IsLatestYesNo === 'Y' && item.ProductClass === 'Injection' && item.ProductType === 'Energy' && +item.Megawatts > 0) {
-      const pointOfConnectionAndUnit = item.PointOfConnection + " " + item.Unit;
-      const tradingPeriod = output[+item.TradingPeriod] ??= {};
+    if (item.IsLatestYesNo !== 'Y' || item.ProductClass !== 'Injection' || item.ProductType !== 'Energy') {
+      return;
+    }
 
-      // intermittent units (wind, some solar) also give a forecast of generation potential, which EMI repeats on
-      // each of their tranches. it isn't used here, so each tranche is what was offered in it, even when the unit's
-      // tranches add up to more than its forecast
+    const pointOfConnectionAndUnit = item.PointOfConnection + " " + item.Unit;
+
+    // EMI repeats the unit's whole forecast on each of its tranches, including ones with nothing offered. it isn't
+    // used for the offers, so each tranche is what was offered in it, even when they add up to more than the forecast
+    if (item.ForecastOfGenerationPotentialMegawatts) {
+      (forecasts[+item.TradingPeriod] ??= {})[pointOfConnectionAndUnit] = +item.ForecastOfGenerationPotentialMegawatts;
+    }
+
+    if (+item.Megawatts > 0) {
+      const tradingPeriod = offers[+item.TradingPeriod] ??= {};
       (tradingPeriod[pointOfConnectionAndUnit] ??= []).push({
         tranche: +item.Tranche,
         megawatts: +item.Megawatts,
@@ -90,7 +103,7 @@ async function downloadFileAndParse(url: string) {
   lineFilter.end();
   parser.end();
 
-  return output;
+  return { offers, forecasts };
 }
 
 async function getListOfEmiFiles(): Promise<OffersFile[]> {
