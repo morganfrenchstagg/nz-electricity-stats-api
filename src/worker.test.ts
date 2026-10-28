@@ -10,12 +10,17 @@ import { syncDailyDispatch } from "./sync/syncDailyDispatch";
 import { syncDispatchAggregates } from "./sync/syncDispatchAggregates";
 import { syncOffers } from "./sync/syncOffers";
 import { syncMeteredGeneration } from "./sync/syncMeteredGeneration";
+import { syncHvdc } from "./sync/syncHvdc";
 import { checkForStaleData } from "./sync/staleDataCheck";
 
 vi.mock("./sync/syncDispatch", () => ({ syncDispatch: vi.fn() }));
 vi.mock("./sync/syncDailyDispatch", () => ({ syncDailyDispatch: vi.fn() }));
 vi.mock("./sync/syncOffers", () => ({ syncOffers: vi.fn() }));
 vi.mock("./sync/syncMeteredGeneration", () => ({ syncMeteredGeneration: vi.fn() }));
+vi.mock("./sync/syncHvdc", async (importOriginal) => ({
+  ...await importOriginal<typeof import("./sync/syncHvdc")>(),
+  syncHvdc: vi.fn(),
+}));
 vi.mock("./sync/staleDataCheck", () => ({ checkForStaleData: vi.fn() }));
 vi.mock("./sync/syncDispatchAggregates", async (importOriginal) => ({
   ...await importOriginal<typeof import("./sync/syncDispatchAggregates")>(),
@@ -68,6 +73,7 @@ describe("routes", () => {
     expect(creditFor("/v1/offers")).toBe("© Electricity Authority, licensed under CC BY 4.0");
     expect(creditFor("/v1/transmission-lines")).toBe("© Transpower New Zealand, licensed under CC BY 4.0");
     expect(creditFor("/v1/outages")).toBe("Outages from Transpower's Planned Outage Coordination Process (POCP)");
+    expect(creditFor("/v1/dispatch/recent")).toBe("HVDC flows and transfer limits from em6");
     expect(response.headers.get("Cache-Control")).toBe("max-age=86400");
   });
 
@@ -119,10 +125,11 @@ describe("scheduled", () => {
     return worker.scheduled({ cron, scheduledTime: Date.now(), noRetry: () => { } });
   }
 
-  it("syncs real time dispatch and checks for stale data every 2 minutes", async () => {
+  it("syncs real time dispatch and the HVDC, and checks for stale data, every 2 minutes", async () => {
     await runCron("*/2 * * * *");
 
     expect(syncDispatch).toHaveBeenCalledOnce();
+    expect(syncHvdc).toHaveBeenCalledOnce();
     expect(checkForStaleData).toHaveBeenCalledOnce();
     expect(syncDailyDispatch).not.toHaveBeenCalled();
     expect(syncDispatchAggregates).not.toHaveBeenCalled();
@@ -135,6 +142,7 @@ describe("scheduled", () => {
     await expect(runCron("*/2 * * * *")).rejects.toThrow("EMI is down");
 
     expect(checkForStaleData).toHaveBeenCalledOnce();
+    expect(syncHvdc).toHaveBeenCalledOnce();
   });
 
   it("syncs the daily dispatch files hourly, and aggregates them once they've finished syncing", async () => {
@@ -182,5 +190,6 @@ describe("scheduled", () => {
     expect(syncDispatchAggregates).not.toHaveBeenCalled();
     expect(syncOffers).not.toHaveBeenCalled();
     expect(syncMeteredGeneration).not.toHaveBeenCalled();
+    expect(syncHvdc).not.toHaveBeenCalled();
   });
 });
