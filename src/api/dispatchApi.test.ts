@@ -3,7 +3,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { requestWorker } from "../testing/requestWorker";
 import { mockFetch } from "../testing/fetchMock";
-import { EMI_RTD_URL, outage, rtd } from "../testing/fixtures";
+import { EMI_RTD_URL, HVDC_TIMESERIES, outage, rtd } from "../testing/fixtures";
 import { getSubstations } from "../clients/substations";
 import { getGenerators } from "../clients/generators";
 
@@ -116,7 +116,7 @@ describe("dispatch api", () => {
 
       const { response, json } = await getJson("/v1/dispatch/recent");
 
-      expect(json).toEqual(timeseries("2026-10-14T22:00:00"));
+      expect(json).toEqual({ ...timeseries("2026-10-14T22:00:00"), hvdc: { series: [], data: [] } });
       // the next interval is expected by 22:06, 5 minutes from now
       expect(response.headers.get("Cache-Control")).toBe("max-age=300");
     });
@@ -133,7 +133,24 @@ describe("dispatch api", () => {
       const { response, json } = await getJson("/v1/dispatch/recent");
 
       expect(response.status).toBe(200);
-      expect(json).toEqual({ series: [], data: [], pricing: [] });
+      expect(json).toEqual({ series: [], data: [], pricing: [], hvdc: { series: [], data: [] } });
+    });
+
+    it("returns the HVDC's last day, once it's been synced", async () => {
+      await env.dispatch.put("timeseries", JSON.stringify(timeseries("2026-10-14T22:00:00")));
+      await env.dispatch.put("hvdc", JSON.stringify(HVDC_TIMESERIES));
+
+      const { json } = await getJson("/v1/dispatch/recent");
+
+      expect(json).toEqual({ ...timeseries("2026-10-14T22:00:00"), hvdc: HVDC_TIMESERIES });
+    });
+
+    it("returns the HVDC before the dispatch has been synced", async () => {
+      await env.dispatch.put("hvdc", JSON.stringify(HVDC_TIMESERIES));
+
+      const { json } = await getJson("/v1/dispatch/recent");
+
+      expect(json).toEqual({ series: [], data: [], pricing: [], hvdc: HVDC_TIMESERIES });
     });
 
     describe("?since", () => {
@@ -148,6 +165,7 @@ describe("dispatch api", () => {
           series: ["ATI2201 ATI0"],
           data: [["2026-10-14T22:00:00", 50]],
           pricing: [["2026-10-14T22:00:00", 120.5]],
+          hvdc: { series: [], data: [] },
         });
         expect(response.headers.get("Cache-Control")).toBe("max-age=300");
       });
@@ -155,8 +173,16 @@ describe("dispatch api", () => {
       it("returns no intervals, cached until the next one should be available, when there's nothing newer", async () => {
         const { response, json } = await getJson("/v1/dispatch/recent?since=2026-10-14T22:00:00");
 
-        expect(json).toEqual({ series: ["ATI2201 ATI0"], data: [], pricing: [] });
+        expect(json).toEqual({ series: ["ATI2201 ATI0"], data: [], pricing: [], hvdc: { series: [], data: [] } });
         expect(response.headers.get("Cache-Control")).toBe("max-age=300");
+      });
+
+      it("still returns the HVDC's whole last day, as em6 publishes each half hour after the dispatch has passed it", async () => {
+        await env.dispatch.put("hvdc", JSON.stringify(HVDC_TIMESERIES));
+
+        const { json } = await getJson("/v1/dispatch/recent?since=2026-10-28T21:00:00");
+
+        expect(json.hvdc).toEqual(HVDC_TIMESERIES);
       });
 
       it.each(["2026-10-14", "2026-10-14T22:00:00Z", "yesterday", ""])("returns 400 for since=%s", async (since) => {

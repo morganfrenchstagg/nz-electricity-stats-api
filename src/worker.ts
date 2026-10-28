@@ -9,6 +9,7 @@ import { syncDailyDispatch } from "./sync/syncDailyDispatch";
 import { syncDispatchAggregates } from "./sync/syncDispatchAggregates";
 import { syncGenerationRecords } from "./sync/syncGenerationRecords";
 import { syncMeteredGeneration } from "./sync/syncMeteredGeneration";
+import { syncHvdc } from "./sync/syncHvdc";
 import { checkForStaleData } from "./sync/staleDataCheck";
 import offersApi from "./api/offersApi";
 import { getJsonResponseWithMaxAgeHeader } from "./utilities/utilities";
@@ -74,6 +75,8 @@ app.route('/v1/transmission-lines', transmissionLinesApi);
 async function scheduled(controller: ScheduledController) {
   switch (controller.cron) {
     case "*/2 * * * *":
+      // first, as it logs rather than throws when em6 is unavailable, so it's synced even when the dispatch sync fails
+      await syncHvdc();
       try {
         await syncDispatch();
       } finally {

@@ -28,6 +28,13 @@ export const ATTRIBUTION = {
       source: { name: "Transpower's Planned Outage Coordination Process (POCP)", url: "https://customerportal.transpower.co.nz/pocp/outages" },
       credit: "Outages from Transpower's Planned Outage Coordination Process (POCP)",
     },
+    {
+      // nor does em6
+      data: "HVDC flows and transfer limits",
+      endpoints: ["/v1/dispatch/recent"],
+      source: { name: "em6", url: "https://www.em6.co.nz" },
+      credit: "HVDC flows and transfer limits from em6",
+    },
   ],
   disclaimer: "This API isn't affiliated with or endorsed by the Electricity Authority, Transpower or any other data provider. "
     + "Data is provided as is and may be delayed, incomplete or wrong, so don't rely on it for operational, trading or other decisions.",

@@ -18,6 +18,8 @@ import { Timeseries } from "../models/timeseries";
 import { MeteredGenerationRecord } from "../models/meteredGenerationRecord";
 import { METERED_DAY_PREFIX } from "../services/meteredGeneration/meteredGeneration";
 import { DISPATCH_AGGREGATES_START } from "../services/dispatchAggregation/dispatchAggregation";
+import { HvdcTimeseries } from "../models/hvdc";
+import { HVDC_KEY } from "../sync/syncHvdc";
 
 const app = new Hono();
 app.use(cors());
@@ -59,16 +61,23 @@ app.get("/recent", async (c) => {
 		return c.json({ message: "Invalid since, expected an NZ time like 2026-10-14T21:55:00" });
 	}
 
-	const timeseries = await env.dispatch.get("timeseries");
+	const [timeseries, hvdcFile] = await Promise.all([env.dispatch.get("timeseries"), env.dispatch.get(HVDC_KEY)]);
+	// the whole of the last day, even with since, as em6 publishes each half hour about half an hour after it ends,
+	// by when the dispatch is well past it
+	const hvdc = hvdcFile ? await hvdcFile.json() as HvdcTimeseries : { series: [], data: [] };
+
 	if (!timeseries) {
-		return c.json({ series: [], data: [], pricing: [] });
+		return c.json({ series: [], data: [], pricing: [], hvdc });
 	}
 
 	const json = await timeseries.json() as Timeseries;
 	// based on the full timeseries, as the filtered one can be empty
 	const maxAge = calculateMaxAgeHeader(json);
 
-	return getJsonResponseWithHeaders(since ? filterTimeseriesSince(json, since) : json, { "Cache-Control": `max-age=${maxAge}` });
+	return getJsonResponseWithHeaders({
+		...(since ? filterTimeseriesSince(json, since) : json),
+		hvdc
+	}, { "Cache-Control": `max-age=${maxAge}` });
 })
 
 const DEFAULT_MAX_AGE = 30;
