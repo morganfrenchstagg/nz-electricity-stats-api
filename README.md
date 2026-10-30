@@ -34,4 +34,11 @@ The metered data identifies generators by their point of connection and a genera
 - Where the metered data combines several units (e.g. Huntly's Rankine units), it's attributed to a unit that `combines` them, whose node is the metered code itself (e.g. `HLY2201 huntly_1_4`), as the split between them isn't known.
 - Generation that isn't in the dispatch data (e.g. Ngāwhā's OEC1-3, which aren't dispatched) is excluded, so totals don't jump where the dispatch data takes over.
 
-The sync reports any code that isn't listed to Slack and leaves its generation out until it is. Changing how a code is attributed aggregates every month again on the next sync, and the tests check every code points to a unit in `generators.json`.
+Generation_MD is missing some embedded generators for part of their history, so codes with a `source` fill those days in from EMI's other metered data, which only has their own codes read from it:
+
+- [Embedded generation](https://www.emi.ea.govt.nz/Wholesale/Datasets/Metered_data/Embedded_generation), which Generation_MD takes its embedded generators from, identifies each by its point of connection and loss code (e.g. `STK0661 cobb`). It has Cobb (2015-2019), Mill Creek (from September 2015), Te Ahi O Maui (from October 2018), all of Mangahao (from October 2017, where Generation_MD only has about 0.15x of it), and Rotokawa, Kaimai, Te Rapa, Tararua, Highbank, Paerau and White Hill from April 2008, before they're in Generation_MD from 2009.
+- [Grid import](https://www.emi.ea.govt.nz/Wholesale/Datasets/Metered_data/Grid_import) has what the Kawerau mill exported to the grid at `KAW0112` (2005-2019), by its network code (`KAW0112 skog`), as its cogeneration isn't metered on its own until 2020. It's about 0.7x what the cogeneration generates, as the mill uses the rest, and nearly all of it until 2013.
+
+A unit's generation only comes from one dataset on any day, which the tests check, so it isn't counted twice.
+
+The sync reports any Generation_MD code that isn't listed to Slack and leaves its generation out until it is. Changing how a code is attributed aggregates every month again on the next sync, and the tests check every code points to a unit in `generators.json`.
