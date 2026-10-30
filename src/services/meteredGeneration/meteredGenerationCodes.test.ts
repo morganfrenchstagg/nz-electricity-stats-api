@@ -2,12 +2,15 @@ import { describe, expect, it } from "vitest";
 
 import generators from "../../data/generators.json" with { type: "json" };
 import { UnitDefinition } from "../../clients/generators";
-import { METERED_GENERATION_CODES } from "./meteredGeneration";
+import { METERED_GENERATION_CODES, MeteredGenerationCode } from "./meteredGeneration";
 
 // checks meteredGenerationCodes.json against generators.json, so a unit can't be renamed, moved or removed without
 // updating the metered generation attributed to it
 const units: UnitDefinition[] = generators.flatMap(generator => generator.units);
 const nodes = new Set(units.map(unit => unit.node));
+
+// the trading dates a code applies to
+const getDates = (entry: MeteredGenerationCode) => ({ from: entry.from ?? "0000-00-00", to: entry.to ?? "9999-99-99" });
 
 describe("meteredGenerationCodes.json", () => {
   it("lists each code as its point of connection and lowercased generator code", () => {
@@ -22,24 +25,41 @@ describe("meteredGenerationCodes.json", () => {
     }
   });
 
+  it("only lists codes from EMI's datasets the sync reads", () => {
+    for (const { code, source } of METERED_GENERATION_CODES) {
+      expect([undefined, "Embedded_generation", "Grid_import"], code).toContain(source);
+    }
+  });
+
   it("only attributes generation to units in generators.json", () => {
     const missing = METERED_GENERATION_CODES.filter(entry => entry.node && !nodes.has(entry.node));
     expect(missing).toEqual([]);
   });
 
   it("doesn't attribute a code to more than one unit on the same day", () => {
-    const byCode = Map.groupBy(METERED_GENERATION_CODES, entry => entry.code);
+    const byCode = Map.groupBy(METERED_GENERATION_CODES, entry => `${entry.source ?? "Generation_MD"} ${entry.code}`);
 
     for (const [code, entries] of byCode) {
-      const ranges = entries
-        .map(entry => ({ from: entry.from ?? "0000-00-00", to: entry.to ?? "9999-99-99" }))
-        .sort((a, b) => a.from.localeCompare(b.from));
+      const ranges = entries.map(getDates).sort((a, b) => a.from.localeCompare(b.from));
 
       for (const range of ranges) {
         expect(range.from <= range.to, code).toBe(true);
       }
       for (let i = 1; i < ranges.length; i++) {
         expect(ranges[i - 1].to < ranges[i].from, code).toBe(true);
+      }
+    }
+  });
+
+  it("doesn't attribute a unit's generation from more than one dataset on the same day, so it isn't counted twice", () => {
+    const byNode = Map.groupBy(METERED_GENERATION_CODES.filter(entry => entry.node), entry => entry.node!);
+
+    for (const [node, entries] of byNode) {
+      for (const a of entries) {
+        for (const b of entries.filter(other => (other.source ?? "Generation_MD") !== (a.source ?? "Generation_MD"))) {
+          const overlaps = getDates(a).from <= getDates(b).to && getDates(b).from <= getDates(a).to;
+          expect(overlaps, `${node}: ${a.code} and ${b.code}`).toBe(false);
+        }
       }
     }
   });

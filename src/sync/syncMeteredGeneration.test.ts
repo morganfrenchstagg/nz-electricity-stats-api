@@ -2,43 +2,67 @@ import { env } from "cloudflare:workers";
 import { describe, expect, it } from "vitest";
 
 import { formatUnlistedCodesMessage, syncMeteredGeneration } from "./syncMeteredGeneration";
-import { MeteredGenerationCode } from "../services/meteredGeneration/meteredGeneration";
+import { MeteredGenerationCode, MeteredSource } from "../services/meteredGeneration/meteredGeneration";
 import { mockFetch } from "../testing/fetchMock";
 import { downloadedDates, EMI_DATASETS_FILES_URL, EMI_DATASETS_LISTING_URL, emiBlobListing } from "../testing/fixtures";
 
-const FOLDER = "Datasets/Wholesale/Generation/Generation_MD/";
-const HEADER = "Site_Code,POC_Code,Nwk_Code,Gen_Code,Fuel_Code,Tech_Code,Trading_date," + Array.from({ length: 50 }, (_, i) => `TP${i + 1}`).join(",");
+const FOLDERS: Record<MeteredSource, string> = {
+  Generation_MD: "Datasets/Wholesale/Generation/Generation_MD/",
+  Embedded_generation: "Datasets/Wholesale/Metered_data/Embedded_generation/",
+  Grid_import: "Datasets/Wholesale/Metered_data/Grid_import/",
+};
+const HEADERS: Record<MeteredSource, string> = {
+  Generation_MD: "Site_Code,POC_Code,Nwk_Code,Gen_Code,Fuel_Code,Tech_Code,Trading_date",
+  Embedded_generation: "POC,NWK_Code,Participant_Code,Loss_Code,Flow_Direction,Trading_date",
+  Grid_import: "POC,NWK_Code,GENERATION_TYPE,TRADER,UNIT_MEASURE,FLOW_DIRECTION,STATUS,TRADING_DATE",
+};
 const NODE = "ATI2201 ATI0";
 
 const codes: MeteredGenerationCode[] = [{ code: "ATI2201 atiamuri", node: NODE }];
 
 type MonthlyFile = {
   month: string; // YYYYMM
+  source?: MeteredSource; // defaults to Generation_MD
   days?: string[]; // trading dates, defaults to the 1st and 2nd of the month
   rows?: string[];
   lastModified?: string;
 };
 
+const fileName = (file: MonthlyFile) => `${FOLDERS[file.source ?? "Generation_MD"]}${file.month}_${file.source ?? "Generation_MD"}.csv`;
+
 // Ātiamuri at a constant output, so it generates mw x 24 MWh a day
 const row = (date: string, mw: number, gen = "atiamuri") =>
   `ATI,ATI2201,MRPL,${gen},Hydro,Hydro,${date},${Array(48).fill(mw * 500).join(",")},,`;
+
+// Cobb in the embedded generation files, which have dates as dd/mm/yyyy until 2020
+const embeddedRow = (date: string, mw: number) =>
+  `STK0661,TASM,TRUS,COBB,I,${date.split("-").reverse().join("/")},${Array(48).fill(mw * 500).join(",")},,`;
 
 const firstDays = (month: string) => [`${month.slice(0, 4)}-${month.slice(4)}-01`, `${month.slice(0, 4)}-${month.slice(4)}-02`];
 
 function mockEmi(files: MonthlyFile[]) {
   return mockFetch({
-    [EMI_DATASETS_LISTING_URL]: () => emiBlobListing(files.map(file => ({
-      name: `${FOLDER}${file.month}_Generation_MD.csv`,
-      lastModified: file.lastModified,
-    }))),
+    [EMI_DATASETS_LISTING_URL]: (request) => {
+      const prefix = new URL(request.url).searchParams.get("prefix")!;
+      return emiBlobListing(files
+        .filter(file => fileName(file).startsWith(prefix))
+        .map(file => ({ name: fileName(file), lastModified: file.lastModified })));
+    },
     "https://hooks.slack.test/": () => new Response("ok"),
     [EMI_DATASETS_FILES_URL]: (request) => {
-      const file = files.find(file => request.url === `${EMI_DATASETS_FILES_URL}${FOLDER}${file.month}_Generation_MD.csv`)!;
-      const rows = file.rows ?? (file.days ?? firstDays(file.month)).map(date => row(date, 10));
-      return new Response([HEADER, ...rows].join("\r\n") + "\r\n");
+      const file = files.find(file => request.url === `${EMI_DATASETS_FILES_URL}${fileName(file)}`)!;
+      const source = file.source ?? "Generation_MD";
+      const rows = file.rows ?? (file.days ?? firstDays(file.month)).map(date => source === "Generation_MD" ? row(date, 10) : embeddedRow(date, 5));
+      const header = HEADERS[source] + "," + Array.from({ length: 50 }, (_, i) => `TP${i + 1}`).join(",");
+      return new Response([header, ...rows].join("\r\n") + "\r\n");
     },
   });
 }
+
+// the files downloaded, e.g. 199708_Generation_MD.csv
+const downloadedFiles = (requests: Request[]) => requests
+  .filter(request => request.url.startsWith(EMI_DATASETS_FILES_URL))
+  .map(request => request.url.split("/").slice(-1)[0]);
 
 const dataPoint = (from: string, to: string, mwh: number) => ({ from, to, nodes: { [NODE]: { g: mwh, l: 0 } } });
 const day = (date: string, mwh: number) => dataPoint(date, date, mwh);
@@ -184,6 +208,83 @@ describe("syncMeteredGeneration", () => {
     requests = mockEmi(months);
     await syncMeteredGeneration(codes);
     expect(downloadedDates(requests)).toEqual(["200208", "200209"]);
+  });
+
+  describe("with generators from the embedded generation data", () => {
+    const COBB = "STK0661 COB0";
+    const withCobb: MeteredGenerationCode[] = [
+      ...codes,
+      { code: "STK0661 cobb", source: "Embedded_generation", node: COBB, from: "2015-02-01" },
+    ];
+
+    it("adds their generation to the days they're listed for", async () => {
+      mockEmi([
+        { month: "201502" },
+        { month: "201502", source: "Embedded_generation" },
+      ]);
+
+      await syncMeteredGeneration(withCobb);
+
+      expect(await getAggregate("aggregate-daily-2015-02")).toEqual({
+        data: ["2015-02-01", "2015-02-02"].map(date => ({ from: date, to: date, nodes: { [NODE]: { g: 240, l: 0 }, [COBB]: { g: 120, l: 0 } } })),
+      });
+      expect((await getAggregate("metered-20150201") as Record<string, unknown>)["2015-02-01T00:00:00"]).toEqual([
+        { p: NODE, g: 10, l: 0 },
+        { p: COBB, g: 5, l: 0 },
+      ]);
+    });
+
+    it("only downloads their files for the months they're listed for", async () => {
+      const requests = mockEmi([
+        { month: "201501" },
+        { month: "201501", source: "Embedded_generation" },
+        { month: "201502" },
+        { month: "201502", source: "Embedded_generation" },
+      ]);
+
+      await syncMeteredGeneration(withCobb);
+
+      expect(downloadedFiles(requests)).toEqual([
+        "201501_Generation_MD.csv",
+        "201502_Generation_MD.csv",
+        "201502_Embedded_generation.csv",
+      ]);
+    });
+
+    it("doesn't list or download them when no code is from the embedded generation data", async () => {
+      const requests = mockEmi([{ month: "201502" }, { month: "201502", source: "Embedded_generation" }]);
+
+      await syncMeteredGeneration(codes);
+
+      expect(requests.filter(request => request.url.includes("Embedded_generation"))).toEqual([]);
+    });
+
+    it("aggregates a month again when EMI republishes its embedded generation file", async () => {
+      mockEmi([{ month: "201502" }, { month: "201502", source: "Embedded_generation" }]);
+      await syncMeteredGeneration(withCobb);
+
+      const requests = mockEmi([
+        { month: "201502" },
+        { month: "201502", source: "Embedded_generation", days: ["2015-02-01"], lastModified: "Thu, 15 Oct 2026 01:00:00 GMT" },
+      ]);
+      await syncMeteredGeneration(withCobb);
+
+      expect(downloadedFiles(requests)).toEqual(["201502_Generation_MD.csv", "201502_Embedded_generation.csv"]);
+      expect(await getAggregate("aggregate-daily-2015-02")).toEqual({
+        data: [
+          { from: "2015-02-01", to: "2015-02-01", nodes: { [NODE]: { g: 240, l: 0 }, [COBB]: { g: 120, l: 0 } } },
+          day("2015-02-02", 240),
+        ],
+      });
+    });
+
+    it("doesn't aggregate a month that only has an embedded generation file", async () => {
+      const requests = mockEmi([{ month: "201502", source: "Embedded_generation" }]);
+
+      await syncMeteredGeneration(withCobb);
+
+      expect(downloadedFiles(requests)).toEqual([]);
+    });
   });
 
   it("ignores null characters padding empty trading periods", async () => {
