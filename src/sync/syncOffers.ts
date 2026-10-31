@@ -66,6 +66,8 @@ async function downloadFileAndParse(url: string) {
   // intermittent units (wind, some solar) also give a forecast of generation potential (FOGP), by trading period
   // and unit. only units that give one are included
   const forecasts = {} as Record<string, Record<string, number>>;
+  // the submission (SubmissionOrder) each forecast is from, by trading period and unit
+  const forecastSubmissions = {} as Record<string, Record<string, number>>;
 
   const parser = new CsvRecordParser((record) => {
     const item = record as OfferRecord;
@@ -76,9 +78,15 @@ async function downloadFileAndParse(url: string) {
     const pointOfConnectionAndUnit = item.PointOfConnection + " " + item.Unit;
 
     // EMI repeats the unit's whole forecast on each of its tranches, including ones with nothing offered. it isn't
-    // used for the offers, so each tranche is what was offered in it, even when they add up to more than the forecast
+    // used for the offers, so each tranche is what was offered in it, even when they add up to more than the forecast.
+    // a tranche's latest offer can be from an earlier submission than the unit's other tranches, with the forecast
+    // from then (most were before 2025), so the forecast is from the unit's latest submission
     if (item.ForecastOfGenerationPotentialMegawatts) {
-      (forecasts[+item.TradingPeriod] ??= {})[pointOfConnectionAndUnit] = +item.ForecastOfGenerationPotentialMegawatts;
+      const submissions = forecastSubmissions[+item.TradingPeriod] ??= {};
+      if (+item.SubmissionOrder >= (submissions[pointOfConnectionAndUnit] ?? 0)) {
+        submissions[pointOfConnectionAndUnit] = +item.SubmissionOrder;
+        (forecasts[+item.TradingPeriod] ??= {})[pointOfConnectionAndUnit] = +item.ForecastOfGenerationPotentialMegawatts;
+      }
     }
 
     if (+item.Megawatts > 0) {
