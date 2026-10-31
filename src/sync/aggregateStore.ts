@@ -37,13 +37,16 @@ export async function recalculateYear(store: AggregateStore, year: string) {
     await store.upsert("annual", "all", sumDataPoints(`${year}-01-01`, `${year}-12-31`, monthly.data));
 }
 
-// caches aggregate files in memory during a run, and only writes back the ones that changed
+// caches aggregate files in memory during a run, and only writes back the ones that changed. prefix is the aggregates'
+// (see getAggregateKey)
 export class AggregateStore {
     private files = new Map<string, DispatchAggregate>();
     private changed = new Set<string>();
 
+    constructor(private prefix?: string) { }
+
     async get(resolution: AggregateResolution, period: string): Promise<DispatchAggregate> {
-        const key = getAggregateKey(resolution, period);
+        const key = getAggregateKey(resolution, period, this.prefix);
         let aggregate = this.files.get(key);
         if (!aggregate) {
             const file = await env.dispatch.get(key);
@@ -55,7 +58,7 @@ export class AggregateStore {
 
     async upsert(resolution: AggregateResolution, period: string, dataPoint: AggregateDataPoint) {
         const aggregate = await this.get(resolution, period);
-        const key = getAggregateKey(resolution, period);
+        const key = getAggregateKey(resolution, period, this.prefix);
         this.files.set(key, upsertDataPoint(aggregate, dataPoint));
         this.changed.add(key);
     }

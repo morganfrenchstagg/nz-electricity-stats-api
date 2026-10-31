@@ -176,8 +176,9 @@ export function toTimeseries(aggregate: DispatchAggregate, nodePrefixes: string[
     return { series, data };
 }
 
-export function getAggregateKey(resolution: AggregateResolution, period: string): string {
-    return resolution === "annual" ? "aggregate-annual" : `aggregate-${resolution}-${period}`;
+// the HVDC's aggregates are stored the same way, under their own prefix (see HVDC_AGGREGATE_PREFIX)
+export function getAggregateKey(resolution: AggregateResolution, period: string, prefix = "aggregate"): string {
+    return resolution === "annual" ? `${prefix}-annual` : `${prefix}-${resolution}-${period}`;
 }
 
 // the number of hours in a NZ trading day: 23 when daylight saving starts, 25 when it ends, otherwise 24

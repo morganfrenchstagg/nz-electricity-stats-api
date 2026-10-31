@@ -220,6 +220,7 @@ describe("dispatch api", () => {
           ["2026-10-12T00:00:00", 120.5, 130],
           ["2026-10-12T00:05:00", 118, null],
         ],
+        hvdc: { series: [], data: [] },
       });
       expect(response.headers.get("Cache-Control")).toBe("max-age=86400");
     });
@@ -242,6 +243,7 @@ describe("dispatch api", () => {
           ["1997-08-01T00:00:00", null, null],
           ["1997-08-01T00:30:00", null, null],
         ],
+        hvdc: { series: [], data: [] },
       });
       expect(response.headers.get("Cache-Control")).toBe("max-age=86400");
     });
@@ -287,6 +289,48 @@ describe("dispatch api", () => {
 
       expect(response.status).toBe(404);
       expect(json).toEqual({ message: "No data for this date" });
+    });
+
+    describe("the HVDC", () => {
+      const SERIES = ["northFlow", "southFlow", "northLimit", "southLimit"];
+      const metered = { series: SERIES, data: [["2026-10-12T00:00:00", 650.5, 0, null, null], ["2026-10-12T00:30:00", 0, 20, null, null]] };
+      const em6 = { series: SERIES, data: [["2026-10-12T00:00:00", 640, 0, 1200, -650], ["2026-10-12T00:30:00", 0, -18, 1150, -640]] };
+
+      it("returns EMI's metered flows in each half hour, with em6's limits", async () => {
+        await env.dispatch.put("hvdc-metered-20261012", JSON.stringify(metered));
+        await env.dispatch.put("hvdc-em6-20261012", JSON.stringify(em6));
+
+        const { json } = await getJson("/v1/dispatch/2026-10-12");
+
+        expect(json.hvdc).toEqual({
+          series: SERIES,
+          data: [["2026-10-12T00:00:00", 650.5, 0, 1200, -650], ["2026-10-12T00:30:00", 0, 20, 1150, -640]],
+        });
+      });
+
+      it("returns EMI's flows without limits for days em6 wasn't kept for", async () => {
+        await env.dispatch.put("hvdc-metered-20261012", JSON.stringify(metered));
+
+        const { json } = await getJson("/v1/dispatch/20261012");
+
+        expect(json.hvdc).toEqual(metered);
+      });
+
+      it("returns em6's half hours until EMI has published the day's month", async () => {
+        await env.dispatch.put("hvdc-em6-20261012", JSON.stringify(em6));
+
+        const { json } = await getJson("/v1/dispatch/2026-10-12");
+
+        expect(json.hvdc).toEqual(em6);
+      });
+
+      it("isn't returned on its own for a day without any dispatch", async () => {
+        await env.dispatch.put("hvdc-metered-20261013", JSON.stringify(metered));
+
+        const { response } = await getJson("/v1/dispatch/2026-10-13");
+
+        expect(response.status).toBe(404);
+      });
     });
   });
 });

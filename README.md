@@ -15,10 +15,10 @@ npm run dev
 
 The API republishes data from:
 
-- [Electricity Market Information (EMI)](https://www.emi.ea.govt.nz): real-time dispatch, nodal prices and volumes, metered generation, and bids and offers (`/v1/dispatch`, `/v1/offers`). Dispatch before 11 September 2020 comes from metered generation (see below). © [Electricity Authority](https://www.ea.govt.nz/copyright-disclaimer-transparency/), licensed under [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/).
+- [Electricity Market Information (EMI)](https://www.emi.ea.govt.nz): real-time dispatch, nodal prices and volumes, metered generation and HVDC flows, and bids and offers (`/v1/dispatch`, `/v1/offers`). Dispatch before 11 September 2020 comes from metered generation (see below). © [Electricity Authority](https://www.ea.govt.nz/copyright-disclaimer-transparency/), licensed under [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/).
 - [Transpower open data](https://data-transpower.opendata.arcgis.com/): transmission lines (`/v1/transmission-lines`). © [Transpower New Zealand](https://www.transpower.co.nz), licensed under [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/).
 - Transpower's [Planned Outage Coordination Process (POCP)](https://customerportal.transpower.co.nz/pocp/outages): generation outages (`/v1/outages`).
-- [em6](https://www.em6.co.nz): the HVDC's flows and transfer limits over the last day, in each half hour (`hvdc` in `/v1/dispatch/recent`).
+- [em6](https://www.em6.co.nz): the HVDC's flows and transfer limits in each half hour (`hvdc` in `/v1/dispatch/recent`, `/v1/dispatch/:date` and `/v1/dispatch/aggregates`, see below).
 
 `GET /v1/attribution` lists these sources and the credit to give each one, and every `/v1` response links to it with a `Link: </v1/attribution>; rel="license"` header. If you re-use the data, credit its source as listed there. The sources are defined in `src/attribution.ts`.
 
@@ -42,3 +42,13 @@ Generation_MD is missing some embedded generators for part of their history, so 
 A unit's generation only comes from one dataset on any day, which the tests check, so it isn't counted twice.
 
 The sync reports any Generation_MD code that isn't listed to Slack and leaves its generation out until it is. Changing how a code is attributed aggregates every month again on the next sync, and the tests check every code points to a unit in `generators.json`.
+
+## The HVDC
+
+Each response from `/v1/dispatch/recent` and `/v1/dispatch/:date` has the HVDC as `hvdc`, a timeseries with a row for each half hour: its NZ time, then the MW flowing north and south and the north and south transfer limits (em6 gives the south limit as negative). `/v1/dispatch/recent` has em6's last day.
+
+For `/v1/dispatch/:date`, the flows come from EMI's metered [HVDC flows](https://www.emi.ea.govt.nz/Wholesale/Datasets/Metered_data/HVDC_Flows), back to August 1997 as the generation is, with each half hour at the start of its trading period. EMI has no transfer limits, so they come from em6, whose half hours have only been kept for each day since the end of October 2026, so they're null before then. EMI publishes each month about 10 days after it ends, so until then a day's flows come from em6 too.
+
+EMI's meters have changed over the years (each pole, the link as a whole, then each converter station's AC connections), and only the end the HVDC sends from is metered the whole time. So each way's flow is what was sent into the link: at Benmore going north, and at Haywards going south. It's a few percent more than what arrives at the other end, after losses. Since Pole 3 (2013) the HVDC often runs both ways within a half hour at low power, as its flow reverses, so north and south can both be above 0.
+
+The aggregates (`/v1/dispatch/aggregates`) have the MWh the HVDC sent north and south in each period as `hvdc`, a timeseries with `northFlow` and `southFlow` (the `nodes` filter doesn't apply to it). The days since EMI's latest month come from em6 until EMI publishes them, so a period isn't cached as complete until it has.

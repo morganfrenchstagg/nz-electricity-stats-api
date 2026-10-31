@@ -19,7 +19,9 @@ import { MeteredGenerationRecord } from "../models/meteredGenerationRecord";
 import { METERED_DAY_PREFIX } from "../services/meteredGeneration/meteredGeneration";
 import { DISPATCH_AGGREGATES_START } from "../services/dispatchAggregation/dispatchAggregation";
 import { HvdcTimeseries } from "../models/hvdc";
-import { HVDC_KEY } from "../sync/syncHvdc";
+import { EM6_HVDC_DAY_PREFIX, HVDC_KEY } from "../sync/syncHvdc";
+import { METERED_HVDC_DAY_PREFIX } from "../sync/syncHvdcHistory";
+import { mergeHvdcDays } from "../services/hvdc/hvdc";
 
 const app = new Hono();
 app.use(cors());
@@ -133,13 +135,16 @@ app.get("/latest", async (c) => {
 
 // a day's dispatch by interval, or its metered generation by trading period for the days the aggregates take from
 // metered generation (including the first, partial, day of dispatch files). each falls back to the other, e.g. while
-// the metered generation is still being backfilled
+// the metered generation is still being backfilled. the HVDC's half hours are returned with it as hvdc
 app.get("/:date", async (c) => {
 	const date = c.req.param("date").replace(/-/g, '');
 	const keys = date < DISPATCH_AGGREGATES_START.replace(/-/g, '')
 		? [METERED_DAY_PREFIX + date, `dispatch-${date}`]
 		: [`dispatch-${date}`, METERED_DAY_PREFIX + date];
-	const file = await env.dispatch.get(keys[0]) ?? await env.dispatch.get(keys[1]);
+	const [file, hvdc] = await Promise.all([
+		env.dispatch.get(keys[0]).then(file => file ?? env.dispatch.get(keys[1])),
+		getHvdcDay(date),
+	]);
 
 	if (!file) {
 		c.status(404);
@@ -147,8 +152,17 @@ app.get("/:date", async (c) => {
 	}
 
 	const intervals = await file.json() as Record<string, (HistoricalDispatchRecord | MeteredGenerationRecord)[]>;
-	return getJsonResponseWithMaxAgeHeader(toDayTimeseries(intervals));
+	return getJsonResponseWithMaxAgeHeader({ ...toDayTimeseries(intervals), hvdc });
 })
+
+// date is in the format 20261008
+async function getHvdcDay(date: string): Promise<HvdcTimeseries> {
+	const [metered, em6] = await Promise.all([METERED_HVDC_DAY_PREFIX + date, EM6_HVDC_DAY_PREFIX + date].map(async key => {
+		const file = await env.dispatch.get(key);
+		return file ? await file.json() as HvdcTimeseries : null;
+	}));
+	return mergeHvdcDays(metered, em6);
+}
 
 // the daily files leave out most nodes while they're at 0MW generation and load, so a node missing from an interval
 // is 0 rather than unknown. intervals missing from the file entirely are still left out. metered generation has no

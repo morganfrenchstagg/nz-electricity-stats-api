@@ -14,7 +14,8 @@ export type Em6HvdcResponse = {
 	data: Record<string, [Em6Time, number][]>;
 }
 
-// a row for each half hour, with its NZ time then the value (MW) of each series, or null where em6 has none
+// a row for each half hour, with its NZ time then the value (MW) of each series, or null where there's none (e.g. em6
+// missed one, or the limits for EMI's metered flows)
 export type HvdcTimeseries = {
 	series: string[];
 	data: (string | number | null)[][];

@@ -11,6 +11,8 @@ import {
 	upsertDataPoint
 } from "../services/dispatchAggregation/dispatchAggregation";
 import { LATEST_AGGREGATED_DATE_KEY, LatestAggregatedDateMetadata } from "../sync/syncDispatchAggregates";
+import { LATEST_METERED_HVDC_DATE_KEY } from "../sync/syncHvdcHistory";
+import { HVDC_AGGREGATE_PREFIX } from "../services/hvdc/hvdc";
 import { getJsonResponseWithHeaders, ONE_DAY_IN_SECONDS } from "../utilities/utilities";
 
 // how long to cache periods still receiving data once their next day is overdue
@@ -58,11 +60,16 @@ app.get("/annual", async (c) => {
 });
 
 async function getAggregateResponse(c: Context, resolution: AggregateResolution, period: string) {
-	const [file, { value: latestDate, metadata }] = await Promise.all([
+	const [file, hvdcFile, { value: latestDate, metadata }, latestHvdcDate] = await Promise.all([
 		env.dispatch.get(getAggregateKey(resolution, period)),
+		env.dispatch.get(getAggregateKey(resolution, period, HVDC_AGGREGATE_PREFIX)),
 		env.dispatch_kv.getWithMetadata<LatestAggregatedDateMetadata>(LATEST_AGGREGATED_DATE_KEY),
+		env.dispatch_kv.get(LATEST_METERED_HVDC_DATE_KEY),
 	]);
-	const isComplete = resolution !== "annual" && latestDate !== null && getPeriodEnd(resolution, period) < latestDate;
+	const periodEnd = getPeriodEnd(resolution, period);
+	const isAggregated = resolution !== "annual" && latestDate !== null && periodEnd < latestDate;
+	// the HVDC's days after EMI's latest month come from em6 until EMI publishes them, so they can still change until then
+	const isComplete = isAggregated && latestHvdcDate !== null && periodEnd <= latestHvdcDate;
 
 	let aggregate = file ? await file.json() as DispatchAggregate : null;
 	let maxAgeSeconds = isComplete ? COMPLETE_MAX_AGE_SECONDS : getSecondsUntilNextDayIsDue(metadata);
@@ -70,7 +77,7 @@ async function getAggregateResponse(c: Context, resolution: AggregateResolution,
 	// a day's dispatch file is only published the day after, so until it's been aggregated the day comes from the
 	// live dispatch instead (e.g. today so far). it's only added here rather than stored, so the aggregated day
 	// replaces it as soon as it's available
-	if (resolution === "daily" && !isComplete) {
+	if (resolution === "daily" && !isAggregated) {
 		const liveDays = await getLiveDays(period, latestDate, aggregate);
 		if (liveDays.length > 0) {
 			aggregate ??= { data: [] };
@@ -89,8 +96,10 @@ async function getAggregateResponse(c: Context, resolution: AggregateResolution,
 	// optionally filter by a comma separated list of node prefixes, e.g. ?nodes=HLY2201,ABY0111
 	const nodeFilter = c.req.query("nodes")?.split(",").map(node => node.trim()).filter(node => node.length > 0);
 	const timeseries = toTimeseries(aggregate, nodeFilter);
+	// the MWh it sent north and south in each period
+	const hvdc = hvdcFile ? toTimeseries(await hvdcFile.json() as DispatchAggregate) : { series: [], data: [] };
 
-	return getJsonResponseWithHeaders(timeseries, { "Cache-Control": `max-age=${maxAgeSeconds}` });
+	return getJsonResponseWithHeaders({ ...timeseries, hvdc }, { "Cache-Control": `max-age=${maxAgeSeconds}` });
 }
 
 // the days in the month (e.g. 2026-10) the live dispatch has that haven't been aggregated yet

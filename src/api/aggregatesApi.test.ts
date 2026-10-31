@@ -16,6 +16,17 @@ const aggregate = (...froms: string[]): DispatchAggregate => ({
   })),
 });
 
+const NO_HVDC = { series: [], data: [] };
+
+// the HVDC's MWh each way, stored as if each direction were a node (see HVDC_AGGREGATE_PREFIX)
+const hvdcAggregate = (...froms: string[]): DispatchAggregate => ({
+  data: froms.map(from => ({
+    from,
+    to: from,
+    nodes: { northFlow: { g: 9600, l: 0 }, southFlow: { g: 12.5, l: 0 } },
+  })),
+});
+
 async function storeAggregate(key: string, value: DispatchAggregate) {
   await env.dispatch.put(key, JSON.stringify(value));
 }
@@ -46,6 +57,7 @@ describe("aggregates api", () => {
         ["2026-10-01", 1200, 2399.5, 9000],
         ["2026-10-02", 1200, 2399.5, 9000],
       ],
+      hvdc: NO_HVDC,
     });
   });
 
@@ -84,6 +96,7 @@ describe("aggregates api", () => {
     expect(json).toEqual({
       series: ["ATI2201 ATI0", "HLY2201 HLY1"],
       data: [["2026-10-01", 1200, 2399.5]],
+      hvdc: NO_HVDC,
     });
   });
 
@@ -92,6 +105,48 @@ describe("aggregates api", () => {
 
     expect(response.status).toBe(404);
     expect(json).toEqual({ message: "No data for this period" });
+  });
+
+  describe("the HVDC", () => {
+    it("returns the MWh it sent north and south in each day", async () => {
+      await storeAggregate("aggregate-daily-2026-10", aggregate("2026-10-01", "2026-10-02"));
+      await storeAggregate("aggregate-hvdc-daily-2026-10", hvdcAggregate("2026-10-01"));
+
+      const { json } = await getJson("/v1/dispatch/aggregates/2026/10");
+
+      expect(json.hvdc).toEqual({ series: ["northFlow", "southFlow"], data: [["2026-10-01", 9600, 12.5]] });
+    });
+
+    it.each([
+      ["weekly", "/v1/dispatch/aggregates/2026/weekly", "aggregate-weekly-2026", "aggregate-hvdc-weekly-2026"],
+      ["monthly", "/v1/dispatch/aggregates/2026/monthly", "aggregate-monthly-2026", "aggregate-hvdc-monthly-2026"],
+      ["annual", "/v1/dispatch/aggregates/annual", "aggregate-annual", "aggregate-hvdc-annual"],
+    ])("returns its %s totals", async (_, path, key, hvdcKey) => {
+      await storeAggregate(key, aggregate("2026-01-01"));
+      await storeAggregate(hvdcKey, hvdcAggregate("2026-01-01"));
+
+      const { json } = await getJson(path);
+
+      expect(json.hvdc.data).toEqual([["2026-01-01", 9600, 12.5]]);
+    });
+
+    it("isn't filtered by node", async () => {
+      await storeAggregate("aggregate-daily-2026-10", aggregate("2026-10-01"));
+      await storeAggregate("aggregate-hvdc-daily-2026-10", hvdcAggregate("2026-10-01"));
+
+      const { json } = await getJson("/v1/dispatch/aggregates/2026/10?nodes=ATI2201");
+
+      expect(json.series).toEqual(["ATI2201 ATI0"]);
+      expect(json.hvdc.series).toEqual(["northFlow", "southFlow"]);
+    });
+
+    it("isn't returned on its own for periods without any generation", async () => {
+      await storeAggregate("aggregate-hvdc-daily-1996-10", hvdcAggregate("1996-10-01"));
+
+      const { response } = await getJson("/v1/dispatch/aggregates/1996/10");
+
+      expect(response.status).toBe(404);
+    });
   });
 
   describe("days that haven't been aggregated yet", () => {
@@ -124,6 +179,7 @@ describe("aggregates api", () => {
           ["2026-10-23", 1200, -24, 0],
           ["2026-10-24", 1200, 0, 0],
         ],
+        hvdc: NO_HVDC,
       });
       expect(response.headers.get("Cache-Control")).toBe("max-age=300");
     });
@@ -164,6 +220,7 @@ describe("aggregates api", () => {
       expect(json).toEqual({
         series: ["ATI2201 ATI0"],
         data: [["2026-11-01", 8.333]],
+        hvdc: NO_HVDC,
       });
       expect((await getJson("/v1/dispatch/aggregates/2026/10")).json.data).toEqual([["2026-10-31", 1200]]);
     });
@@ -176,6 +233,7 @@ describe("aggregates api", () => {
       expect(json).toEqual({
         series: ["HLY2201 HLY1"],
         data: [["2026-10-23", -24], ["2026-10-24", 0]],
+        hvdc: NO_HVDC,
       });
     });
 
@@ -206,11 +264,15 @@ describe("aggregates api", () => {
       vi.setSystemTime(NOW);
     });
 
-    // updatedAt is when new days were last aggregated, as stored by syncDispatchAggregates
-    async function getCacheControl(path: string, key: string, latestDate?: string, updatedAt = NOW - 6 * HOUR_MS) {
+    // updatedAt is when new days were last aggregated, as stored by syncDispatchAggregates. EMI's HVDC goes up to the
+    // same date unless it's given
+    async function getCacheControl(path: string, key: string, latestDate?: string, updatedAt = NOW - 6 * HOUR_MS, latestHvdcDate = latestDate) {
       await storeAggregate(key, aggregate("2026-01-01"));
       if (latestDate) {
         await env.dispatch_kv.put("latestAggregatedDispatchDate", latestDate, { metadata: { updatedAt } });
+      }
+      if (latestHvdcDate) {
+        await env.dispatch_kv.put("latestMeteredHvdcDate", latestHvdcDate);
       }
       const { response } = await requestWorker(path);
       return response.headers.get("Cache-Control");
@@ -219,6 +281,21 @@ describe("aggregates api", () => {
     it("caches complete periods for 30 days", async () => {
       expect(await getCacheControl("/v1/dispatch/aggregates/2026/9", "aggregate-daily-2026-09", "2026-10-01")).toBe("max-age=2592000");
       expect(await getCacheControl("/v1/dispatch/aggregates/2025/monthly", "aggregate-monthly-2025", "2026-01-01")).toBe("max-age=2592000");
+    });
+
+    // until then its days come from em6
+    it("doesn't treat periods as complete until EMI has published the HVDC's flows for all of them", async () => {
+      const path = "/v1/dispatch/aggregates/2026/9";
+      expect(await getCacheControl(path, "aggregate-daily-2026-09", "2026-10-12", NOW - 6 * HOUR_MS, "2026-08-31")).toBe("max-age=64800");
+      expect(await getCacheControl(path, "aggregate-daily-2026-09", "2026-10-12", NOW - 6 * HOUR_MS, "2026-09-30")).toBe("max-age=2592000");
+    });
+
+    it("doesn't read the live dispatch for months that have been aggregated while their HVDC is still from em6", async () => {
+      const get = vi.spyOn(env.dispatch, "get");
+
+      await getCacheControl("/v1/dispatch/aggregates/2026/9", "aggregate-daily-2026-09", "2026-10-12", NOW - 6 * HOUR_MS, "2026-08-31");
+
+      expect(get).not.toHaveBeenCalledWith("timeseries");
     });
 
     it("caches periods that are still receiving data until a day after the last update", async () => {

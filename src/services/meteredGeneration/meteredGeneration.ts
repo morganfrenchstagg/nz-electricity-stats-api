@@ -190,14 +190,14 @@ function toPeriodSinceMidnight(clockPeriod: number, hours: number): number {
 }
 
 // e.g. 1997-08-01. older files of the embedded generation and grid import data have dates as dd/mm/yyyy
-function getTradingDate(record: Record<string, string>): string {
+export function getTradingDate(record: Record<string, string>): string {
     const date = getColumn(record, "Trading_Date");
     const [day, month, year] = date.split("/");
     return year ? `${year}-${month}-${day}` : date;
 }
 
 // a column's value, as its name's case varies between files over the years (e.g. Trading_date, Trading_Date and TRADING_DATE)
-function getColumn(record: Record<string, string>, name: string): string {
+export function getColumn(record: Record<string, string>, name: string): string {
     if (name in record) {
         return record[name];
     }
