@@ -31,8 +31,9 @@ app.get(":date", async (c) => {
     const response = {
         date: formattedDate,
         data: await data.json(),
-        // intermittent units' forecast of generation potential, by trading period and unit. the sync has only kept it
-        // since late October 2026, so days synced before then have none
+        // intermittent units' forecast of generation potential, by trading period and unit. EMI's offers only have it
+        // from 24 October 2019, and the days synced before late October 2026 have none until they're backfilled (see
+        // backfillFogp)
         fogp: fogp ? await fogp.json() : {}
     }
 

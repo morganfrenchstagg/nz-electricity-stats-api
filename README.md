@@ -57,4 +57,6 @@ The aggregates (`/v1/dispatch/aggregates`) have the MWh the HVDC sent north and 
 
 `/v1/offers/:date` (or `latest`) has each unit's energy offers in each trading period as `data`, a list of tranches with the MW offered in each and its price. Only tranches offering more than 0 MW are included.
 
-Intermittent units (wind, some solar) also give a forecast of generation potential (FOGP) with their offers, which is in `fogp` as the MW forecast by trading period and unit. Only units that give one are included, and a unit's forecast is there even when nothing is offered. A unit's tranches can add up to more than its forecast, as each is what was offered in it. FOGP has only been kept for days synced since late October 2026, so `fogp` is empty before then.
+Intermittent units (wind, some solar) also give a forecast of generation potential (FOGP) with their offers, which is in `fogp` as the MW forecast by trading period and unit. Only units that give one are included, and a unit's forecast is there even when nothing is offered. A unit's tranches can add up to more than its forecast, as each is what was offered in it. Before 2025 a unit's tranches were often from different submissions, each with the forecast from then, so it's the forecast from the unit's latest submission.
+
+EMI's offers have FOGP from 24 October 2019, so `fogp` is empty before then. The days synced before late October 2026 didn't keep it, so they're being backfilled from EMI's offers files, oldest first, and `fogp` is empty for the ones that haven't been yet.
