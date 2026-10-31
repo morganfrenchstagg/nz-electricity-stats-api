@@ -18,19 +18,22 @@ app.get(":date", async (c) => {
     }
 
     const formattedDate = date.replace(/-/g, '');
-    const fileKey = "offers-" + formattedDate;
-    const data = await env.offers.get(fileKey);
+    const [data, fogp] = await Promise.all([
+        env.offers.get("offers-" + formattedDate),
+        env.offers.get("fogp-" + formattedDate),
+    ]);
 
     if (!data) {
         c.status(404);
         return c.json({ message: "No data for this date" });
     }
 
-    const json = await data.json();
-
     const response = {
         date: formattedDate,
-        data: json
+        data: await data.json(),
+        // intermittent units' forecast of generation potential, by trading period and unit. the sync has only kept it
+        // since late October 2026, so days synced before then have none
+        fogp: fogp ? await fogp.json() : {}
     }
 
     // todo - better calculate an appropriate amount of time for this cache to last
