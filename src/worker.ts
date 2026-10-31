@@ -11,6 +11,7 @@ import { syncGenerationRecords } from "./sync/syncGenerationRecords";
 import { syncMeteredGeneration } from "./sync/syncMeteredGeneration";
 import { syncHvdc } from "./sync/syncHvdc";
 import { syncHvdcHistory } from "./sync/syncHvdcHistory";
+import { backfillFogp } from "./sync/backfillFogp";
 import { checkForStaleData } from "./sync/staleDataCheck";
 import offersApi from "./api/offersApi";
 import { getJsonResponseWithMaxAgeHeader } from "./utilities/utilities";
@@ -102,6 +103,11 @@ async function scheduled(controller: ScheduledController) {
     // only writes the HVDC's own files, so it can run alongside the others
     case "05 * * * *":
       await syncHvdcHistory();
+      break;
+    // the FOGP backfill downloads years of the offers sync's files, so it has runs of its own rather than using up the
+    // offers sync's time. it only writes the fogp files the offers sync hasn't, so it can run alongside the others
+    case "25 * * * *":
+      await backfillFogp();
       break;
   }
 }

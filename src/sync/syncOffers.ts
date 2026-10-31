@@ -7,7 +7,7 @@ import { CheckpointMetadata } from "../models/checkpointMetadata";
 
 // files are downloaded in parallel batches. only the few rows we keep are parsed, so 3 files in progress use
 // ~10MB of memory (~30MB including garbage) - well within the 128MB limit
-const MAX_CONCURRENT_DOWNLOADS = 3;
+export const MAX_CONCURRENT_DOWNLOADS = 3;
 
 // stop starting new files after this long, so a long catch-up stops cleanly before the 15 minute limit
 // for cron triggers. the rest are picked up by the next run
@@ -56,7 +56,7 @@ export async function syncOffers() {
   console.log("Finished syncing offers");
 }
 
-async function downloadFileAndParse(url: string) {
+export async function downloadFileAndParse(url: string) {
   const response = await fetch(url);
   if (!response.ok || !response.body) {
     throw new Error(`Failed to download ${url}: ${response.status}`);
@@ -114,7 +114,7 @@ async function downloadFileAndParse(url: string) {
   return { offers, forecasts };
 }
 
-async function getListOfEmiFiles(): Promise<OffersFile[]> {
+export async function getListOfEmiFiles(): Promise<OffersFile[]> {
   const blobs = await listEmiDatasetBlobs("Datasets/Wholesale/BidsAndOffers/Offers");
 
   return blobs

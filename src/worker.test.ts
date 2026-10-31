@@ -12,6 +12,7 @@ import { syncOffers } from "./sync/syncOffers";
 import { syncMeteredGeneration } from "./sync/syncMeteredGeneration";
 import { syncHvdc } from "./sync/syncHvdc";
 import { syncHvdcHistory } from "./sync/syncHvdcHistory";
+import { backfillFogp } from "./sync/backfillFogp";
 import { checkForStaleData } from "./sync/staleDataCheck";
 
 vi.mock("./sync/syncDispatch", () => ({ syncDispatch: vi.fn() }));
@@ -26,6 +27,7 @@ vi.mock("./sync/syncHvdcHistory", async (importOriginal) => ({
   ...await importOriginal<typeof import("./sync/syncHvdcHistory")>(),
   syncHvdcHistory: vi.fn(),
 }));
+vi.mock("./sync/backfillFogp", () => ({ backfillFogp: vi.fn() }));
 vi.mock("./sync/staleDataCheck", () => ({ checkForStaleData: vi.fn() }));
 vi.mock("./sync/syncDispatchAggregates", async (importOriginal) => ({
   ...await importOriginal<typeof import("./sync/syncDispatchAggregates")>(),
@@ -182,6 +184,7 @@ describe("scheduled", () => {
     await runCron("45 * * * *");
 
     expect(syncOffers).toHaveBeenCalledOnce();
+    expect(backfillFogp).not.toHaveBeenCalled();
     expect(syncDispatch).not.toHaveBeenCalled();
     expect(syncDailyDispatch).not.toHaveBeenCalled();
   });
@@ -192,6 +195,14 @@ describe("scheduled", () => {
     expect(syncHvdcHistory).toHaveBeenCalledOnce();
     expect(syncHvdc).not.toHaveBeenCalled();
     expect(syncDailyDispatch).not.toHaveBeenCalled();
+    expect(syncMeteredGeneration).not.toHaveBeenCalled();
+  });
+
+  it("backfills FOGP hourly, apart from the offers sync", async () => {
+    await runCron("25 * * * *");
+
+    expect(backfillFogp).toHaveBeenCalledOnce();
+    expect(syncOffers).not.toHaveBeenCalled();
     expect(syncMeteredGeneration).not.toHaveBeenCalled();
   });
 
@@ -206,5 +217,6 @@ describe("scheduled", () => {
     expect(syncMeteredGeneration).not.toHaveBeenCalled();
     expect(syncHvdc).not.toHaveBeenCalled();
     expect(syncHvdcHistory).not.toHaveBeenCalled();
+    expect(backfillFogp).not.toHaveBeenCalled();
   });
 });
