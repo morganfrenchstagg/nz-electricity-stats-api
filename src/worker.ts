@@ -10,6 +10,7 @@ import { syncDispatchAggregates } from "./sync/syncDispatchAggregates";
 import { syncGenerationRecords } from "./sync/syncGenerationRecords";
 import { syncMeteredGeneration } from "./sync/syncMeteredGeneration";
 import { syncHvdc } from "./sync/syncHvdc";
+import { syncHvdcHistory } from "./sync/syncHvdcHistory";
 import { checkForStaleData } from "./sync/staleDataCheck";
 import offersApi from "./api/offersApi";
 import { getJsonResponseWithMaxAgeHeader } from "./utilities/utilities";
@@ -97,6 +98,10 @@ async function scheduled(controller: ScheduledController) {
       break;
     case "45 * * * *":
       await syncOffers();
+      break;
+    // only writes the HVDC's own files, so it can run alongside the others
+    case "05 * * * *":
+      await syncHvdcHistory();
       break;
   }
 }
