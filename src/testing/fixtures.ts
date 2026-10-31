@@ -1,6 +1,8 @@
 import { RealTimeDispatch } from "../models/realTimeDispatch";
 import { PocpOutage } from "../models/pocpOutage";
 import { Em6HvdcResponse } from "../models/hvdc";
+import { OfferRecord } from "../models/offerRecord";
+import { mockFetch, streamedResponse } from "./fetchMock";
 
 export const EMI_RTD_URL = "https://emi.azure-api.net/real-time-dispatch/";
 export const EMI_DATASETS_LISTING_URL = "https://emidatasets.blob.core.windows.net/publicdata?restype=container&comp=list";
@@ -87,3 +89,56 @@ export const HVDC_TIMESERIES = {
 		["2026-10-28T20:30:00", 638, 0, 1200, -658],
 	],
 };
+
+export const EMI_OFFERS_FOLDER = "Datasets/Wholesale/BidsAndOffers/Offers/";
+
+const defaultOffer: OfferRecord = {
+	TradingDate: "2026-10-12",
+	TradingPeriod: "1",
+	ParticipantCode: "MRPL",
+	PointOfConnection: "ATI2201",
+	Unit: "ATI0",
+	ProductType: "Energy",
+	ProductClass: "Injection",
+	ReserveType: "",
+	ProductDescription: "",
+	UTCSubmissionDate: "2026-10-11",
+	UTCSubmissionTime: "10:00:00",
+	SubmissionOrder: "1",
+	IsLatestYesNo: "Y",
+	Tranche: "1",
+	MaximumRampUpMegawattsPerHour: "",
+	MaximumRampDownMegawattsPerHour: "",
+	PartiallyLoadedSpinningReservePercent: "",
+	MaximumOutputMegawatts: "",
+	ForecastOfGenerationPotentialMegawatts: "",
+	Megawatts: "40",
+	DollarsPerMegawattHour: "0.01",
+};
+
+// a row of EMI's daily offers files, by default Aratiatia's latest energy offer
+export const offer = (overrides: Partial<OfferRecord>) => Object.values({ ...defaultOffer, ...overrides }).join(",");
+
+export type EmiOffersFile = {
+	date: string; // YYYYMMDD
+	rows?: string[];
+	status?: number;
+};
+
+const offersBlobName = (date: string) => `${EMI_OFFERS_FOLDER}${date.slice(0, 4)}/${date}_Offers.csv`;
+
+// EMI's daily offers files (the Offers dataset), listed in the order given
+export function mockEmiOffers(files: EmiOffersFile[], { otherBlobs = [] as ListedBlob[], onDownload = () => { } } = {}) {
+	return mockFetch({
+		[EMI_DATASETS_LISTING_URL]: () => emiBlobListing([...files.map(file => ({ name: offersBlobName(file.date) })), ...otherBlobs]),
+		[EMI_DATASETS_FILES_URL]: (request) => {
+			onDownload();
+			const file = files.find(file => request.url === EMI_DATASETS_FILES_URL + offersBlobName(file.date))!;
+			if (file.status) {
+				return new Response("", { status: file.status });
+			}
+			const rows = file.rows ?? [offer({})];
+			return streamedResponse([Object.keys(defaultOffer).join(","), ...rows].join("\r\n") + "\r\n");
+		},
+	});
+}

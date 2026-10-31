@@ -18,19 +18,23 @@ app.get(":date", async (c) => {
     }
 
     const formattedDate = date.replace(/-/g, '');
-    const fileKey = "offers-" + formattedDate;
-    const data = await env.offers.get(fileKey);
+    const [data, fogp] = await Promise.all([
+        env.offers.get("offers-" + formattedDate),
+        env.offers.get("fogp-" + formattedDate),
+    ]);
 
     if (!data) {
         c.status(404);
         return c.json({ message: "No data for this date" });
     }
 
-    const json = await data.json();
-
     const response = {
         date: formattedDate,
-        data: json
+        data: await data.json(),
+        // intermittent units' forecast of generation potential, by trading period and unit. EMI's offers only have it
+        // from 24 October 2019, and the days synced before late October 2026 have none until they're backfilled (see
+        // backfillFogp)
+        fogp: fogp ? await fogp.json() : {}
     }
 
     // todo - better calculate an appropriate amount of time for this cache to last

@@ -2,66 +2,14 @@ import { env } from "cloudflare:workers";
 import { describe, expect, it, vi } from "vitest";
 
 import { syncOffers } from "./syncOffers";
-import { mockFetch, streamedResponse } from "../testing/fetchMock";
-import { downloadedDates, EMI_DATASETS_FILES_URL, EMI_DATASETS_LISTING_URL, emiBlobListing, ListedBlob } from "../testing/fixtures";
+import { downloadedDates, EMI_OFFERS_FOLDER, mockEmiOffers, offer } from "../testing/fixtures";
 import { OfferRecord } from "../models/offerRecord";
-
-const FOLDER = "Datasets/Wholesale/BidsAndOffers/Offers/";
-
-const defaultOffer: OfferRecord = {
-  TradingDate: "2026-10-12",
-  TradingPeriod: "1",
-  ParticipantCode: "MRPL",
-  PointOfConnection: "ATI2201",
-  Unit: "ATI0",
-  ProductType: "Energy",
-  ProductClass: "Injection",
-  ReserveType: "",
-  ProductDescription: "",
-  UTCSubmissionDate: "2026-10-11",
-  UTCSubmissionTime: "10:00:00",
-  SubmissionOrder: "1",
-  IsLatestYesNo: "Y",
-  Tranche: "1",
-  MaximumRampUpMegawattsPerHour: "",
-  MaximumRampDownMegawattsPerHour: "",
-  PartiallyLoadedSpinningReservePercent: "",
-  MaximumOutputMegawatts: "",
-  ForecastOfGenerationPotentialMegawatts: "",
-  Megawatts: "40",
-  DollarsPerMegawattHour: "0.01",
-};
-
-const offer = (overrides: Partial<OfferRecord>) => Object.values({ ...defaultOffer, ...overrides }).join(",");
-
-type OffersFile = {
-  date: string; // YYYYMMDD
-  rows?: string[];
-  status?: number;
-};
-
-const blobName = (date: string) => `${FOLDER}${date.slice(0, 4)}/${date}_Offers.csv`;
-
-function mockEmi(files: OffersFile[], { otherBlobs = [] as ListedBlob[], onDownload = () => { } } = {}) {
-  return mockFetch({
-    [EMI_DATASETS_LISTING_URL]: () => emiBlobListing([...files.map(file => ({ name: blobName(file.date) })), ...otherBlobs]),
-    [EMI_DATASETS_FILES_URL]: (request) => {
-      onDownload();
-      const file = files.find(file => request.url === EMI_DATASETS_FILES_URL + blobName(file.date))!;
-      if (file.status) {
-        return new Response("", { status: file.status });
-      }
-      const rows = file.rows ?? [offer({})];
-      return streamedResponse([Object.keys(defaultOffer).join(","), ...rows].join("\r\n") + "\r\n");
-    },
-  });
-}
 
 describe("syncOffers", () => {
   it("stores the latest energy offers for each unit by trading period", async () => {
     vi.useFakeTimers({ toFake: ["Date"] });
     vi.setSystemTime(new Date("2026-10-14T02:00:00Z"));
-    const requests = mockEmi([{
+    const requests = mockEmiOffers([{
       date: "20261012",
       rows: [
         offer({ Tranche: "1", Megawatts: "40", DollarsPerMegawattHour: "0.01" }),
@@ -75,7 +23,7 @@ describe("syncOffers", () => {
         // a wind farm can offer more than its forecast
         offer({ TradingPeriod: "2", PointOfConnection: "WWD1102", Unit: "WWD1", Megawatts: "100", ForecastOfGenerationPotentialMegawatts: "63.5", DollarsPerMegawattHour: "0" }),
       ],
-    }], { otherBlobs: [{ name: `${FOLDER}README.txt` }] });
+    }], { otherBlobs: [{ name: `${EMI_OFFERS_FOLDER}README.txt` }] });
 
     await syncOffers();
 
@@ -108,7 +56,7 @@ describe("syncOffers", () => {
       TradingPeriod: "18", PointOfConnection: "LTN2201", Unit: "TUR0", SubmissionOrder: "68",
       MaximumOutputMegawatts: "222.000", ForecastOfGenerationPotentialMegawatts: "178.800", ...overrides,
     });
-    mockEmi([{
+    mockEmiOffers([{
       date: "20261024",
       rows: [
         turitea({ Tranche: "2", Megawatts: "141.400", DollarsPerMegawattHour: "0.02" }),
@@ -141,7 +89,7 @@ describe("syncOffers", () => {
   });
 
   it("stores a unit's forecast of generation potential even when nothing is offered", async () => {
-    mockEmi([{
+    mockEmiOffers([{
       date: "20261024",
       rows: [
         offer({ TradingPeriod: "3", PointOfConnection: "LTN2201", Unit: "TUR0", Tranche: "1", Megawatts: "0.000", ForecastOfGenerationPotentialMegawatts: "4.200" }),
@@ -164,9 +112,37 @@ describe("syncOffers", () => {
     });
   });
 
+  it("keeps a unit's forecast from its latest submission, when its tranches' latest offers are from different ones", async () => {
+    // West Wind's offers for 2019-10-24. tranche 1 was offered again the day before, but the latest offers for the
+    // other tranches are still the ones from a week before, with the forecast from then
+    const westWind = (overrides: Partial<OfferRecord>) => offer({
+      TradingDate: "2019-10-24", ParticipantCode: "MERI", PointOfConnection: "WWD1102", Unit: "WWD0",
+      MaximumOutputMegawatts: "69.000", Megawatts: "0.000", DollarsPerMegawattHour: "0.00", ...overrides,
+    });
+    const lastWeek = { UTCSubmissionDate: "2019-10-17", SubmissionOrder: "1", ForecastOfGenerationPotentialMegawatts: "14.226" };
+    mockEmiOffers([{
+      date: "20191024",
+      rows: [
+        westWind({ Tranche: "1", UTCSubmissionDate: "2019-10-23", SubmissionOrder: "33", ForecastOfGenerationPotentialMegawatts: "8.000", Megawatts: "69.000", DollarsPerMegawattHour: "0.01" }),
+        westWind({ Tranche: "2", ...lastWeek }),
+        westWind({ Tranche: "3", ...lastWeek }),
+        // the latest submission can come after the older ones in the file
+        westWind({ TradingPeriod: "2", Tranche: "2", ...lastWeek }),
+        westWind({ TradingPeriod: "2", Tranche: "1", UTCSubmissionDate: "2019-10-23", SubmissionOrder: "34", ForecastOfGenerationPotentialMegawatts: "9.500" }),
+      ],
+    }]);
+
+    await syncOffers();
+
+    expect(await (await env.offers.get("fogp-20191024"))!.json()).toEqual({
+      "1": { "WWD1102 WWD0": 8 },
+      "2": { "WWD1102 WWD0": 9.5 },
+    });
+  });
+
   it("only downloads files after the last synced date", async () => {
     await env.dispatch_kv.put("latestSyncedOffers", "20261011");
-    const requests = mockEmi([{ date: "20261010" }, { date: "20261011" }, { date: "20261012" }]);
+    const requests = mockEmiOffers([{ date: "20261010" }, { date: "20261011" }, { date: "20261012" }]);
 
     await syncOffers();
 
@@ -178,7 +154,7 @@ describe("syncOffers", () => {
     vi.useFakeTimers({ toFake: ["Date"] });
     const dates = ["20261008", "20261009", "20261010", "20261011", "20261012"];
     let isFirstDownload = true;
-    const requests = mockEmi(dates.map(date => ({ date })), {
+    const requests = mockEmiOffers(dates.map(date => ({ date })), {
       onDownload: () => {
         // the first download takes longer than the whole time budget
         if (isFirstDownload) {
@@ -200,7 +176,7 @@ describe("syncOffers", () => {
   });
 
   it("doesn't move the checkpoint past a file that failed to download", async () => {
-    mockEmi([{ date: "20261011" }, { date: "20261012", status: 503 }]);
+    mockEmiOffers([{ date: "20261011" }, { date: "20261012", status: 503 }]);
 
     await expect(syncOffers()).rejects.toThrow("Failed to download");
 
