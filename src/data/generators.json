@@ -2675,5 +2675,26 @@
         "gridZone": "CNI",
         "island": "NI",
         "operator": "Genesis Energy"
+    },
+    {
+        "site": "MGI",
+        "name": "Matangi",
+        "units": [
+            {
+                "name": "Matangi",
+                "unitCode": "MGI",
+                "node": "HAM0331 MGI0",
+                "capacity": 24,
+                "fuel": "Solar",
+                "fuelCode": "SOL"
+            }
+        ],
+        "location": {
+            "lat": -37.80261591853313,
+            "long": 175.43521168285304
+        },
+        "gridZone": "UNI",
+        "island": "NI",
+        "operator": "NewPower Energy"
     }
 ]
