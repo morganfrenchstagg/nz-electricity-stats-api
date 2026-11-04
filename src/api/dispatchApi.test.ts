@@ -136,7 +136,7 @@ describe("dispatch api", () => {
       expect(json).toEqual({ series: [], data: [], pricing: [], hvdc: { series: [], data: [] } });
     });
 
-    it("returns the HVDC's last day, once it's been synced", async () => {
+    it("returns the recent HVDC, once it's been synced", async () => {
       await env.dispatch.put("timeseries", JSON.stringify(timeseries("2026-10-14T22:00:00")));
       await env.dispatch.put("hvdc", JSON.stringify(HVDC_TIMESERIES));
 
@@ -177,7 +177,7 @@ describe("dispatch api", () => {
         expect(response.headers.get("Cache-Control")).toBe("max-age=300");
       });
 
-      it("still returns the HVDC's whole last day, as em6 publishes each half hour after the dispatch has passed it", async () => {
+      it("still returns all of the recent HVDC, as em6 publishes each half hour after the dispatch has passed it", async () => {
         await env.dispatch.put("hvdc", JSON.stringify(HVDC_TIMESERIES));
 
         const { json } = await getJson("/v1/dispatch/recent?since=2026-10-28T21:00:00");

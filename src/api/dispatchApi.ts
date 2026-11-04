@@ -64,8 +64,8 @@ app.get("/recent", async (c) => {
 	}
 
 	const [timeseries, hvdcFile] = await Promise.all([env.dispatch.get("timeseries"), env.dispatch.get(HVDC_KEY)]);
-	// the whole of the last day, even with since, as em6 publishes each half hour about half an hour after it ends,
-	// by when the dispatch is well past it
+	// the same last few days as the dispatch, all of them even with since, as em6 publishes each half hour about half an
+	// hour after it ends, by when the dispatch is well past it
 	const hvdc = hvdcFile ? await hvdcFile.json() as HvdcTimeseries : { series: [], data: [] };
 
 	if (!timeseries) {

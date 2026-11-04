@@ -1,7 +1,10 @@
 import { RealTimeDispatch } from "../../models/realTimeDispatch";
 import { Timeseries } from "../../models/timeseries";
 
-const MAX_DATA_POINTS = (60 / 5) * 24 * 3;
+// the recent endpoint's last few days of dispatch, which the HVDC returned with it covers too (see toRecentHvdc)
+export const TIMESERIES_DAYS = 3;
+
+const MAX_DATA_POINTS = (60 / 5) * 24 * TIMESERIES_DAYS;
 
 export function generateTimeseries(existingTimeseries: Timeseries, rtdData: RealTimeDispatch[]): Timeseries {
 	if (rtdData.length === 0 || existingTimeseries.data.find((item: any[]) => item[0] === rtdData[0].FiveMinuteIntervalDatetime)) {

@@ -45,7 +45,7 @@ The sync reports any Generation_MD code that isn't listed to Slack and leaves it
 
 ## The HVDC
 
-Each response from `/v1/dispatch/recent` and `/v1/dispatch/:date` has the HVDC as `hvdc`, a timeseries with a row for each half hour: its NZ time, then the MW flowing north and south and the north and south transfer limits (em6 gives the south limit as negative). `/v1/dispatch/recent` has em6's last day.
+Each response from `/v1/dispatch/recent` and `/v1/dispatch/:date` has the HVDC as `hvdc`, a timeseries with a row for each half hour: its NZ time, then the MW flowing north and south and the north and south transfer limits (em6 gives the south limit as negative). `/v1/dispatch/recent` has em6's half hours over the same last 3 days as the dispatch, all of them even with `since`.
 
 For `/v1/dispatch/:date`, the flows come from EMI's metered [HVDC flows](https://www.emi.ea.govt.nz/Wholesale/Datasets/Metered_data/HVDC_Flows), back to August 1997 as the generation is, with each half hour at the start of its trading period. EMI has no transfer limits, so they come from em6, whose half hours have only been kept for each day since the end of October 2026, so they're null before then. EMI publishes each month about 10 days after it ends, so until then a day's flows come from em6 too.
 

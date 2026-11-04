@@ -1,7 +1,8 @@
 import { AggregateDataPoint } from "../../models/dispatchAggregate";
 import { Em6HvdcResponse, Em6Time, HvdcTimeseries } from "../../models/hvdc";
-import { getTradingPeriodStarts } from "../dispatchAggregation/dispatchAggregation";
+import { getDatesBetween, getTradingPeriodStarts } from "../dispatchAggregation/dispatchAggregation";
 import { getColumn, getTradingDate } from "../meteredGeneration/meteredGeneration";
+import { TIMESERIES_DAYS } from "../timeseries/timeseries";
 
 // em6's key for each series, by the name it's returned as. values are kept as em6 gives them, so the south limit is
 // negative
@@ -58,6 +59,19 @@ export function toHvdcTimeseries(response: Em6HvdcResponse): HvdcTimeseries {
 export function splitHvdcByDate(timeseries: HvdcTimeseries): Map<string, HvdcTimeseries> {
 	const dates = Map.groupBy(timeseries.data, row => (row[0] as string).slice(0, 10));
 	return new Map([...dates].map(([date, data]) => [date, { series: timeseries.series, data }]));
+}
+
+// the dates the recent endpoint's HVDC can have half hours on, up to em6's latest (e.g. 2026-10-25 to 2026-10-28)
+export function getRecentHvdcDates(latestDate: string): string[] {
+	return getDatesBetween(subtractDays(`${latestDate}T00:00:00`, TIMESERIES_DAYS).slice(0, 10), latestDate);
+}
+
+// the recent dates' half hours (see getRecentHvdcDates), oldest first, as the recent endpoint returns them: the same last
+// few days as the dispatch, back from the latest half hour (e.g. after 2026-10-25T20:00:00 to 2026-10-28T20:00:00)
+export function toRecentHvdc(days: HvdcTimeseries[]): HvdcTimeseries {
+	const data = days.flatMap(day => day.data);
+	const start = subtractDays(data.at(-1)![0] as string, TIMESERIES_DAYS);
+	return { series: HVDC_SERIES, data: data.filter(([time]) => (time as string) > start) };
 }
 
 // adds the latest half hours to what's stored for a day, replacing any stored at the same times
@@ -159,6 +173,14 @@ function sortRows(rows: (string | number | null)[][]): (string | number | null)[
 function formatEm6Time(time: Em6Time): string {
 	const pad = (n: number) => String(n).padStart(2, "0");
 	return `${time.year}-${pad(time.month + 1)}-${pad(time.day)}T${pad(time.hour)}:${pad(time.minute)}:00`;
+}
+
+// e.g. 2026-10-28T20:00:00 => 2026-10-25T20:00:00 for 3 days. NZ times are counted as if they were UTC, so it's the same
+// time of day whether or not daylight saving starts or ends in between
+function subtractDays(time: string, days: number): string {
+	const date = new Date(`${time}Z`);
+	date.setUTCDate(date.getUTCDate() - days);
+	return date.toISOString().slice(0, 19);
 }
 
 function roundOrNull(value: number | null): number | null {

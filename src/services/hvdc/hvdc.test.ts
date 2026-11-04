@@ -2,12 +2,14 @@ import { describe, expect, it } from "vitest";
 
 import {
 	calculateHvdcEnergy,
+	getRecentHvdcDates,
 	isValidHvdcResponse,
 	mergeHvdc,
 	mergeHvdcDays,
 	splitHvdcByDate,
 	toHvdcTimeseries,
-	toMeteredHvdcDays
+	toMeteredHvdcDays,
+	toRecentHvdc
 } from "./hvdc";
 import { em6Hvdc, HVDC_TIMESERIES } from "../../testing/fixtures";
 import { Em6HvdcResponse } from "../../models/hvdc";
@@ -154,6 +156,35 @@ describe("splitHvdcByDate", () => {
 			["2026-10-28", { series: SERIES, data: [timeseries.data[0]] }],
 			["2026-10-29", { series: SERIES, data: [timeseries.data[1]] }],
 		]));
+	});
+});
+
+describe("getRecentHvdcDates", () => {
+	it("returns the 3 days before the latest date, and the latest", () => {
+		expect(getRecentHvdcDates("2026-11-01")).toEqual(["2026-10-29", "2026-10-30", "2026-10-31", "2026-11-01"]);
+	});
+});
+
+describe("toRecentHvdc", () => {
+	const row = (time: string) => [time, 600, 0, 1200, -650];
+
+	it("keeps the 3 days of half hours back from the latest, like the dispatch", () => {
+		const days = [
+			{ series: SERIES, data: [row("2026-10-25T20:00:00"), row("2026-10-25T20:30:00")] },
+			{ series: SERIES, data: [row("2026-10-26T12:00:00")] },
+			{ series: SERIES, data: [row("2026-10-28T19:30:00"), row("2026-10-28T20:00:00")] },
+		];
+
+		expect(toRecentHvdc(days)).toEqual({
+			series: SERIES,
+			data: [row("2026-10-25T20:30:00"), row("2026-10-26T12:00:00"), row("2026-10-28T19:30:00"), row("2026-10-28T20:00:00")],
+		});
+	});
+
+	it("counts back to the same time of day when daylight saving started in between", () => {
+		const days = [{ series: SERIES, data: [row("2026-09-24T12:00:00"), row("2026-09-24T12:30:00")] }, { series: SERIES, data: [row("2026-09-27T12:00:00")] }];
+
+		expect(toRecentHvdc(days).data).toEqual([row("2026-09-24T12:30:00"), row("2026-09-27T12:00:00")]);
 	});
 });
 
