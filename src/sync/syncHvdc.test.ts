@@ -65,6 +65,27 @@ describe("syncHvdc", () => {
     });
   });
 
+  it("stores the same last 3 days as the dispatch, from each day's half hours", async () => {
+    await env.dispatch.put("hvdc-em6-20261024", JSON.stringify({ series: HVDC_TIMESERIES.series, data: [["2026-10-24T20:00:00", 500, 0, 1200, -650]] }));
+    await env.dispatch.put("hvdc-em6-20261025", JSON.stringify({
+      series: HVDC_TIMESERIES.series,
+      data: [["2026-10-25T20:30:00", 510, 0, 1200, -650], ["2026-10-25T21:00:00", 520, 0, 1200, -650]],
+    }));
+    await env.dispatch.put("hvdc-em6-20261027", JSON.stringify({ series: HVDC_TIMESERIES.series, data: [["2026-10-27T08:00:00", 530, 0, 1200, -650]] }));
+    mockFetch({ [EM6_HVDC_URL]: () => Response.json(em6Hvdc()) });
+
+    await syncHvdc();
+
+    expect(await getStoredHvdc()).toEqual({
+      series: HVDC_TIMESERIES.series,
+      data: [
+        ["2026-10-25T21:00:00", 520, 0, 1200, -650],
+        ["2026-10-27T08:00:00", 530, 0, 1200, -650],
+        ...HVDC_TIMESERIES.data,
+      ],
+    });
+  });
+
   it("keeps the half hours either side of midnight in their own days", async () => {
     mockFetch({ [EM6_HVDC_URL]: () => Response.json(em6Response([["2026-10-28T23:30", 640], ["2026-10-29T00:00", 600]])) });
 
