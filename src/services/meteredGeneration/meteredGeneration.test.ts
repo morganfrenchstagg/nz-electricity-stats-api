@@ -30,6 +30,11 @@ function gridImportRow(poc: string, network: string, date: string, kwh: number[]
   return { POC: poc, NWK_Code: network, GENERATION_TYPE: "GN", TRADER: "TPNZ", UNIT_MEASURE: "kWh", FLOW_DIRECTION: "I", STATUS: "F", TRADING_DATE: date, ...tradingPeriods(kwh) };
 }
 
+// a row of the unit-level generation files
+function unitLevelRow(poc: string, unit: string, date: string, kwh: number[]) {
+  return { POC: poc, Unit_Code: unit, Participant_Code: "GENE", Gen_Measure: "kWh", Flow_Direction: "I", Gen_Type: "F", Trading_Date: date, ...tradingPeriods(kwh) };
+}
+
 // Generation_MD's file for a month
 const generationMd = (...records: Record<string, string>[]): MeteredFile[] => [{ source: "Generation_MD", records }];
 
@@ -46,6 +51,10 @@ describe("getMeteredCode", () => {
   it("is the point of connection and the loss code in the embedded generation data, or the network code in the grid import data", () => {
     expect(getMeteredCode(embeddedRow("STK0661", "COBB", "01/02/2015", []), "Embedded_generation")).toBe("STK0661 cobb");
     expect(getMeteredCode(gridImportRow("KAW0112", "SKOG", "01/02/2015", []), "Grid_import")).toBe("KAW0112 skog");
+  });
+
+  it("is the point of connection and the unit code in the unit-level generation data", () => {
+    expect(getMeteredCode(unitLevelRow("HLY2201", "UN5", "2020-09-01", []), "Unit_level_generation")).toBe("HLY2201 un5");
   });
 });
 
@@ -173,6 +182,24 @@ describe("calculateMeteredGeneration", () => {
       { p: "STK0661 COB0", g: 1, l: 0 },
       { p: "KAW0112 ONU0", g: 0.5, l: 0 },
     ]);
+  });
+
+  it("fills in units Generation_MD leaves out from the unit-level generation data, for the days their codes are listed", () => {
+    // Generation_MD has none of Huntly in September 2020
+    const huntly: MeteredGenerationCode[] = [
+      { code: "HLY2201 huntly_e3p", node: "HLY2201 HLY5", to: "2020-08-31" },
+      { code: "HLY2201 un5", source: "Unit_level_generation", node: "HLY2201 HLY5", from: "2020-09-01" },
+    ];
+
+    const generation = calculateMeteredGeneration([
+      { source: "Generation_MD", records: [row("HLY2201", "huntly_e3p", "2020-08-31", allDay(150000))] },
+      { source: "Unit_level_generation", records: [unitLevelRow("HLY2201", "UN5", "2020-08-31", allDay(150000)), unitLevelRow("HLY2201", "UN5", "2020-09-01", allDay(180000))] },
+    ], huntly);
+
+    expect(energy(generation)).toEqual(new Map([
+      ["2020-08-31", { "HLY2201 HLY5": { g: 7200, l: 0 } }],
+      ["2020-09-01", { "HLY2201 HLY5": { g: 8640, l: 0 } }],
+    ]));
   });
 
   it("only reads what the embedded generation data has generators inject (I), not what's used at their connection (X)", () => {

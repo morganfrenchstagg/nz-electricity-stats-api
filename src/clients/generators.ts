@@ -33,8 +33,9 @@ export type UnitDefinition = {
 	commissioned?: string;
 	decomissioned?: string;
 	// set on units that stand in for several units' metered generation before the dispatch data began, where EMI's
-	// metered data doesn't separate them (e.g. Huntly's Rankine units). lists the nodes of the units it combines. their
-	// node is the metered data's own code (see meteredGenerationCodes.json), and they have no capacity of their own
+	// metered data doesn't separate them (e.g. Huntly's Rankine units before 2000). lists the nodes of the units it
+	// combines. their node is the metered data's own code (see meteredGenerationCodes.json), and they have no capacity of
+	// their own
 	combines?: string[];
 }
 

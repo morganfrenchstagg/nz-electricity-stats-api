@@ -10,11 +10,13 @@ const FOLDERS: Record<MeteredSource, string> = {
   Generation_MD: "Datasets/Wholesale/Generation/Generation_MD/",
   Embedded_generation: "Datasets/Wholesale/Metered_data/Embedded_generation/",
   Grid_import: "Datasets/Wholesale/Metered_data/Grid_import/",
+  Unit_level_generation: "Datasets/Wholesale/Metered_data/Unit_level_generation_IR/",
 };
 const HEADERS: Record<MeteredSource, string> = {
   Generation_MD: "Site_Code,POC_Code,Nwk_Code,Gen_Code,Fuel_Code,Tech_Code,Trading_date",
   Embedded_generation: "POC,NWK_Code,Participant_Code,Loss_Code,Flow_Direction,Trading_date",
   Grid_import: "POC,NWK_Code,GENERATION_TYPE,TRADER,UNIT_MEASURE,FLOW_DIRECTION,STATUS,TRADING_DATE",
+  Unit_level_generation: "POC,Unit_Code,Participant_Code,Gen_Measure,Flow_Direction,Gen_Type,Trading_Date",
 };
 const NODE = "ATI2201 ATI0";
 
@@ -284,6 +286,21 @@ describe("syncMeteredGeneration", () => {
       await syncMeteredGeneration(withCobb);
 
       expect(downloadedFiles(requests)).toEqual([]);
+    });
+  });
+
+  it("fills in units from the unit-level generation data, whose folder isn't named after its files", async () => {
+    const HUNTLY = "HLY2201 HLY5";
+    const requests = mockEmi([
+      { month: "202009", days: ["2020-09-01"] },
+      { month: "202009", source: "Unit_level_generation", rows: [`HLY2201,UN5,GENE,kWh,I,F,2020-09-01,${Array(48).fill(200 * 500).join(",")},,`] },
+    ]);
+
+    await syncMeteredGeneration([...codes, { code: "HLY2201 un5", source: "Unit_level_generation", node: HUNTLY, from: "2020-09-01" }]);
+
+    expect(downloadedFiles(requests)).toEqual(["202009_Generation_MD.csv", "202009_Unit_level_generation.csv"]);
+    expect(await getAggregate("aggregate-daily-2020-09")).toEqual({
+      data: [{ from: "2020-09-01", to: "2020-09-01", nodes: { [NODE]: { g: 240, l: 0 }, [HUNTLY]: { g: 4800, l: 0 } } }],
     });
   });
 
