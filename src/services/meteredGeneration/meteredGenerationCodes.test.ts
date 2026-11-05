@@ -27,7 +27,7 @@ describe("meteredGenerationCodes.json", () => {
 
   it("only lists codes from EMI's datasets the sync reads", () => {
     for (const { code, source } of METERED_GENERATION_CODES) {
-      expect([undefined, "Embedded_generation", "Grid_import"], code).toContain(source);
+      expect([undefined, "Embedded_generation", "Grid_import", "Unit_level_generation"], code).toContain(source);
     }
   });
 

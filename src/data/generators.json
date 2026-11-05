@@ -585,7 +585,7 @@
                 "fuel": "Coal/Gas",
                 "fuelCode": "CLG",
                 "commissioned": "1981-12-31T11:00:00.000Z",
-                "decomissioned": "2020-09-10T11:59:59.999Z",
+                "decomissioned": "1999-12-31T10:59:59.999Z",
                 "combines": [
                     "HLY2201 HLY1",
                     "HLY2201 HLY2",
@@ -1353,21 +1353,6 @@
                 "fuelCode": "GAS",
                 "commissioned": "1997-12-31T11:00:00.000Z",
                 "decomissioned": "2025-09-05T07:30:00.000Z"
-            },
-            {
-                "name": "Taranaki Combined Cycle & Stratford Peakers",
-                "unitCode": "stratford",
-                "node": "SFD2201 stratford",
-                "capacity": 0,
-                "fuel": "Gas",
-                "fuelCode": "GAS",
-                "commissioned": "1997-12-31T11:00:00.000Z",
-                "decomissioned": "2020-09-10T11:59:59.999Z",
-                "combines": [
-                    "SFD2201 SPL0",
-                    "SFD2201 SFD21",
-                    "SFD2201 SFD22"
-                ]
             }
         ],
         "location": {
@@ -1530,20 +1515,6 @@
                 "fuel": "Geothermal",
                 "fuelCode": "GEO",
                 "commissioned": "2013-10-31T11:00:00.000Z"
-            },
-            {
-                "name": "Te Mihi Units 1 & 2",
-                "unitCode": "te_mihi",
-                "node": "THI2201 te_mihi",
-                "capacity": 0,
-                "fuel": "Geothermal",
-                "fuelCode": "GEO",
-                "commissioned": "2013-09-30T11:00:00.000Z",
-                "decomissioned": "2020-09-10T11:59:59.999Z",
-                "combines": [
-                    "THI2201 THI1",
-                    "THI2201 THI2"
-                ]
             }
         ],
         "location": {

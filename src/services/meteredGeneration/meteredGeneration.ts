@@ -7,15 +7,18 @@ import { getTradingPeriodStarts, hoursInNzDay } from "../dispatchAggregation/dis
  * The EMI datasets the metered generation comes from. Generation_MD has most generators, but some embedded ones only
  * from part way through their history (e.g. Cobb is missing from 2015 to 2019), so those days come from the embedded
  * generation data instead, which Generation_MD takes its embedded generators from. Kawerau's cogeneration isn't
- * metered on its own before 2020, so its export to the grid comes from the grid import data
+ * metered on its own before 2020, so its export to the grid comes from the grid import data. Generation_MD also meters
+ * some units together (e.g. Huntly's Rankine units), and leaves out some of Huntly for a while (e.g. all of it in
+ * September 2020), so those units come from the unit-level generation data, which has each of the larger units on its own
  */
-export type MeteredSource = "Generation_MD" | "Embedded_generation" | "Grid_import";
+export type MeteredSource = "Generation_MD" | "Embedded_generation" | "Grid_import" | "Unit_level_generation";
 
-// the columns identifying a generator in each dataset, its point of connection then its generator, loss or network code
+// the columns identifying a generator in each dataset, its point of connection then its generator, loss, network or unit code
 const CODE_COLUMNS: Record<MeteredSource, [string, string]> = {
     Generation_MD: ["POC_Code", "Gen_Code"],
     Embedded_generation: ["POC", "Loss_Code"],
     Grid_import: ["POC", "Nwk_Code"],
+    Unit_level_generation: ["POC", "Unit_Code"],
 };
 
 /**
@@ -70,9 +73,10 @@ export type MeteredGeneration = {
 
 /**
  * A generator's code in the metered data: its point of connection and its generator code in Generation_MD (e.g. ATI2201
- * atiamuri), loss code in the embedded generation data (e.g. STK0661 cobb), or network code in the grid import data
- * (e.g. KAW0112 skog). The other columns are left out, as they change over time for the same generator (e.g. with its
- * owner), and the code is lowercased as its case varies too (e.g. Te_Mihi and te_mihi)
+ * atiamuri), loss code in the embedded generation data (e.g. STK0661 cobb), network code in the grid import data
+ * (e.g. KAW0112 skog), or unit code in the unit-level generation data (e.g. HLY2201 un5). The other columns are left
+ * out, as they change over time for the same generator (e.g. with its owner), and the code is lowercased as its case
+ * varies too (e.g. Te_Mihi and te_mihi)
  */
 export function getMeteredCode(record: Record<string, string>, source: MeteredSource = "Generation_MD"): string {
     const [pointOfConnection, generator] = CODE_COLUMNS[source];

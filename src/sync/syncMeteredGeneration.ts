@@ -17,6 +17,7 @@ const FOLDERS: Record<MeteredSource, string> = {
     Generation_MD: "Datasets/Wholesale/Generation/Generation_MD/",
     Embedded_generation: "Datasets/Wholesale/Metered_data/Embedded_generation/",
     Grid_import: "Datasets/Wholesale/Metered_data/Grid_import/",
+    Unit_level_generation: "Datasets/Wholesale/Metered_data/Unit_level_generation_IR/",
 };
 
 // which monthly files have been aggregated, and with which version of meteredGenerationCodes.json
@@ -55,7 +56,7 @@ const LAST_MONTH = DISPATCH_AGGREGATES_START.slice(0, 7).replace("-", "");
  * dispatch files begin, so the daily, weekly, monthly and annual aggregates go back to 1997, and stores each of those
  * days by trading period (see METERED_DAY_PREFIX). Each generator's generation is attributed to a unit in
  * generators.json using meteredGenerationCodes.json, which also fills in generators Generation_MD is missing for part
- * of their history from EMI's embedded generation and grid import data.
+ * of their history from EMI's embedded generation, grid import and unit-level generation data.
  *
  * A month is aggregated again when EMI republishes any of its files, and every month is when the codes change, so a fix
  * to how a generator is attributed reaches all of its history. Metered generation has no load, other than generators'
