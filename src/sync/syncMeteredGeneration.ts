@@ -7,18 +7,24 @@ import {
     calculateMeteredGeneration,
     METERED_DAY_PREFIX,
     METERED_GENERATION_CODES,
-    MeteredGenerationCode,
-    MeteredSource
+    MeteredDataset,
+    MeteredFile,
+    MeteredGenerationCode
 } from "../services/meteredGeneration/meteredGeneration";
 import { AggregateStore, recalculateMonth, recalculateWeeks, recalculateYear } from "./aggregateStore";
 
 // where each dataset's monthly files are, e.g. 199708_Generation_MD.csv
-const FOLDERS: Record<MeteredSource, string> = {
+const FOLDERS: Record<MeteredDataset, string> = {
     Generation_MD: "Datasets/Wholesale/Generation/Generation_MD/",
     Embedded_generation: "Datasets/Wholesale/Metered_data/Embedded_generation/",
     Grid_import: "Datasets/Wholesale/Metered_data/Grid_import/",
     Unit_level_generation: "Datasets/Wholesale/Metered_data/Unit_level_generation_IR/",
+    Grid_export: "Datasets/Wholesale/Metered_data/Grid_export/",
 };
+
+// the datasets every month's files are downloaded from: Generation_MD, and the grid export and import data the load
+// comes from. the others are only downloaded for the months a code is attributed from them
+const MONTHLY_DATASETS: MeteredDataset[] = ["Generation_MD", "Grid_export", "Grid_import"];
 
 // which monthly files have been aggregated, and with which version of meteredGenerationCodes.json
 const SYNC_STATE_KEY = "meteredGenerationSync";
@@ -29,38 +35,41 @@ type SyncState = {
 }
 
 type MeteredGenerationFile = {
-    source: MeteredSource;
+    source: MeteredDataset;
     month: string; // YYYYMM
     url: string;
     lastModified: number;
 }
 
-// a month's Generation_MD file, and the other datasets' files any of its days are attributed from
+// a month's Generation_MD, grid export and grid import files, and the other datasets' files any of its days are
+// attributed from
 type MonthToAggregate = {
     month: string; // YYYYMM
     files: MeteredGenerationFile[];
 }
 
 // caps how much work a single run does, so the first backfill (about 280 months) is spread over several runs. a month
-// is about 50ms of CPU, well within the 30 seconds a cron that runs more than hourly gets, but most of its time is
-// spent waiting on R2 (about 20 seconds a month when the run is far from the bucket). so a run stops starting new
-// months after 11 minutes, leaving time to finish the last one before the next run starts 15 minutes later
-const MAX_MONTHS_PER_RUN = 60;
+// is about 300ms of CPU (most of it the grid export and import files, for the load), so 40 is well within the 30
+// seconds a cron that runs more than hourly gets, but most of its time is spent waiting on R2 (about 20 seconds a
+// month when the run is far from the bucket). so a run stops starting new months after 11 minutes, leaving time to
+// finish the last one before the next run starts 15 minutes later
+const MAX_MONTHS_PER_RUN = 40;
 const TIME_BUDGET_MS = 11 * 60 * 1000;
 
 // the last month with days before the dispatch aggregates start
 const LAST_MONTH = DISPATCH_AGGREGATES_START.slice(0, 7).replace("-", "");
 
 /**
- * Aggregates EMI's metered generation (the Generation_MD dataset, from August 1997) for the days before the daily
- * dispatch files begin, so the daily, weekly, monthly and annual aggregates go back to 1997, and stores each of those
- * days by trading period (see METERED_DAY_PREFIX). Each generator's generation is attributed to a unit in
- * generators.json using meteredGenerationCodes.json, which also fills in generators Generation_MD is missing for part
- * of their history from EMI's embedded generation, grid import and unit-level generation data.
+ * Aggregates EMI's metered generation (the Generation_MD dataset, from August 1997) and load (the grid export and import
+ * data) for the days before the daily dispatch files begin, so the daily, weekly, monthly and annual aggregates go back
+ * to 1997, and stores each of those days by trading period (see METERED_DAY_PREFIX). Each generator's generation is
+ * attributed to a unit in generators.json using meteredGenerationCodes.json, which also fills in generators
+ * Generation_MD is missing for part of their history from EMI's embedded generation, grid import and unit-level
+ * generation data. Each point of connection's load is its own node, as in the dispatch data (see
+ * calculateMeteredGeneration).
  *
  * A month is aggregated again when EMI republishes any of its files, and every month is when the codes change, so a fix
- * to how a generator is attributed reaches all of its history. Metered generation has no load, other than generators'
- * own (e.g. their station load while they're idle), so the aggregates before then are generation only.
+ * to how a generator is attributed reaches all of its history.
  */
 export async function syncMeteredGeneration(codes: MeteredGenerationCode[] = METERED_GENERATION_CODES) {
     console.log("Syncing metered generation");
@@ -91,8 +100,9 @@ export async function syncMeteredGeneration(codes: MeteredGenerationCode[] = MET
             break;
         }
 
-        const records = await Promise.all(files.map(async ({ source, url }) => ({ source, records: await downloadFile(url) })));
-        const { days, unlisted: monthUnlisted } = calculateMeteredGeneration(records, codes);
+        // the files' rows aren't kept, so they can be freed before the days are written (the grid export and import
+        // files' are about 25MB of a month's)
+        const { days, unlisted: monthUnlisted } = calculateMeteredGeneration(await downloadFiles(files), codes);
 
         const dates = [...days.keys()].filter(date => date < DISPATCH_AGGREGATES_START).sort();
         await Promise.all(dates.map(date =>
@@ -141,9 +151,9 @@ export function formatUnlistedCodesMessage(unlisted: Map<string, { mwh: number; 
         + lines.join("\n");
 }
 
-// the monthly files of Generation_MD, and of any other dataset a code is from
+// the monthly files of Generation_MD and the grid export and import data, and of any other dataset a code is from
 async function getListOfFiles(codes: MeteredGenerationCode[]): Promise<MeteredGenerationFile[]> {
-    const sources = new Set<MeteredSource>(["Generation_MD", ...codes.map(code => code.source ?? "Generation_MD")]);
+    const sources = new Set<MeteredDataset>([...MONTHLY_DATASETS, ...codes.map(code => code.source ?? "Generation_MD")]);
 
     const listings = await Promise.all([...sources].map(async source => {
         const folder = FOLDERS[source];
@@ -162,20 +172,20 @@ async function getListOfFiles(codes: MeteredGenerationCode[]): Promise<MeteredGe
     return listings.flat();
 }
 
-// each month with a Generation_MD file, oldest first, with the other datasets' files for the month that any of its
-// days are attributed from, so they're only downloaded for the months that need them
+// each month with a Generation_MD file, oldest first, with its grid export and import files, and the other datasets'
+// files for the month that any of its days are attributed from, so they're only downloaded for the months that need them
 function getMonths(files: MeteredGenerationFile[], codes: MeteredGenerationCode[]): MonthToAggregate[] {
     return [...Map.groupBy(files, file => file.month)]
         .filter(([, files]) => files.some(file => file.source === "Generation_MD"))
         .map(([month, files]) => ({
             month,
-            files: files.filter(file => file.source === "Generation_MD" || isAttributedFrom(file.source, month, codes)),
+            files: files.filter(file => MONTHLY_DATASETS.includes(file.source) || isAttributedFrom(file.source, month, codes)),
         }))
         .sort((a, b) => a.month.localeCompare(b.month));
 }
 
 // whether a code from the dataset attributes any of the month's (e.g. 201502) days to a unit
-function isAttributedFrom(source: MeteredSource, month: string, codes: MeteredGenerationCode[]): boolean {
+function isAttributedFrom(source: MeteredDataset, month: string, codes: MeteredGenerationCode[]): boolean {
     const { from, to } = getMonthBounds(`${month.slice(0, 4)}-${month.slice(4)}`);
     return codes.some(code => code.source === source && code.node && (code.from ?? "") <= to && from <= (code.to ?? "9999"));
 }
@@ -183,6 +193,10 @@ function isAttributedFrom(source: MeteredSource, month: string, codes: MeteredGe
 // when EMI last published each of a month's files, so the month is aggregated again when any of them changes
 function getFilesVersion(files: MeteredGenerationFile[]): string {
     return files.map(file => `${file.source} ${file.lastModified}`).sort().join(", ");
+}
+
+function downloadFiles(files: MeteredGenerationFile[]): Promise<MeteredFile[]> {
+    return Promise.all(files.map(async ({ source, url }) => ({ source, records: await downloadFile(url) })));
 }
 
 async function downloadFile(url: string): Promise<Record<string, string>[]> {
