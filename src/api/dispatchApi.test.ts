@@ -225,23 +225,23 @@ describe("dispatch api", () => {
       expect(response.headers.get("Cache-Control")).toBe("max-age=86400");
     });
 
-    it("returns a day's metered generation by trading period before the daily dispatch files begin, without prices", async () => {
+    it("returns a day's metered generation and load by trading period before the daily dispatch files begin, without prices", async () => {
       await env.dispatch.put("metered-19970801", JSON.stringify({
-        "1997-08-01T00:00:00": [{ p: "ATI2201 ATI0", g: 50, l: 0 }, { p: "HLY2201 huntly_1_4", g: 700.5, l: 0 }],
-        "1997-08-01T00:30:00": [{ p: "ATI2201 ATI0", g: 0, l: 0.4 }],
+        "1997-08-01T00:00:00": [{ p: "ATI2201 ATI0", g: 50, l: 0 }, { p: "HLY2201 huntly_1_4", g: 700.5, l: 0 }, { p: "ABY0111", g: 0, l: 2.2 }],
+        "1997-08-01T00:30:00": [{ p: "ATI2201 ATI0", g: 0, l: 0.4 }, { p: "ABY0111", g: 0, l: 2.4 }],
       }));
 
       const { response, json } = await getJson("/v1/dispatch/1997-08-01");
 
       expect(json).toEqual({
-        series: ["ATI2201 ATI0", "HLY2201 huntly_1_4"],
+        series: ["ATI2201 ATI0", "HLY2201 huntly_1_4", "ABY0111"],
         data: [
-          ["1997-08-01T00:00:00", 50, 700.5],
-          ["1997-08-01T00:30:00", -0.4, 0],
+          ["1997-08-01T00:00:00", 50, 700.5, -2.2],
+          ["1997-08-01T00:30:00", -0.4, 0, -2.4],
         ],
         pricing: [
-          ["1997-08-01T00:00:00", null, null],
-          ["1997-08-01T00:30:00", null, null],
+          ["1997-08-01T00:00:00", null, null, null],
+          ["1997-08-01T00:30:00", null, null, null],
         ],
         hvdc: { series: [], data: [] },
       });

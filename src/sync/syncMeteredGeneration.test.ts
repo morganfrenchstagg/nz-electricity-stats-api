@@ -2,21 +2,23 @@ import { env } from "cloudflare:workers";
 import { describe, expect, it } from "vitest";
 
 import { formatUnlistedCodesMessage, syncMeteredGeneration } from "./syncMeteredGeneration";
-import { MeteredGenerationCode, MeteredSource } from "../services/meteredGeneration/meteredGeneration";
+import { MeteredDataset, MeteredGenerationCode } from "../services/meteredGeneration/meteredGeneration";
 import { mockFetch } from "../testing/fetchMock";
 import { downloadedDates, EMI_DATASETS_FILES_URL, EMI_DATASETS_LISTING_URL, emiBlobListing } from "../testing/fixtures";
 
-const FOLDERS: Record<MeteredSource, string> = {
+const FOLDERS: Record<MeteredDataset, string> = {
   Generation_MD: "Datasets/Wholesale/Generation/Generation_MD/",
   Embedded_generation: "Datasets/Wholesale/Metered_data/Embedded_generation/",
   Grid_import: "Datasets/Wholesale/Metered_data/Grid_import/",
   Unit_level_generation: "Datasets/Wholesale/Metered_data/Unit_level_generation_IR/",
+  Grid_export: "Datasets/Wholesale/Metered_data/Grid_export/",
 };
-const HEADERS: Record<MeteredSource, string> = {
+const HEADERS: Record<MeteredDataset, string> = {
   Generation_MD: "Site_Code,POC_Code,Nwk_Code,Gen_Code,Fuel_Code,Tech_Code,Trading_date",
   Embedded_generation: "POC,NWK_Code,Participant_Code,Loss_Code,Flow_Direction,Trading_date",
   Grid_import: "POC,NWK_Code,GENERATION_TYPE,TRADER,UNIT_MEASURE,FLOW_DIRECTION,STATUS,TRADING_DATE",
   Unit_level_generation: "POC,Unit_Code,Participant_Code,Gen_Measure,Flow_Direction,Gen_Type,Trading_Date",
+  Grid_export: "POC,NWK_Code,GENERATION_TYPE,TRADER,UNIT_MEASURE,FLOW_DIRECTION,STATUS,TRADING_DATE",
 };
 const NODE = "ATI2201 ATI0";
 
@@ -24,7 +26,7 @@ const codes: MeteredGenerationCode[] = [{ code: "ATI2201 atiamuri", node: NODE }
 
 type MonthlyFile = {
   month: string; // YYYYMM
-  source?: MeteredSource; // defaults to Generation_MD
+  source?: MeteredDataset; // defaults to Generation_MD
   days?: string[]; // trading dates, defaults to the 1st and 2nd of the month
   rows?: string[];
   lastModified?: string;
@@ -39,6 +41,10 @@ const row = (date: string, mw: number, gen = "atiamuri") =>
 // Cobb in the embedded generation files, which have dates as dd/mm/yyyy until 2020
 const embeddedRow = (date: string, mw: number) =>
   `STK0661,TASM,TRUS,COBB,I,${date.split("-").reverse().join("/")},${Array(48).fill(mw * 500).join(",")},,`;
+
+// what Albany's network took from (X) or injected into (I) the grid at a constant rate, in the grid export and import files
+const gridRow = (date: string, mw: number, direction = "X") =>
+  `ALB0331,VECT,GN,TPNZ,kWh,${direction},F,${date.split("-").reverse().join("/")},${Array(48).fill(mw * 500).join(",")},,`;
 
 const firstDays = (month: string) => [`${month.slice(0, 4)}-${month.slice(4)}-01`, `${month.slice(0, 4)}-${month.slice(4)}-02`];
 
@@ -198,18 +204,18 @@ describe("syncMeteredGeneration", () => {
     expect(await slackMessages(requests)).toEqual([]);
   });
 
-  it("aggregates at most 60 months a run, oldest first", async () => {
-    const months = Array.from({ length: 62 }, (_, i) => {
+  it("aggregates at most 40 months a run, oldest first", async () => {
+    const months = Array.from({ length: 42 }, (_, i) => {
       const date = new Date(Date.UTC(1997, 7 + i, 1));
       return { month: `${date.getUTCFullYear()}${String(date.getUTCMonth() + 1).padStart(2, "0")}` };
     });
     let requests = mockEmi(months);
     await syncMeteredGeneration(codes);
-    expect(downloadedDates(requests)).toEqual(months.slice(0, 60).map(file => file.month));
+    expect(downloadedDates(requests)).toEqual(months.slice(0, 40).map(file => file.month));
 
     requests = mockEmi(months);
     await syncMeteredGeneration(codes);
-    expect(downloadedDates(requests)).toEqual(["200208", "200209"]);
+    expect(downloadedDates(requests)).toEqual(["200012", "200101"]);
   });
 
   describe("with generators from the embedded generation data", () => {
@@ -227,12 +233,14 @@ describe("syncMeteredGeneration", () => {
 
       await syncMeteredGeneration(withCobb);
 
+      // Cobb is embedded behind STK0661, so it's added back to the load there
       expect(await getAggregate("aggregate-daily-2015-02")).toEqual({
-        data: ["2015-02-01", "2015-02-02"].map(date => ({ from: date, to: date, nodes: { [NODE]: { g: 240, l: 0 }, [COBB]: { g: 120, l: 0 } } })),
+        data: ["2015-02-01", "2015-02-02"].map(date => ({ from: date, to: date, nodes: { [NODE]: { g: 240, l: 0 }, [COBB]: { g: 120, l: 0 }, STK0661: { g: 0, l: 120 } } })),
       });
       expect((await getAggregate("metered-20150201") as Record<string, unknown>)["2015-02-01T00:00:00"]).toEqual([
         { p: NODE, g: 10, l: 0 },
         { p: COBB, g: 5, l: 0 },
+        { p: "STK0661", g: 0, l: 5 },
       ]);
     });
 
@@ -274,7 +282,7 @@ describe("syncMeteredGeneration", () => {
       expect(downloadedFiles(requests)).toEqual(["201502_Generation_MD.csv", "201502_Embedded_generation.csv"]);
       expect(await getAggregate("aggregate-daily-2015-02")).toEqual({
         data: [
-          { from: "2015-02-01", to: "2015-02-01", nodes: { [NODE]: { g: 240, l: 0 }, [COBB]: { g: 120, l: 0 } } },
+          { from: "2015-02-01", to: "2015-02-01", nodes: { [NODE]: { g: 240, l: 0 }, [COBB]: { g: 120, l: 0 }, STK0661: { g: 0, l: 120 } } },
           day("2015-02-02", 240),
         ],
       });
@@ -301,6 +309,73 @@ describe("syncMeteredGeneration", () => {
     expect(downloadedFiles(requests)).toEqual(["202009_Generation_MD.csv", "202009_Unit_level_generation.csv"]);
     expect(await getAggregate("aggregate-daily-2020-09")).toEqual({
       data: [{ from: "2020-09-01", to: "2020-09-01", nodes: { [NODE]: { g: 240, l: 0 }, [HUNTLY]: { g: 4800, l: 0 } } }],
+    });
+  });
+
+  describe("with the load from the grid export and import data", () => {
+    const LOAD = "ALB0331";
+
+    it("totals each point of connection's load by day, week, month and year, alongside the generation", async () => {
+      mockEmi([
+        { month: "200110" },
+        { month: "200110", source: "Grid_export", rows: [gridRow("2001-10-01", 50), gridRow("2001-10-02", 50)] },
+        { month: "200110", source: "Grid_import", rows: [gridRow("2001-10-01", 10, "I")] },
+      ]);
+
+      await syncMeteredGeneration(codes);
+
+      expect(await getAggregate("aggregate-daily-2001-10")).toEqual({
+        data: [
+          { from: "2001-10-01", to: "2001-10-01", nodes: { [NODE]: { g: 240, l: 0 }, [LOAD]: { g: 0, l: 960 } } },
+          { from: "2001-10-02", to: "2001-10-02", nodes: { [NODE]: { g: 240, l: 0 }, [LOAD]: { g: 0, l: 1200 } } },
+        ],
+      });
+      expect(await getAggregate("aggregate-monthly-2001")).toEqual({
+        data: [{ from: "2001-10-01", to: "2001-10-31", nodes: { [NODE]: { g: 480, l: 0 }, [LOAD]: { g: 0, l: 2160 } } }],
+      });
+      expect(await getAggregate("aggregate-annual")).toEqual({
+        data: [{ from: "2001-01-01", to: "2001-12-31", nodes: { [NODE]: { g: 480, l: 0 }, [LOAD]: { g: 0, l: 2160 } } }],
+      });
+      expect((await getAggregate("metered-20011001") as Record<string, unknown>)["2001-10-01T00:00:00"]).toEqual([
+        { p: NODE, g: 10, l: 0 },
+        { p: LOAD, g: 0, l: 40 },
+      ]);
+    });
+
+    it("downloads their files for every month, as far back as each goes", async () => {
+      // the grid import data only starts in October 2000
+      const requests = mockEmi([
+        { month: "200009" },
+        { month: "200009", source: "Grid_export", rows: [gridRow("2000-09-01", 50)] },
+        { month: "200010" },
+        { month: "200010", source: "Grid_export", rows: [gridRow("2000-10-01", 50)] },
+        { month: "200010", source: "Grid_import", rows: [gridRow("2000-10-01", 10, "I")] },
+      ]);
+
+      await syncMeteredGeneration(codes);
+
+      expect(downloadedFiles(requests).sort()).toEqual([
+        "200009_Generation_MD.csv",
+        "200009_Grid_export.csv",
+        "200010_Generation_MD.csv",
+        "200010_Grid_export.csv",
+        "200010_Grid_import.csv",
+      ]);
+    });
+
+    it("aggregates every month again once they're published alongside the generation already aggregated", async () => {
+      mockEmi([{ month: "199708" }]);
+      await syncMeteredGeneration(codes);
+
+      mockEmi([{ month: "199708" }, { month: "199708", source: "Grid_export", rows: [gridRow("1997-08-01", 50)] }]);
+      await syncMeteredGeneration(codes);
+
+      expect(await getAggregate("aggregate-daily-1997-08")).toEqual({
+        data: [
+          { from: "1997-08-01", to: "1997-08-01", nodes: { [NODE]: { g: 240, l: 0 }, [LOAD]: { g: 0, l: 1200 } } },
+          day("1997-08-02", 240),
+        ],
+      });
     });
   });
 
