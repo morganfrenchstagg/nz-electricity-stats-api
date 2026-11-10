@@ -2667,5 +2667,26 @@
         "gridZone": "UNI",
         "island": "NI",
         "operator": "NewPower Energy"
+    },
+    {
+        "site": "PNK",
+        "name": "Puna Komaru",
+        "units": [
+            {
+                "name": "Puna Komaru",
+                "unitCode": "PNK0",
+                "node": "MPE1101 PNK0",
+                "capacity": 18,
+                "fuel": "Solar",
+                "fuelCode": "SOL"
+            }
+        ],
+        "location": {
+            "lat": -35.76401439273073,
+            "long": 174.20655895653712
+        },
+        "gridZone": "UNI",
+        "island": "NI",
+        "operator": "Northpower Limited"
     }
 ]
