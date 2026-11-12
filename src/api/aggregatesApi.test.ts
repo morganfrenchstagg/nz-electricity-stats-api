@@ -2,6 +2,7 @@ import { env } from "cloudflare:workers";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { requestWorker } from "../testing/requestWorker";
+import { clearEdgeCache } from "../testing/cloudflareWorkers";
 import { DispatchAggregate } from "../models/dispatchAggregate";
 
 const aggregate = (...froms: string[]): DispatchAggregate => ({
@@ -265,8 +266,9 @@ describe("aggregates api", () => {
     });
 
     // updatedAt is when new days were last aggregated, as stored by syncDispatchAggregates. EMI's HVDC goes up to the
-    // same date unless it's given
+    // same date unless it's given. each call is a new visitor's first request, rather than one the edge cache answers
     async function getCacheControl(path: string, key: string, latestDate?: string, updatedAt = NOW - 6 * HOUR_MS, latestHvdcDate = latestDate) {
+      clearEdgeCache();
       await storeAggregate(key, aggregate("2026-01-01"));
       if (latestDate) {
         await env.dispatch_kv.put("latestAggregatedDispatchDate", latestDate, { metadata: { updatedAt } });
