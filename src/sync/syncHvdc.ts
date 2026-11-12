@@ -15,16 +15,23 @@ export async function syncHvdc() {
   console.log("Syncing HVDC");
   try {
     const timeseries = toHvdcTimeseries(await fetchHvdcFromEm6());
-    const latestDays = await saveEm6Days(timeseries);
-    await saveRecentHvdc(latestDays);
+    const { latestDays, changed } = await saveEm6Days(timeseries);
+
+    // the recent HVDC is made from em6's days alone, so it's only rewritten when em6 has added to them
+    if (changed) {
+      await saveRecentHvdc(latestDays);
+    } else {
+      console.log("No new HVDC from em6");
+    }
   } catch (e) {
     console.error("Failed to sync HVDC from em6, keeping the cached HVDC", e);
   }
 }
 
-// each of em6's dates with its latest half hours added, by date (e.g. 2026-10-28)
-async function saveEm6Days(timeseries: HvdcTimeseries): Promise<Map<string, HvdcTimeseries>> {
-  return new Map(await Promise.all([...splitHvdcByDate(timeseries)].map(async ([date, day]) => {
+// each of em6's dates with its latest half hours added, by date (e.g. 2026-10-28), and whether any of them changed
+async function saveEm6Days(timeseries: HvdcTimeseries): Promise<{ latestDays: Map<string, HvdcTimeseries>; changed: boolean }> {
+  let changed = false;
+  const latestDays = new Map(await Promise.all([...splitHvdcByDate(timeseries)].map(async ([date, day]) => {
     const stored = await (await env.dispatch.get(getEm6DayKey(date)))?.text();
     const merged = mergeHvdc(stored ? JSON.parse(stored) as HvdcTimeseries : null, day);
     const json = JSON.stringify(merged);
@@ -32,9 +39,11 @@ async function saveEm6Days(timeseries: HvdcTimeseries): Promise<Map<string, Hvdc
     // em6 only adds a half hour every half hour, so most syncs don't change anything
     if (json !== stored) {
       await env.dispatch.put(getEm6DayKey(date), json);
+      changed = true;
     }
     return [date, merged] as const;
   })));
+  return { latestDays, changed };
 }
 
 // from each day's half hours, as em6 only has the last day

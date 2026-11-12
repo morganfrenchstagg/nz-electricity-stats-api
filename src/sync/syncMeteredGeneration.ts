@@ -32,7 +32,12 @@ const SYNC_STATE_KEY = "meteredGenerationSync";
 type SyncState = {
     codesVersion: string;
     months: Record<string, string>; // the version of the files aggregated for each month (see getFilesVersion), by month (e.g. 199708)
+    checkedAt?: number; // epoch ms, when it last found every month aggregated
 }
+
+// EMI's files for these months are only republished occasionally, so once every month is aggregated, its folders are
+// listed once a day rather than every run
+const CHECK_INTERVAL_MS = 24 * 60 * 60 * 1000;
 
 type MeteredGenerationFile = {
     source: MeteredDataset;
@@ -68,25 +73,30 @@ const LAST_MONTH = DISPATCH_AGGREGATES_START.slice(0, 7).replace("-", "");
  * generation data. Each point of connection's load is its own node, as in the dispatch data (see
  * calculateMeteredGeneration).
  *
- * A month is aggregated again when EMI republishes any of its files, and every month is when the codes change, so a fix
- * to how a generator is attributed reaches all of its history.
+ * A month is aggregated again when EMI republishes any of its files (checked once a day once every month is aggregated),
+ * and every month is when the codes change, so a fix to how a generator is attributed reaches all of its history.
  */
 export async function syncMeteredGeneration(codes: MeteredGenerationCode[] = METERED_GENERATION_CODES) {
     console.log("Syncing metered generation");
     const startTime = Date.now();
 
-    const [files, state, codesVersion] = await Promise.all([getListOfFiles(codes), getSyncState(), getCodesVersion(codes)]);
+    const [state, codesVersion] = await Promise.all([getSyncState(), getCodesVersion(codes)]);
 
+    if (state?.codesVersion === codesVersion && state.checkedAt && Date.now() - state.checkedAt < CHECK_INTERVAL_MS) {
+        console.log("Metered generation is up to date, last checked at " + new Date(state.checkedAt).toISOString());
+        return;
+    }
     if (state && state.codesVersion !== codesVersion) {
         console.log("The metered generation codes have changed, so aggregating every month again");
     }
     const aggregated = state?.codesVersion === codesVersion ? state.months : {};
 
-    const monthsToAggregate = getMonths(files, codes)
+    const monthsToAggregate = getMonths(await getListOfFiles(codes), codes)
         .filter(({ month, files }) => month <= LAST_MONTH && aggregated[month] !== getFilesVersion(files));
 
     if (monthsToAggregate.length === 0) {
         console.log("No metered generation to aggregate");
+        await env.dispatch_kv.put(SYNC_STATE_KEY, JSON.stringify({ codesVersion, months: aggregated, checkedAt: Date.now() } satisfies SyncState));
         return;
     }
 

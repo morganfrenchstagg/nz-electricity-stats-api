@@ -1,5 +1,5 @@
 import { env } from "cloudflare:workers";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
 import { formatUnlistedCodesMessage, syncMeteredGeneration } from "./syncMeteredGeneration";
 import { MeteredDataset, MeteredGenerationCode } from "../services/meteredGeneration/meteredGeneration";
@@ -162,6 +162,36 @@ describe("syncMeteredGeneration", () => {
 
     expect(downloadedDates(requests)).toEqual(["199708"]);
     expect(await getAggregate("aggregate-daily-1997-08")).toEqual({ data: [day("1997-08-01", 480), day("1997-08-02", 240)] });
+  });
+
+  it("only lists EMI's files once a day once every month is aggregated", async () => {
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(new Date("2026-10-14T02:00:00Z"));
+    mockEmi([{ month: "199708" }]);
+    await syncMeteredGeneration(codes);
+    // finds nothing left to aggregate
+    await syncMeteredGeneration(codes);
+
+    vi.setSystemTime(new Date("2026-10-15T01:45:00Z"));
+    let requests = mockEmi([{ month: "199708", lastModified: "Thu, 15 Oct 2026 01:00:00 GMT" }]);
+    await syncMeteredGeneration(codes);
+    expect(requests).toEqual([]);
+
+    vi.setSystemTime(new Date("2026-10-15T02:15:00Z"));
+    requests = mockEmi([{ month: "199708", lastModified: "Thu, 15 Oct 2026 01:00:00 GMT" }]);
+    await syncMeteredGeneration(codes);
+    expect(downloadedDates(requests)).toEqual(["199708"]);
+  });
+
+  it("aggregates every month again straight away when the codes change, even when it's checked today", async () => {
+    mockEmi([{ month: "199708" }]);
+    await syncMeteredGeneration(codes);
+    await syncMeteredGeneration(codes);
+
+    const requests = mockEmi([{ month: "199708" }]);
+    await syncMeteredGeneration([{ code: "ATI2201 atiamuri", excluded: "a reason" }]);
+
+    expect(downloadedDates(requests)).toEqual(["199708"]);
   });
 
   it("aggregates every month again when how a generator is attributed changes", async () => {

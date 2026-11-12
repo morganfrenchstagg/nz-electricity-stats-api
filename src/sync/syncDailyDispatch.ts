@@ -17,16 +17,24 @@ const TIME_BUDGET_MS = 10 * 60 * 1000;
 // each file uses ~0.25s of CPU, so this leaves plenty of headroom within the 5 minute CPU limit
 const MAX_FILES_PER_RUN = 500;
 
+const FOLDER = "Datasets/Wholesale/DispatchAndPricing/NodalPricesAndVolumes/";
+
+// EMI usually republishes a day's file a few days after first publishing it, so each hourly run only checks the last
+// couple of weeks' files (EMI keeps a folder for each year, e.g. .../2026/). it occasionally republishes older ones
+// (e.g. a month of 2023's files at once, or a single day two months later), so one run a day checks every file
+const RECENT_DAYS = 14;
+const FULL_CHECK_UTC_HOUR = 12;
+
 export async function syncDailyDispatch() {
     console.log("Syncing daily dispatch");
     const startTime = Date.now();
 
-    const [emiFiles, lastSyncDate, storedUploadTimes] = await Promise.all([
-        getListOfEmiFiles(),
-        env.dispatch_kv.get("latestDailySyncDate"),
-        getStoredUploadTimes(),
-    ]);
+    const lastSyncDate = await env.dispatch_kv.get("latestDailySyncDate");
     console.log("Syncing any files posted since: " + lastSyncDate)
+
+    const after = getDateToCheckAfter(lastSyncDate);
+    console.log(after ? "Checking files for dates after " + after : "Checking every file");
+    const [emiFiles, storedUploadTimes] = await Promise.all([getListOfEmiFiles(after), getStoredUploadTimes(after)]);
 
     const filesToDownload = selectFilesToDownload(emiFiles, lastSyncDate, storedUploadTimes);
 
@@ -111,13 +119,23 @@ async function downloadFileAndParse(url: string) {
     return out;
 }
 
+// the date (e.g. 20261008) whose later files are checked: the last few weeks' (or every one since the last sync, when it's
+// further behind), or undefined to check every file
+function getDateToCheckAfter(lastSyncDate: string | null): string | undefined {
+    if (!lastSyncDate || new Date().getUTCHours() === FULL_CHECK_UTC_HOUR) {
+        return undefined;
+    }
+    const recent = new Date(Date.now() - (RECENT_DAYS + 1) * 24 * 60 * 60 * 1000).toISOString().slice(0, 10).replace(/-/g, "");
+    return lastSyncDate < recent ? lastSyncDate : recent;
+}
+
 // when each stored daily file was last written, by date (e.g. 20261008)
-async function getStoredUploadTimes(): Promise<Map<string, number>> {
+async function getStoredUploadTimes(after: string | undefined): Promise<Map<string, number>> {
     const uploadTimes = new Map<string, number>();
     let cursor: string | undefined;
 
     do {
-        const listing = await env.dispatch.list({ prefix: "dispatch-", cursor });
+        const listing = await env.dispatch.list({ prefix: "dispatch-", startAfter: after && "dispatch-" + after, cursor });
         for (const object of listing.objects) {
             uploadTimes.set(object.key.replace("dispatch-", ""), object.uploaded.getTime());
         }
@@ -127,8 +145,10 @@ async function getStoredUploadTimes(): Promise<Map<string, number>> {
     return uploadTimes;
 }
 
-async function getListOfEmiFiles(): Promise<EmiDailyFile[]> {
-    const blobs = await listEmiDatasetBlobs("Datasets/Wholesale/DispatchAndPricing/NodalPricesAndVolumes/");
+// EMI's files for dates after the given one (or all of them), from the folders of the years they're in
+async function getListOfEmiFiles(after: string | undefined): Promise<EmiDailyFile[]> {
+    const folders = after ? getYearsSince(+after.slice(0, 4)).map(year => `${FOLDER}${year}/`) : [FOLDER];
+    const blobs = (await Promise.all(folders.map(listEmiDatasetBlobs))).flat();
 
     return blobs
         .filter(blob => blob.name.endsWith("DispatchNodalPricesAndVolumes.csv"))
@@ -136,5 +156,11 @@ async function getListOfEmiFiles(): Promise<EmiDailyFile[]> {
             date: blob.name.split('/').slice(-1)[0].split('_')[0],
             url: blob.url,
             lastModified: blob.lastModified,
-        }));
+        }))
+        .filter(file => !after || file.date > after);
+}
+
+// a day's file is published the day after it, so the current year's folder is the latest one with files
+function getYearsSince(year: number): number[] {
+    return Array.from({ length: new Date().getUTCFullYear() - year + 1 }, (_, i) => year + i);
 }
