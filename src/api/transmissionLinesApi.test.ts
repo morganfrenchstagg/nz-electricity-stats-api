@@ -29,6 +29,18 @@ describe("transmission lines api", () => {
     expect(response.headers.get("Cache-Control")).toBe("public, max-age=86400");
   });
 
+  it("asks ArcGIS for simplified lines, with only the fields worth showing", async () => {
+    const requests = mockFetch({ [ARCGIS_URL]: () => new Response(lines("new")) });
+
+    await requestWorker("/v1/transmission-lines");
+
+    const params = new URL(requests[0].url).searchParams;
+    expect(params.get("maxAllowableOffset")).toBe("0.00005");
+    expect(params.get("geometryPrecision")).toBe("5");
+    expect(params.get("outFields")).toBe("MXLOCATION,designvolt,status,description,type");
+    expect(params.get("f")).toBe("geojson");
+  });
+
   it("answers later requests from the edge cache without calling ArcGIS again", async () => {
     const requests = mockFetch({ [ARCGIS_URL]: () => new Response(lines("new")) });
     await (await requestWorker("/v1/transmission-lines")).finishBackgroundWork();
