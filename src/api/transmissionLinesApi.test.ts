@@ -14,7 +14,7 @@ const lines = (name: string) => JSON.stringify({
 });
 
 async function cacheLines(body: string, fetchedAt: number) {
-  await env.dispatch_kv.put("transmissionLines", body, { metadata: { fetchedAt } });
+  await env.dispatch_kv.put("transmissionLinesSimplified", body, { metadata: { fetchedAt } });
 }
 
 describe("transmission lines api", () => {
@@ -32,10 +32,22 @@ describe("transmission lines api", () => {
     expect(await response.text()).toBe(lines("new"));
     expect(response.headers.get("Content-Type")).toBe("application/geo+json");
     expect(response.headers.get("Cache-Control")).toBe("public, max-age=86400");
-    expect(await env.dispatch_kv.getWithMetadata("transmissionLines")).toEqual({
+    expect(await env.dispatch_kv.getWithMetadata("transmissionLinesSimplified")).toEqual({
       value: lines("new"),
       metadata: { fetchedAt: NOW },
     });
+  });
+
+  it("asks ArcGIS for simplified lines, with only the fields worth showing", async () => {
+    const requests = mockFetch({ [ARCGIS_URL]: () => new Response(lines("new")) });
+
+    await requestWorker("/v1/transmission-lines");
+
+    const params = new URL(requests[0].url).searchParams;
+    expect(params.get("maxAllowableOffset")).toBe("0.00005");
+    expect(params.get("geometryPrecision")).toBe("5");
+    expect(params.get("outFields")).toBe("MXLOCATION,designvolt,status,description,type");
+    expect(params.get("f")).toBe("geojson");
   });
 
   it("serves cached lines without calling ArcGIS while they're under a day old", async () => {
@@ -59,7 +71,7 @@ describe("transmission lines api", () => {
 
     await finishBackgroundWork();
 
-    expect(await env.dispatch_kv.getWithMetadata("transmissionLines")).toEqual({
+    expect(await env.dispatch_kv.getWithMetadata("transmissionLinesSimplified")).toEqual({
       value: lines("new"),
       metadata: { fetchedAt: NOW },
     });
@@ -73,7 +85,7 @@ describe("transmission lines api", () => {
     await finishBackgroundWork();
 
     expect(await response.text()).toBe(lines("stale"));
-    expect(await env.dispatch_kv.get("transmissionLines")).toBe(lines("stale"));
+    expect(await env.dispatch_kv.get("transmissionLinesSimplified")).toBe(lines("stale"));
   });
 
   it("returns 502 when nothing is cached and ArcGIS fails", async () => {
@@ -94,6 +106,6 @@ describe("transmission lines api", () => {
     const { response } = await requestWorker("/v1/transmission-lines");
 
     expect(response.status).toBe(502);
-    expect(await env.dispatch_kv.get("transmissionLines")).toBeNull();
+    expect(await env.dispatch_kv.get("transmissionLinesSimplified")).toBeNull();
   });
 });
