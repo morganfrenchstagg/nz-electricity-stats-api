@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { isStale, isValidTransmissionLines, TRANSMISSION_LINES_MAX_AGE_SECONDS } from "./transmissionLines";
+import { isValidTransmissionLines } from "./transmissionLines";
 
 describe("isValidTransmissionLines", () => {
     const feature = { type: "Feature", geometry: { type: "MultiLineString", coordinates: [] }, properties: {} };
@@ -26,19 +26,3 @@ describe("isValidTransmissionLines", () => {
     });
 });
 
-describe("isStale", () => {
-    const now = 1_800_000_000_000;
-    const maxAgeMs = TRANSMISSION_LINES_MAX_AGE_SECONDS * 1000;
-
-    it("missing metadata is stale", () => {
-        expect(isStale(null, now)).toBe(true);
-    });
-
-    it("fresh within a day", () => {
-        expect(isStale({ fetchedAt: now - maxAgeMs + 1 }, now)).toBe(false);
-    });
-
-    it("stale after a day", () => {
-        expect(isStale({ fetchedAt: now - maxAgeMs }, now)).toBe(true);
-    });
-});
