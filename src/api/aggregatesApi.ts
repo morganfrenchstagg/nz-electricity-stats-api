@@ -14,6 +14,7 @@ import { LATEST_AGGREGATED_DATE_KEY, LatestAggregatedDateMetadata } from "../syn
 import { LATEST_METERED_HVDC_DATE_KEY } from "../sync/syncHvdcHistory";
 import { HVDC_AGGREGATE_PREFIX } from "../services/hvdc/hvdc";
 import { getJsonResponseWithHeaders, ONE_DAY_IN_SECONDS } from "../utilities/utilities";
+import { edgeCache } from "../utilities/edgeCache";
 
 // how long to cache periods still receiving data once their next day is overdue
 const OVERDUE_MAX_AGE_SECONDS = 5 * 60;
@@ -35,17 +36,17 @@ app.get("/", async (c) => {
 });
 
 // e.g. /2026/weekly - one data point per ISO week (Monday to Sunday) in the year
-app.get("/:year{[0-9]{4}}/weekly", async (c) => {
+app.get("/:year{[0-9]{4}}/weekly", edgeCache, async (c) => {
 	return getAggregateResponse(c, "weekly", c.req.param("year"));
 });
 
 // e.g. /2026/monthly - one data point per month in the year
-app.get("/:year{[0-9]{4}}/monthly", async (c) => {
+app.get("/:year{[0-9]{4}}/monthly", edgeCache, async (c) => {
 	return getAggregateResponse(c, "monthly", c.req.param("year"));
 });
 
 // e.g. /2026/10 - one data point per day in the month
-app.get("/:year{[0-9]{4}}/:month{[0-9]{1,2}}", async (c) => {
+app.get("/:year{[0-9]{4}}/:month{[0-9]{1,2}}", edgeCache, async (c) => {
 	const month = +c.req.param("month");
 	if (month < 1 || month > 12) {
 		c.status(400);
@@ -55,7 +56,7 @@ app.get("/:year{[0-9]{4}}/:month{[0-9]{1,2}}", async (c) => {
 });
 
 // /annual - one data point per year
-app.get("/annual", async (c) => {
+app.get("/annual", edgeCache, async (c) => {
 	return getAggregateResponse(c, "annual", "all");
 });
 

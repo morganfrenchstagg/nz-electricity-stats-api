@@ -67,11 +67,11 @@ describe("syncDailyDispatch", () => {
     expect(downloadedDates(requests)).toEqual(["20261011", "20261012"]);
     expect(await getJson("dispatch-20261012")).toEqual({
       "2026-10-12T00:00:00": [
-        { p: "ATI2201 ATI0", l: "0", g: "50", c: "120.5", m: true },
-        { p: "ALB0331", l: "20", g: "0", c: "130" },
+        { p: "ATI2201 ATI0", l: 0, g: 50, c: 120.5, m: true },
+        { p: "ALB0331", l: 20, g: 0, c: 130 },
       ],
       "2026-10-12T00:05:00": [
-        { p: "ATI2201 ATI0", l: "0", g: "52", c: "118", m: true },
+        { p: "ATI2201 ATI0", l: 0, g: 52, c: 118, m: true },
       ],
     });
     expect(await env.dispatch.get("dispatch-20261011")).not.toBeNull();
@@ -102,12 +102,12 @@ describe("syncDailyDispatch", () => {
 
     expect(await getJson("dispatch-20261012")).toEqual({
       "2026-10-12T00:00:00": [
-        { p: "ATI2201 ATI0", l: "0", g: "15.829", c: "100", m: false },
-        { p: "BEN2202 BEN0", l: "0", g: "67.4", c: "100", m: false },
-        { p: "BPE0331 TWF0", l: "0", g: "14.12", c: "100", m: true },
-        { p: "MHO0331 MHO0", l: "0", g: "-0.3", c: "100", m: false },
-        { p: "HLY0331 RHO99", l: "1.6", g: "0", c: "100", m: true },
-        { p: "ALB0331", l: "60.933", g: "0", c: "100" },
+        { p: "ATI2201 ATI0", l: 0, g: 15.829, c: 100, m: false },
+        { p: "BEN2202 BEN0", l: 0, g: 67.4, c: 100, m: false },
+        { p: "BPE0331 TWF0", l: 0, g: 14.12, c: 100, m: true },
+        { p: "MHO0331 MHO0", l: 0, g: -0.3, c: 100, m: false },
+        { p: "HLY0331 RHO99", l: 1.6, g: 0, c: 100, m: true },
+        { p: "ALB0331", l: 60.933, g: 0, c: 100 },
       ],
     });
   });
