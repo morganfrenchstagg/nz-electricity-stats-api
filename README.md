@@ -64,7 +64,7 @@ For `/v1/dispatch/:date`, the flows come from EMI's metered [HVDC flows](https:/
 
 EMI's meters have changed over the years (each pole, the link as a whole, then each converter station's AC connections), and only the end the HVDC sends from is metered the whole time. So each way's flow is what was sent into the link: at Benmore going north, and at Haywards going south. It's a few percent more than what arrives at the other end, after losses. Since Pole 3 (2013) the HVDC often runs both ways within a half hour at low power, as its flow reverses, so north and south can both be above 0.
 
-The aggregates (`/v1/dispatch/aggregates`) have the MWh the HVDC sent north and south in each period as `hvdc`, a timeseries with `northFlow` and `southFlow` (the `nodes` filter doesn't apply to it). The days since EMI's latest month come from em6 until EMI publishes them, so a period isn't cached as complete until it has.
+The aggregates (`/v1/dispatch/aggregates`) have the MWh the HVDC sent north and south in each period as `hvdc`, a timeseries with `northFlow` and `southFlow` (the `nodes` filter doesn't apply to it). The days since EMI's latest month come from em6 until EMI publishes them, so a period isn't cached as complete until it has. `/v1/dispatch/aggregates` itself returns the last day EMI has published as `latestHvdcDate`, alongside the last day aggregated (`latestDate`).
 
 ## Offers
 
@@ -73,3 +73,26 @@ The aggregates (`/v1/dispatch/aggregates`) have the MWh the HVDC sent north and 
 Intermittent units (wind, some solar) also give a forecast of generation potential (FOGP) with their offers, which is in `fogp` as the MW forecast by trading period and unit. Only units that give one are included, and a unit's forecast is there even when nothing is offered. A unit's tranches can add up to more than its forecast, as each is what was offered in it. Before 2025 a unit's tranches were often from different submissions, each with the forecast from then, so it's the forecast from the unit's latest submission.
 
 EMI's offers have FOGP from 24 October 2019, so `fogp` is empty before then. The days synced before late October 2026 didn't keep it, so they're being backfilled from EMI's offers files, oldest first, and `fogp` is empty for the ones that haven't been yet.
+
+## MCP server
+
+`/mcp` is an [MCP](https://modelcontextprotocol.io) server, so an agent can answer questions about the market (e.g. "what share of generation was renewable each year since 2000?" or "when did prices spike yesterday?") from the API. To add it to Claude Code:
+
+```
+claude mcp add --transport http nz-electricity https://api.electricitymap.frenchsta.gg/mcp
+```
+
+or in Claude.ai as a custom connector with the same URL. It has no authentication, as the API it reads from doesn't.
+
+Its tools request the `/v1` routes from the worker itself, rather than over the network, and return what they need summed up rather than the API's per-node timeseries (a day's dispatch is about 1MB), so an agent can answer in a call or two:
+
+- `get_energy`: GWh generated, taken from the grid or sent over the HVDC by year, month, ISO week or day, grouped by fuel, island, operator, station and so on, with the renewable share (from `/v1/dispatch/aggregates`)
+- `get_day_profile`: a day's MW through the day, with each group's peak, and optionally the HVDC and prices (from `/v1/dispatch/:date`, or `/v1/dispatch/recent` for the days EMI hasn't published)
+- `get_prices`: prices at up to 10 nodes over up to 31 days, with each node's mean, percentiles and highest and lowest prices
+- `get_current_state`: the latest interval's generation against the capacity in service and out for outages, demand, the HVDC and prices
+- `search_generators` and `get_generating_capacity`: stations and units, and the capacity in service on a date (from `generators.json`)
+- `get_outages` and `get_offers`: generation outages, and the offer stack as a supply curve
+
+A unit's node is generation while it's above 0, and demand while it's below (e.g. a battery charging, or the dispatchable loads at Kawerau until 2021), along with what's taken at grid exit points, so generation less demand is the grid's losses (about 3-5%). EMI's daily dispatch files leave out nodes with no generation or load, which includes the 220kV reference nodes, so prices for a node a day doesn't have are from the nearest one at its substation (e.g. `OTA0221` for `OTA2201`), and each result says which.
+
+It's stateless (each request gets a server of its own), and uses `@cfworker/json-schema` rather than the SDK's default validator, ajv, as Workers don't allow the code it generates. The server's instructions (in `src/mcp/mcpServer.ts`) tell an agent what the data covers and to credit its sources.
