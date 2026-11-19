@@ -18,6 +18,8 @@ import { getJsonResponseWithMaxAgeHeader } from "./utilities/utilities";
 import outagesApi from "./api/outagesApi";
 import transmissionLinesApi from "./api/transmissionLinesApi";
 import { ATTRIBUTION, ATTRIBUTION_LINK } from "./attribution";
+import { WebStandardStreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/webStandardStreamableHttp.js";
+import { createMcpServer } from "./mcp/mcpServer";
 
 const app = new Hono();
 
@@ -72,6 +74,20 @@ app.route('/v1/dispatch', dispatchApi);
 app.route('/v1/offers', offersApi);
 app.route('/v1/outages', outagesApi)
 app.route('/v1/transmission-lines', transmissionLinesApi);
+
+// an MCP server whose tools answer agents' questions from the routes above, requesting them from the worker itself
+// rather than over the network. it's stateless, so each request gets a server of its own
+app.post('/mcp', async (c) => {
+  const server = createMcpServer(async (path) => app.fetch(new Request(new URL(path, c.req.url)), c.env, c.executionCtx));
+  const transport = new WebStandardStreamableHTTPServerTransport({ sessionIdGenerator: undefined, enableJsonResponse: true });
+  await server.connect(transport);
+  return transport.handleRequest(c.req.raw);
+});
+
+// a stateless server has no stream for the client to open, or session for it to end
+app.on(['GET', 'DELETE'], '/mcp', async (c) => {
+  return c.json({ jsonrpc: "2.0", error: { code: -32000, message: "Method not allowed" }, id: null }, 405, { Allow: "POST" });
+});
 
 
 async function scheduled(controller: ScheduledController) {
