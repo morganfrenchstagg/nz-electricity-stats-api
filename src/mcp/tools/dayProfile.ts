@@ -30,7 +30,7 @@ export function registerDayProfileTool(server: McpServer, api: ApiClient) {
 			+ "mean, peak and lowest MW and when they were, and its energy. Optionally adds the HVDC's flows and Ōtāhuhu and Benmore prices. "
 			+ "Use it for questions about within-day patterns, e.g. 'When was demand highest yesterday?', 'How much was wind generating at "
 			+ "6pm on 3 July?' or 'How much did the batteries discharge during the evening peak?'. Days before 11 September 2020 are "
-			+ "half-hourly metered generation without demand or prices.",
+			+ "half-hourly metered generation and load, without prices.",
 		inputSchema: {
 			date: z.string().optional().describe("YYYY-MM-DD, from 1 August 1997. Defaults to today (NZ time), which is only so far"),
 			metric: z.enum(["generation", "demand"]).optional()
@@ -103,7 +103,7 @@ export async function getDayProfile(api: ApiClient, args: DayProfileArgs) {
 		notes: [
 			...(day.live ? ["EMI hasn't published this day yet, so it's from the live dispatch, and today only so far."] : []),
 			...(intervalMinutes === 30
-				? ["This day is before the dispatch data, so it's EMI's half-hourly metered generation, without demand or prices."]
+				? ["This day is before the dispatch data, so it's EMI's half-hourly metered generation and load, without prices."]
 				: []),
 			...(missingIntervals > 0
 				? [`${missingIntervals} of the day's ${expectedRows} intervals are missing from EMI's data, so rows without any are left out and the energy averages the rest.`]

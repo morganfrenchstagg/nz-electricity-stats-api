@@ -14,7 +14,8 @@ const INSTRUCTIONS = `Statistics about New Zealand's wholesale electricity marke
 
 What the data covers:
 - Generation from August 1997 to now: EMI's half-hourly metered generation until 10 September 2020, then the 5-minute dispatch. Only the grid's dispatched generating units, so no rooftop solar or most small embedded generation.
-- Demand (what's taken from the grid, at grid exit points and by dispatchable loads and batteries charging) and wholesale prices from 10-11 September 2020.
+- Demand (what's taken from the grid, at grid exit points and by dispatchable loads and batteries charging) from August 1997 too: EMI's metered grid export and import until 10 September 2020, then the dispatch.
+- Wholesale prices from 10 September 2020.
 - The HVDC link's flows between the islands from August 1997.
 - Generators' energy offers from late 2019, and generation outages from about 14 days ago to 3 days ahead.
 - EMI publishes each day's dispatch the day after, so today (and sometimes yesterday) come from the live dispatch and the latest periods can be incomplete.

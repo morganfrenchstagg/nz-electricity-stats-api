@@ -43,7 +43,7 @@ export function registerEnergyTool(server: McpServer, api: ApiClient) {
 		inputSchema: {
 			metric: z.enum(["generation", "demand", "hvdc"]).optional()
 				.describe("generation (default): what generating units sent to the grid. demand: what was taken from the grid, at grid exit points "
-					+ "(net of generation embedded behind them) and by dispatchable loads and batteries charging, only from 11 September 2020. "
+					+ "(net of generation embedded behind them) and by dispatchable loads and batteries charging. "
 					+ "hvdc: what the HVDC link sent north and south"),
 			resolution: z.enum(["annual", "monthly", "weekly", "daily"]).optional()
 				.describe("Defaults to monthly. weekly is ISO weeks (Monday to Sunday), labelled by their Monday"),
@@ -99,8 +99,6 @@ export async function getEnergy(api: ApiClient, args: EnergyArgs) {
 				rows.push({
 					start,
 					label: toLabel(resolution, start),
-					// there's no load in the metered generation, so demand is unknown rather than 0 before the dispatch data
-					missing: metric === "demand" && getPeriodEnd(resolution, start) < DISPATCH_AGGREGATES_START,
 					...groupRow(metric, groupBy, args, source.series, values),
 				});
 			}
@@ -221,9 +219,10 @@ function getNotes(metric: Metric, from: string, hasIncompletePeriods: boolean, l
 	if (metric === "demand") {
 		notes.push("Demand is what was taken from the grid: at grid exit points, net of any generation embedded behind them, and by "
 			+ "dispatchable loads and batteries charging. It includes large direct-connected users like the Tiwai Point smelter, and "
-			+ "generation less demand is the grid's losses (about 3%).");
+			+ "generation less demand is the grid's losses (about 3-5%).");
 		if (from < DISPATCH_AGGREGATES_START) {
-			notes.push(`Demand is only available from ${DISPATCH_AGGREGATES_START}. Periods ending before then are null, and the period it starts in is partial.`);
+			notes.push(`Before ${DISPATCH_AGGREGATES_START} demand comes from EMI's metered grid export and import at each point of connection. `
+				+ "Grid import begins in October 2000, so before then it's only what was taken from the grid, without what was injected.");
 		}
 	}
 	if (metric === "hvdc") {

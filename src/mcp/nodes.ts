@@ -45,6 +45,41 @@ const unitsByNode = new Map<string, UnitInfo>(
 
 const substationsBySite = new Map(substations.map(substation => [substation.siteId, substation]));
 
+// sites whose points of connection have been retired or renamed, so they're only in the metered load before 2020 and
+// not in substations.json, which is the grid as it is now. their names and islands are from EMI's network supply points
+// table (https://www.emi.ea.govt.nz/Wholesale/Datasets/MappingsAndGeospatial/NetworkSupplyPointsTable)
+const RETIRED_SITES: Record<string, { name: string; island: Island }> = {
+	ADD: { name: "Addington", island: "South" },
+	AHA: { name: "Arahura", island: "South" },
+	ANA: { name: "Arohena", island: "North" },
+	ATU: { name: "Atarau", island: "South" },
+	CBE: { name: "Cairnbrae", island: "South" },
+	DAR: { name: "Dargaville", island: "North" },
+	GIS: { name: "Gisborne", island: "North" },
+	KEN: { name: "Kensington", island: "North" },
+	KKA: { name: "Kaikōura", island: "South" },
+	KTA: { name: "Kaitāia", island: "North" },
+	MER: { name: "Meremere", island: "North" },
+	MLN: { name: "Middleton", island: "South" },
+	MOT: { name: "Motueka", island: "South" },
+	MPI: { name: "Motupipi", island: "South" },
+	MRA: { name: "Moturoa", island: "North" },
+	MRR: { name: "Marotiri", island: "North" },
+	NPL: { name: "New Plymouth", island: "North" },
+	PAL: { name: "Palmerston", island: "South" },
+	PAP: { name: "Papanui", island: "South" },
+	RFT: { name: "Reefton", island: "South" },
+	ROB: { name: "Robertson Street", island: "South" },
+	SPN: { name: "Springston", island: "South" },
+	TKH: { name: "Te Kaha", island: "North" },
+	TOB: { name: "Tokomaru Bay", island: "North" },
+	WES: { name: "Western Road", island: "North" },
+	WMG: { name: "Waimangaroa", island: "South" },
+	WPT: { name: "Westport", island: "South" },
+	WRA: { name: "Wairoa", island: "North" },
+	WTN: { name: "Winton", island: "South" },
+};
+
 function toUnitInfo(generator: GeneratorDefinition & { island?: string }, unit: UnitDefinition): UnitInfo {
 	return {
 		node: unit.node,
@@ -96,8 +131,8 @@ export function getGxp(node: string): GxpInfo {
 	return {
 		node,
 		site,
-		substation: substation?.description ?? site,
-		island: toIsland(substation?.island) ?? "Unknown",
+		substation: substation?.description ?? RETIRED_SITES[site]?.name ?? site,
+		island: toIsland(substation?.island) ?? RETIRED_SITES[site]?.island ?? "Unknown",
 	};
 }
 

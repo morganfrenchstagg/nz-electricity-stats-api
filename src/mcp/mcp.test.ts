@@ -101,12 +101,23 @@ describe("get_energy", () => {
     expect(result).toMatchObject({ columns: ["period", "Total", "renewable_share_%"], rows: [["2025-12", 13.2, 31.8], ["2026-01", 13.2, 31.8]] });
   });
 
-  it("has no demand before the dispatch data began", async () => {
-    await store(env.dispatch, "aggregate-annual", aggregate(["2019-01-01", { "ATI2201 ATI0": { g: 1200, l: 0 } }], ["2021-01-01", DAY_NODES]));
+  it("takes demand before the dispatch data from the metered load", async () => {
+    await store(env.dispatch, "aggregate-annual", aggregate(["2019-01-01", { "ATI2201 ATI0": { g: 1200, l: 0 }, "ABY0111": { g: 0, l: 900 } }], ["2021-01-01", DAY_NODES]));
 
-    const result = await getEnergy(api, { metric: "demand", resolution: "annual", from: "2019", to: "2021" });
+    const result = await getEnergy(api, { metric: "demand", resolution: "annual", from: "2019", to: "2021", group_by: "total" });
 
-    expect(result).toMatchObject({ rows: [["2019", null], ["2021", 8.05]] });
+    expect(result).toMatchObject({ rows: [["2019", 0.9], ["2021", 8.05]] });
+    expect(result.notes).toContain("Before 2020-09-11 demand comes from EMI's metered grid export and import at each point of connection. "
+      + "Grid import begins in October 2000, so before then it's only what was taken from the grid, without what was injected.");
+  });
+
+  it("knows the islands of points of connection that have since been retired", async () => {
+    // Palmerston, in Otago
+    await store(env.dispatch, "aggregate-annual", aggregate(["2005-01-01", { "PAL0331": { g: 0, l: 50000 } }]));
+
+    const result = await getEnergy(api, { metric: "demand", resolution: "annual", from: "2005", to: "2005", group_by: "substation", island: "South" });
+
+    expect(result).toMatchObject({ columns: ["period", "Palmerston"], rows: [["2005", 50]] });
   });
 
   it("flags HVDC periods after EMI's latest metered month as incomplete", async () => {

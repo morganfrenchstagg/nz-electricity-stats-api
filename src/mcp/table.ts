@@ -6,8 +6,6 @@ const MAX_CELLS = 4000;
 export type GroupedRow = {
 	label: string;
 	values: Map<string, number>;
-	// whether the row's values are unknown (e.g. demand before the dispatch data began), rather than 0
-	missing?: boolean;
 };
 
 export type Table = {
@@ -49,9 +47,6 @@ export function toTable(rows: GroupedRow[], top: number, decimals = 3): Table {
 	return {
 		columns,
 		rows: rows.map(row => {
-			if (row.missing) {
-				return [row.label, ...columns.slice(1).map(() => null)];
-			}
 			const values = groups.map(group => round(valueOf(row.values, group), decimals));
 			const rowTotal = [...row.values.values()].reduce((sum, value) => sum + value, 0);
 			return [row.label, ...values, ...(hasTotalColumn ? [round(rowTotal, decimals)] : [])];
