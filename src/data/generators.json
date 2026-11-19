@@ -2516,12 +2516,12 @@
         "name": "Southdown",
         "units": [
             {
-                "name": "Southdown",
+                "name": "Southdown Battery",
                 "unitCode": "SWN1",
                 "node": "SWN2201 SWN1",
-                "fuel": "Gas",
-                "fuelCode": "GAS",
-                "capacity": 170,
+                "fuel": "Battery (Discharging)",
+                "fuelCode": "BESS",
+                "capacity": 1,
                 "decomissioned": "2022-05-23T06:59:59.000Z",
                 "commissioned": "2016-12-31T11:00:00.000Z"
             },
@@ -2667,5 +2667,26 @@
         "gridZone": "UNI",
         "island": "NI",
         "operator": "NewPower Energy"
+    },
+    {
+        "site": "PNK",
+        "name": "Puna Komaru",
+        "units": [
+            {
+                "name": "Puna Komaru",
+                "unitCode": "PNK0",
+                "node": "MPE1101 PNK0",
+                "capacity": 18,
+                "fuel": "Solar",
+                "fuelCode": "SOL"
+            }
+        ],
+        "location": {
+            "lat": -35.76401439273073,
+            "long": 174.20655895653712
+        },
+        "gridZone": "UNI",
+        "island": "NI",
+        "operator": "Northpower Limited"
     }
 ]

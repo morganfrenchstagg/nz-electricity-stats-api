@@ -15,7 +15,7 @@ npm run dev
 
 The API republishes data from:
 
-- [Electricity Market Information (EMI)](https://www.emi.ea.govt.nz): real-time dispatch, nodal prices and volumes, metered generation and HVDC flows, and bids and offers (`/v1/dispatch`, `/v1/offers`). Dispatch before 11 September 2020 comes from metered generation (see below). © [Electricity Authority](https://www.ea.govt.nz/copyright-disclaimer-transparency/), licensed under [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/).
+- [Electricity Market Information (EMI)](https://www.emi.ea.govt.nz): real-time dispatch, nodal prices and volumes, metered generation, load and HVDC flows, and bids and offers (`/v1/dispatch`, `/v1/offers`). Dispatch before 11 September 2020 comes from metered generation and load (see below). © [Electricity Authority](https://www.ea.govt.nz/copyright-disclaimer-transparency/), licensed under [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/).
 - [Transpower open data](https://data-transpower.opendata.arcgis.com/): transmission lines (`/v1/transmission-lines`). © [Transpower New Zealand](https://www.transpower.co.nz), licensed under [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/).
 - Transpower's [Planned Outage Coordination Process (POCP)](https://customerportal.transpower.co.nz/pocp/outages): generation outages (`/v1/outages`).
 - [em6](https://www.em6.co.nz): the HVDC's flows and transfer limits in each half hour (`hvdc` in `/v1/dispatch/recent`, `/v1/dispatch/:date` and `/v1/dispatch/aggregates`, see below).
@@ -24,9 +24,11 @@ The API republishes data from:
 
 This API isn't affiliated with or endorsed by the Electricity Authority, Transpower or any other data provider.
 
-## Generation before the dispatch data
+## Generation and load before the dispatch data
 
-EMI's daily dispatch files start in September 2020, so the dispatch aggregates (`/v1/dispatch/aggregates`) before 11 September 2020 are filled in from EMI's metered generation ([Generation_MD](https://www.emi.ea.govt.nz/Wholesale/Datasets/Generation/Generation_MD)), which goes back to August 1997. For those days `/v1/dispatch/:date` also returns each unit's average generation (MW) in each half-hour trading period, without prices (including 10 September 2020, as EMI's first daily dispatch file only starts at 9:35am that day). They're generation only, as the metered data has no load other than generators' own.
+EMI's daily dispatch files start in September 2020, so the dispatch aggregates (`/v1/dispatch/aggregates`) before 11 September 2020 are filled in from EMI's metered generation ([Generation_MD](https://www.emi.ea.govt.nz/Wholesale/Datasets/Generation/Generation_MD)) and what each point of connection took from and injected into the grid ([Grid export](https://www.emi.ea.govt.nz/Wholesale/Datasets/Metered_data/Grid_export) and [Grid import](https://www.emi.ea.govt.nz/Wholesale/Datasets/Metered_data/Grid_import)), which go back to August 1997. For those days `/v1/dispatch/:date` also returns each unit's average generation and each point of connection's average load (MW) in each half-hour trading period, without prices (including 10 September 2020, as EMI's first daily dispatch file only starts at 9:35am that day).
+
+### Generation
 
 The metered data identifies generators by their point of connection and a generator code (e.g. `HLY2201 huntly_e3p`) rather than the dispatch data's unit code (`HLY2201 HLY5`), so `src/data/meteredGenerationCodes.json` lists the unit each code is attributed to, or why it's excluded. It follows these rules:
 
@@ -43,6 +45,16 @@ Generation_MD is missing some generators for part of their history, mostly embed
 A unit's generation only comes from one dataset on any day, which the tests check, so it isn't counted twice.
 
 The sync reports any Generation_MD code that isn't listed to Slack and leaves its generation out until it is. Changing how a code is attributed aggregates every month again on the next sync, and the tests check every code points to a unit in `generators.json`.
+
+### Load
+
+As in the dispatch data, each point of connection's load is a node of its own (e.g. `ABY0111`), for the networks and direct connections (e.g. a smelter or mill) it supplies. It's what Grid export has it take from the grid, less what Grid import has it inject, with the generation attributed to units metered behind it added back. The dispatch data has those units generating at the node rather than netted from its load, so it's added back to match (e.g. Te Uku's wind farm and Te Rapa's cogeneration, behind the Waikato network's connection at `TWH0331`). A unit is behind a point of connection's load when it's from the embedded generation data, or when its point of connection and network have load (e.g. Kinleith's cogeneration, behind the mill's own connection at `KIN0112`, or Mokai, behind the Tuaropaki network's at `WKM2201`). Generation that's excluded (e.g. Teviot, behind `CYD0331`) stays netted from the load, as it is in the dispatch data, so a point of connection's load can be below 0.
+
+- Generators' own connections (e.g. what Benmore draws from the grid while it's idle) are left out, as the dispatch data doesn't have their station load.
+- Grid import starts in October 2000, so before then a point of connection's load is only what it took from the grid, and can't be below 0.
+- A few direct connections are listed twice in Grid export with the same values, under two retailers (e.g. `BDE0111` in November 2002 and `ASY0111` in November 2004), so they're only counted once.
+
+From 11 to 30 September 2020, which both cover, the total load is within 1% of the dispatch data's each day, though a few points of connection differ by more. Halfway Bush's (`HWB0331`) is lower, as Mahinerangi and Waipori 1A are excluded from the generation (they're metered together, so can't be given a single fuel), and Glenbrook's (`GLN0332`) is higher, as its metered generation includes what's used on site.
 
 ## The HVDC
 

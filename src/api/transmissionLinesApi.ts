@@ -1,14 +1,16 @@
 import { Hono } from "hono";
 import { cors } from "hono/cors";
-import { getTransmissionLines } from "../clients/transmissionLines";
+import { fetchTransmissionLinesFromArcgis } from "../clients/transmissionLines";
 import { TRANSMISSION_LINES_MAX_AGE_SECONDS } from "../services/transmissionLines/transmissionLines";
+import { edgeCache } from "../utilities/edgeCache";
 
 const app = new Hono();
 app.use(cors());
 
-app.get("", async (c) => {
+// a proxy to ArcGIS, with the edge cache keeping each data center to about one request a day. the lines rarely change
+app.get("", edgeCache, async (c) => {
     try {
-        const body = await getTransmissionLines((p) => c.executionCtx.waitUntil(p));
+        const body = await fetchTransmissionLinesFromArcgis();
         return c.body(body, 200, {
             "Content-Type": "application/geo+json",
             "Cache-Control": `public, max-age=${TRANSMISSION_LINES_MAX_AGE_SECONDS}`

@@ -225,23 +225,23 @@ describe("dispatch api", () => {
       expect(response.headers.get("Cache-Control")).toBe("max-age=86400");
     });
 
-    it("returns a day's metered generation by trading period before the daily dispatch files begin, without prices", async () => {
+    it("returns a day's metered generation and load by trading period before the daily dispatch files begin, without prices", async () => {
       await env.dispatch.put("metered-19970801", JSON.stringify({
-        "1997-08-01T00:00:00": [{ p: "ATI2201 ATI0", g: 50, l: 0 }, { p: "HLY2201 huntly_1_4", g: 700.5, l: 0 }],
-        "1997-08-01T00:30:00": [{ p: "ATI2201 ATI0", g: 0, l: 0.4 }],
+        "1997-08-01T00:00:00": [{ p: "ATI2201 ATI0", g: 50, l: 0 }, { p: "HLY2201 huntly_1_4", g: 700.5, l: 0 }, { p: "ABY0111", g: 0, l: 2.2 }],
+        "1997-08-01T00:30:00": [{ p: "ATI2201 ATI0", g: 0, l: 0.4 }, { p: "ABY0111", g: 0, l: 2.4 }],
       }));
 
       const { response, json } = await getJson("/v1/dispatch/1997-08-01");
 
       expect(json).toEqual({
-        series: ["ATI2201 ATI0", "HLY2201 huntly_1_4"],
+        series: ["ATI2201 ATI0", "HLY2201 huntly_1_4", "ABY0111"],
         data: [
-          ["1997-08-01T00:00:00", 50, 700.5],
-          ["1997-08-01T00:30:00", -0.4, 0],
+          ["1997-08-01T00:00:00", 50, 700.5, -2.2],
+          ["1997-08-01T00:30:00", -0.4, 0, -2.4],
         ],
         pricing: [
-          ["1997-08-01T00:00:00", null, null],
-          ["1997-08-01T00:30:00", null, null],
+          ["1997-08-01T00:00:00", null, null, null],
+          ["1997-08-01T00:30:00", null, null, null],
         ],
         hvdc: { series: [], data: [] },
       });
@@ -289,6 +289,57 @@ describe("dispatch api", () => {
 
       expect(response.status).toBe(404);
       expect(json).toEqual({ message: "No data for this date" });
+    });
+
+    it("reads days with numbers stored as numbers, as the daily sync now writes them", async () => {
+      await env.dispatch.put("dispatch-20261011", JSON.stringify({
+        "2026-10-11T00:00:00": [{ p: "ATI2201 ATI0", g: 50, l: 0, c: 120.5 }, { p: "ALB0331", g: 0, l: 20, c: 130 }],
+      }));
+
+      const { json } = await getJson("/v1/dispatch/2026-10-11");
+
+      expect(json.data).toEqual([["2026-10-11T00:00:00", 50, -20]]);
+      expect(json.pricing).toEqual([["2026-10-11T00:00:00", 120.5, 130]]);
+    });
+
+    describe("the edge cache", () => {
+      it("answers later requests for a day without reading it from R2 again", async () => {
+        const first = await requestWorker("/v1/dispatch/2026-10-12");
+        await first.finishBackgroundWork();
+        const firstJson = await first.response.json();
+        const get = vi.spyOn(env.dispatch, "get");
+        vi.setSystemTime(new Date("2026-10-14T10:01:00Z"));
+
+        const { response, json } = await getJson("/v1/dispatch/2026-10-12");
+
+        expect(get).not.toHaveBeenCalled();
+        expect(json).toEqual(firstJson);
+        expect(response.headers.get("Cache-Control")).toBe("max-age=86400");
+        // so browsers only keep it for the rest of the day it's cached for
+        expect(response.headers.get("Age")).toBe("3600");
+        expect(response.headers.get("X-Edge-Cached-At")).toBeNull();
+        expect(response.headers.get("Link")).toBe(first.response.headers.get("Link"));
+      });
+
+      it("keeps each day for its max-age", async () => {
+        await (await requestWorker("/v1/dispatch/2026-10-12")).finishBackgroundWork();
+        await env.dispatch.put("dispatch-20261012", JSON.stringify({ "2026-10-12T00:00:00": [{ p: "ATI2201 ATI0", g: 1, l: 0, c: 1 }] }));
+        vi.setSystemTime(new Date("2026-10-15T09:01:00Z"));
+
+        const { response, json } = await getJson("/v1/dispatch/2026-10-12");
+
+        expect(json.data).toEqual([["2026-10-12T00:00:00", 1]]);
+        expect(response.headers.get("Age")).toBeNull();
+      });
+
+      it("doesn't keep days that haven't been synced yet", async () => {
+        await (await requestWorker("/v1/dispatch/2026-10-13")).finishBackgroundWork();
+        await env.dispatch.put("dispatch-20261013", JSON.stringify({ "2026-10-13T00:00:00": [{ p: "ATI2201 ATI0", g: 5, l: 0, c: 1 }] }));
+
+        const { response } = await getJson("/v1/dispatch/2026-10-13");
+
+        expect(response.status).toBe(200);
+      });
     });
 
     describe("the HVDC", () => {

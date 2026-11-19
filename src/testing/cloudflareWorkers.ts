@@ -1,5 +1,8 @@
+import { getMaxAge } from "../utilities/edgeCache";
+
 // stands in for the "cloudflare:workers" module in tests (see vitest.config.ts), with in-memory versions of the
-// KV namespace and R2 buckets the worker uses. storage is emptied before each test (see setup.ts)
+// KV namespace and R2 buckets the worker uses, and of the Workers cache (see edgeCache.ts). storage is emptied before
+// each test (see setup.ts)
 export const env = {} as Cloudflare.Env;
 
 export function resetEnv() {
@@ -10,6 +13,30 @@ export function resetEnv() {
 		EMI_API_KEY: "test-emi-api-key",
 		SLACK_WEBHOOK_URL: "https://hooks.slack.test/services/test",
 	});
+	clearEdgeCache();
+}
+
+// e.g. to request the same path again after changing what it reads
+export function clearEdgeCache() {
+	edgeCacheStorage.default = new FakeCache() as unknown as Cache;
+}
+
+// stubbed as the global caches before each test (see setup.ts)
+export const edgeCacheStorage = {} as { default: Cache };
+
+// only the parts of the Cache api the worker uses. entries expire after their max-age, as Cloudflare's do
+class FakeCache {
+	private entries = new Map<string, { response: Response; expiresAt: number }>();
+
+	async match(key: string) {
+		const entry = this.entries.get(key);
+		return entry && entry.expiresAt > Date.now() ? entry.response.clone() : undefined;
+	}
+
+	async put(key: string, response: Response) {
+		const maxAge = getMaxAge(response.headers.get("Cache-Control"));
+		this.entries.set(key, { response, expiresAt: Date.now() + maxAge * 1000 });
+	}
 }
 
 // only the parts of the KV api the worker uses

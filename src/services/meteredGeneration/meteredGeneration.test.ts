@@ -25,9 +25,15 @@ function embeddedRow(poc: string, loss: string, date: string, kwh: (number | str
   return { POC: poc, NWK_Code: "TASM", Participant_Code: "TRUS", Loss_Code: loss, Flow_Direction: direction, Trading_date: date, ...tradingPeriods(kwh) };
 }
 
-// a row of the grid import files, whose columns were uppercase until 2020
-function gridImportRow(poc: string, network: string, date: string, kwh: number[]) {
-  return { POC: poc, NWK_Code: network, GENERATION_TYPE: "GN", TRADER: "TPNZ", UNIT_MEASURE: "kWh", FLOW_DIRECTION: "I", STATUS: "F", TRADING_DATE: date, ...tradingPeriods(kwh) };
+// a row of the grid import files, whose columns were uppercase until 2020. type is a network's (GN), a direct
+// connection's (GD) or a generator's own (GG)
+function gridImportRow(poc: string, network: string, date: string, kwh: number[], { type = "GN", trader = "TPNZ" } = {}) {
+  return { POC: poc, NWK_Code: network, GENERATION_TYPE: type, TRADER: trader, UNIT_MEASURE: "kWh", FLOW_DIRECTION: "I", STATUS: "F", TRADING_DATE: date, ...tradingPeriods(kwh) };
+}
+
+// a row of the grid export files, which are like the grid import files'
+function gridExportRow(poc: string, network: string, date: string, kwh: number[], options: { type?: string, trader?: string } = {}) {
+  return { ...gridImportRow(poc, network, date, kwh, options), FLOW_DIRECTION: "X" };
 }
 
 // a row of the unit-level generation files
@@ -173,13 +179,15 @@ describe("calculateMeteredGeneration", () => {
       { source: "Grid_import", records: [gridImportRow("KAW0112", "SKOG", "01/02/2015", allDay(250))] },
     ], codes);
 
+    // Cobb is embedded behind STK0661, so it's added back to the load there (see the load tests below)
     expect(energy(generation)).toEqual(new Map([
       ["2015-01-31", { "ATI2201 ATI0": { g: 48, l: 0 } }],
-      ["2015-02-01", { "ATI2201 ATI0": { g: 48, l: 0 }, "STK0661 COB0": { g: 24, l: 0 }, "KAW0112 ONU0": { g: 12, l: 0 } }],
+      ["2015-02-01", { "ATI2201 ATI0": { g: 48, l: 0 }, "STK0661 COB0": { g: 24, l: 0 }, "STK0661": { g: 0, l: 24 }, "KAW0112 ONU0": { g: 12, l: 0 } }],
     ]));
     expect(generation.days.get("2015-02-01")!.periods["2015-02-01T00:00:00"]).toEqual([
       { p: "ATI2201 ATI0", g: 2, l: 0 },
       { p: "STK0661 COB0", g: 1, l: 0 },
+      { p: "STK0661", g: 0, l: 1 },
       { p: "KAW0112 ONU0", g: 0.5, l: 0 },
     ]);
   });
@@ -208,7 +216,7 @@ describe("calculateMeteredGeneration", () => {
       embeddedRow("STK0661", "COBB", "01/02/2015", allDay(100), "X"),
     ] }], codes);
 
-    expect(energy(generation).get("2015-02-01")).toEqual({ "STK0661 COB0": { g: 24, l: 0 } });
+    expect(energy(generation).get("2015-02-01")).toEqual({ "STK0661 COB0": { g: 24, l: 0 }, "STK0661": { g: 0, l: 24 } });
   });
 
   it("only reports codes that aren't listed from Generation_MD, as the other datasets are only read for the codes listed", () => {
@@ -239,6 +247,135 @@ describe("calculateMeteredGeneration", () => {
       embeddedRow("STK0661", "COBB", "01/02/2015", ["NULL", 500, "NULL"]),
     ] }], codes);
 
-    expect(energy(generation).get("2015-02-01")).toEqual({ "STK0661 COB0": { g: 0.5, l: 0 } });
+    expect(energy(generation).get("2015-02-01")).toEqual({ "STK0661 COB0": { g: 0.5, l: 0 }, "STK0661": { g: 0, l: 0.5 } });
+  });
+});
+
+describe("calculateMeteredGeneration's load", () => {
+  const loadCodes: MeteredGenerationCode[] = [
+    ...codes,
+    { code: "TWH0331 te_uku", node: "TWH0331 TUK0" },
+    { code: "TUI1101 waikaremoana", node: "TUI1101 TUI0" },
+  ];
+
+  const loadOf = (generation: MeteredGeneration, date: string) => Object.fromEntries(Object.entries(energy(generation).get(date)!)
+    .filter(([node]) => !node.includes(" ")));
+
+  it("is what each point of connection took from the grid, less what it injected", () => {
+    const generation = calculateMeteredGeneration([
+      { source: "Grid_export", records: [
+        gridExportRow("ABY0111", "ALPE", "01/08/2005", allDay(1000)),
+        gridExportRow("TWH0331", "WAIK", "01/08/2005", [5000, 0]),
+      ] },
+      { source: "Grid_import", records: [gridImportRow("TWH0331", "WAIK", "01/08/2005", [0, 3000])] },
+    ], loadCodes);
+
+    expect(energy(generation).get("2005-08-01")).toEqual({ ABY0111: { g: 0, l: 48 }, TWH0331: { g: 0, l: 2 } });
+    expect(generation.days.get("2005-08-01")!.periods["2005-08-01T00:30:00"]).toEqual([
+      { p: "ABY0111", g: 0, l: 2 },
+      { p: "TWH0331", g: 0, l: -6 },
+    ]);
+  });
+
+  it("adds together a point of connection's networks and direct connections", () => {
+    const generation = calculateMeteredGeneration([{ source: "Grid_export", records: [
+      gridExportRow("GLN0332", "NZST", "01/08/2005", allDay(1000)),
+      gridExportRow("GLN0332", "COUP", "01/08/2005", allDay(500), { type: "EN" }),
+      gridExportRow("GLN0331", "NZST", "01/08/2005", allDay(250), { type: "GD" }),
+    ] }], loadCodes);
+
+    expect(loadOf(generation, "2005-08-01")).toEqual({ GLN0332: { g: 0, l: 72 }, GLN0331: { g: 0, l: 12 } });
+  });
+
+  it("leaves out generators' own connections, as the dispatch data doesn't have their station load", () => {
+    const generation = calculateMeteredGeneration([
+      { source: "Grid_export", records: [gridExportRow("ATI2201", "MRPL", "01/08/2005", allDay(100), { type: "GG" })] },
+      { source: "Grid_import", records: [
+        gridImportRow("ATI2201", "MRPL", "01/08/2005", allDay(25000), { type: "GG" }),
+        gridImportRow("NGA0331", "TOPE", "01/08/2005", allDay(1000), { type: "EG" }),
+      ] },
+    ], loadCodes);
+
+    expect(energy(generation).get("2005-08-01")).toEqual({});
+  });
+
+  it("adds back the generators metered behind it, which the dispatch data has generating at the node", () => {
+    // Te Uku is behind the Waikato network's connection at TWH0331, but Tuai connects to the grid at TUI1101 on its own
+    const generation = calculateMeteredGeneration([
+      { source: "Generation_MD", records: [
+        row("TWH0331", "te_uku", "2015-08-01", allDay(10000), { network: "WAIK" }),
+        row("TUI1101", "waikaremoana", "2015-08-01", allDay(30000), { network: "GENE" }),
+      ] },
+      { source: "Grid_export", records: [
+        gridExportRow("TWH0331", "WAIK", "2015-08-01", allDay(2000)),
+        gridExportRow("TUI1101", "EAST", "2015-08-01", allDay(1000)),
+      ] },
+      { source: "Grid_import", records: [
+        gridImportRow("TWH0331", "WAIK", "2015-08-01", allDay(5000)),
+        gridImportRow("TUI1101", "GENE", "2015-08-01", allDay(30000), { type: "GG" }),
+      ] },
+    ], loadCodes);
+
+    expect(energy(generation).get("2015-08-01")).toEqual({
+      "TWH0331 TUK0": { g: 480, l: 0 },
+      "TUI1101 TUI0": { g: 1440, l: 0 },
+      TWH0331: { g: 0, l: 336 },
+      TUI1101: { g: 0, l: 48 },
+    });
+  });
+
+  it("adds back the generators in the embedded generation data, and the grid import data's", () => {
+    const generation = calculateMeteredGeneration([
+      { source: "Embedded_generation", records: [embeddedRow("STK0661", "COBB", "01/02/2015", allDay(500))] },
+      { source: "Grid_export", records: [
+        gridExportRow("STK0661", "TASM", "01/02/2015", allDay(2000)),
+        gridExportRow("KAW0112", "SKOG", "01/02/2015", allDay(100)),
+      ] },
+      { source: "Grid_import", records: [gridImportRow("KAW0112", "SKOG", "01/02/2015", allDay(250))] },
+    ], loadCodes);
+
+    expect(loadOf(generation, "2015-02-01")).toEqual({ STK0661: { g: 0, l: 120 }, KAW0112: { g: 0, l: 4.8 } });
+  });
+
+  it("doesn't add back excluded generators, which the dispatch data nets from the load", () => {
+    const generation = calculateMeteredGeneration([
+      { source: "Generation_MD", records: [row("CYD0331", "teviot", "2015-08-01", allDay(3000), { network: "DUNE" })] },
+      { source: "Grid_import", records: [gridImportRow("CYD0331", "DUNE", "2015-08-01", allDay(2000))] },
+    ], loadCodes);
+
+    expect(energy(generation).get("2015-08-01")).toEqual({ CYD0331: { g: 0, l: -96 } });
+  });
+
+  it("adds back embedded generators' periods by the clock before 2009, where Generation_MD numbered them that way", () => {
+    // the day daylight saving started, when the clock skipped 02:00-02:59
+    const generation = calculateMeteredGeneration([
+      { source: "Generation_MD", records: [row("TWH0331", "te_uku", "2008-09-28", [1000, 1000, 1000, 1000, undefined, undefined, ...Array(40).fill(1000)] as number[], { network: "WAIK" })] },
+      { source: "Grid_export", records: [gridExportRow("TWH0331", "WAIK", "28/09/2008", Array(46).fill(500))] },
+    ], loadCodes);
+    const { periods } = generation.days.get("2008-09-28")!;
+
+    expect(loadOf(generation, "2008-09-28")).toEqual({ TWH0331: { g: 0, l: 67 } });
+    expect(Object.keys(periods)).toHaveLength(46);
+    expect(periods["2008-09-28T03:00:00"]).toContainEqual({ p: "TWH0331", g: 0, l: 3 });
+  });
+
+  it("only counts a connection once when it's listed under two retailers with the same values", () => {
+    const generation = calculateMeteredGeneration([{ source: "Grid_export", records: [
+      gridExportRow("BDE0111", "RAYN", "01/11/2002", allDay(4000), { type: "GD", trader: "MERI" }),
+      gridExportRow("BDE0111", "RAYN", "01/11/2002", allDay(4000), { type: "GD", trader: "TRUS" }),
+      gridExportRow("OTA1102", "CTCT", "01/11/2002", allDay(500), { type: "GD" }),
+      gridExportRow("OTA1102", "CTCT", "01/11/2002", allDay(250), { type: "GD" }),
+    ] }], loadCodes);
+
+    expect(energy(generation).get("2002-11-01")).toEqual({ BDE0111: { g: 0, l: 192 }, OTA1102: { g: 0, l: 36 } });
+  });
+
+  it("leaves out a point of connection that only injected what's added back", () => {
+    const generation = calculateMeteredGeneration([
+      { source: "Grid_import", records: [gridImportRow("KAW0112", "SKOG", "01/02/2015", allDay(250))] },
+    ], loadCodes);
+
+    expect(energy(generation).get("2015-02-01")).toEqual({ "KAW0112 ONU0": { g: 12, l: 0 } });
+    expect(generation.days.get("2015-02-01")!.periods["2015-02-01T00:00:00"]).toEqual([{ p: "KAW0112 ONU0", g: 0.5, l: 0 }]);
   });
 });

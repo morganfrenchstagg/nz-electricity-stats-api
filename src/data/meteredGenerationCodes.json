@@ -91,7 +91,7 @@
     { "code": "STK0661 cobb", "excluded": "Only meters about 0.3x of Cobb, so it comes from the embedded generation data instead (STK0661 cobb)" },
     { "code": "STK0661 cobb", "source": "Embedded_generation", "node": "STK0661 COB0", "from": "2015-02-01", "note": "Cobb since it moved to STK0661, which Generation_MD doesn't have until 2020" },
     { "code": "SWN2201 southdown", "node": "SWN2201 southdown", "to": "2016-01-19", "note": "Southdown's units are metered together" },
-    { "code": "SWN2201 southdown", "node": "SWN2201 SWN1", "from": "2017-01-01" },
+    { "code": "SWN2201 southdown", "node": "SWN2201 SWN1", "from": "2017-01-01", "note": "The 1 MW battery Mercury trialled at Southdown after the gas plant closed, which the plant register has as SWN1 until May 2022" },
     { "code": "TGA0331 kaimai", "node": "TGA0331 KMI0", "from": "2009-01-01" },
     { "code": "TGA0331 pocg017", "source": "Embedded_generation", "node": "TGA0331 KMI0", "from": "2008-04-01", "to": "2008-12-31", "note": "Until Generation_MD has Kaimai (TGA0331 kaimai) from 2009" },
     { "code": "THI2201 te_mihi", "excluded": "Te Mihi's two units are metered together, so they come from the unit-level generation data instead, which has each on its own (see THI2201 u1)" },

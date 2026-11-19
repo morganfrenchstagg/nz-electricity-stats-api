@@ -22,6 +22,7 @@ import { HvdcTimeseries } from "../models/hvdc";
 import { EM6_HVDC_DAY_PREFIX, HVDC_KEY } from "../sync/syncHvdc";
 import { METERED_HVDC_DAY_PREFIX } from "../sync/syncHvdcHistory";
 import { mergeHvdcDays } from "../services/hvdc/hvdc";
+import { edgeCache } from "../utilities/edgeCache";
 
 const app = new Hono();
 app.use(cors());
@@ -133,10 +134,10 @@ app.get("/latest", async (c) => {
 	});
 })
 
-// a day's dispatch by interval, or its metered generation by trading period for the days the aggregates take from
-// metered generation (including the first, partial, day of dispatch files). each falls back to the other, e.g. while
-// the metered generation is still being backfilled. the HVDC's half hours are returned with it as hvdc
-app.get("/:date", async (c) => {
+// a day's dispatch by interval, or its metered generation and load by trading period for the days the aggregates take
+// from metered data (including the first, partial, day of dispatch files). each falls back to the other, e.g. while
+// the metered data is still being backfilled. the HVDC's half hours are returned with it as hvdc
+app.get("/:date", edgeCache, async (c) => {
 	const date = c.req.param("date").replace(/-/g, '');
 	const keys = date < DISPATCH_AGGREGATES_START.replace(/-/g, '')
 		? [METERED_DAY_PREFIX + date, `dispatch-${date}`]
@@ -165,8 +166,8 @@ async function getHvdcDay(date: string): Promise<HvdcTimeseries> {
 }
 
 // the daily files leave out most nodes while they're at 0MW generation and load, so a node missing from an interval
-// is 0 rather than unknown. intervals missing from the file entirely are still left out. metered generation has no
-// prices, so its prices are all null
+// is 0 rather than unknown. intervals missing from the file entirely are still left out. metered data has no prices,
+// so its prices are all null
 function toDayTimeseries(intervals: Record<string, (HistoricalDispatchRecord | MeteredGenerationRecord)[]>): Timeseries {
 	const series = [...new Set(Object.values(intervals).flatMap(records => records.map(record => record.p)))];
 	const columns = new Map(series.map((node, index) => [node, index + 1]));

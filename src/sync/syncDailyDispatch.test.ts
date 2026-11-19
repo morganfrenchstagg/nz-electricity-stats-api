@@ -23,10 +23,10 @@ const row = (interval: string, pointOfConnection: string, unit: string, price: n
 
 function mockEmi(files: DailyFile[], { otherBlobs = [] as ListedBlob[], onDownload = () => { } } = {}) {
   return mockFetch({
-    [EMI_DATASETS_LISTING_URL]: () => emiBlobListing([
+    [EMI_DATASETS_LISTING_URL]: (request) => emiBlobListing([
       ...files.map(file => ({ name: blobName(file.date), lastModified: file.lastModified })),
       ...otherBlobs,
-    ]),
+    ].filter(blob => blob.name.startsWith(new URL(request.url).searchParams.get("prefix")!))),
     [EMI_DATASETS_FILES_URL]: (request) => {
       onDownload();
       const file = files.find(file => request.url === EMI_DATASETS_FILES_URL + blobName(file.date))!;
@@ -38,6 +38,11 @@ function mockEmi(files: DailyFile[], { otherBlobs = [] as ListedBlob[], onDownlo
     },
   });
 }
+
+// the folders listed, e.g. 2026/ for .../NodalPricesAndVolumes/2026/
+const listedFolders = (requests: Request[]) => requests
+  .filter(request => request.url.startsWith(EMI_DATASETS_LISTING_URL))
+  .map(request => new URL(request.url).searchParams.get("prefix")!.slice(FOLDER.length));
 
 async function getJson(key: string) {
   return await (await env.dispatch.get(key))?.json();
@@ -67,11 +72,11 @@ describe("syncDailyDispatch", () => {
     expect(downloadedDates(requests)).toEqual(["20261011", "20261012"]);
     expect(await getJson("dispatch-20261012")).toEqual({
       "2026-10-12T00:00:00": [
-        { p: "ATI2201 ATI0", l: "0", g: "50", c: "120.5", m: true },
-        { p: "ALB0331", l: "20", g: "0", c: "130" },
+        { p: "ATI2201 ATI0", l: 0, g: 50, c: 120.5, m: true },
+        { p: "ALB0331", l: 20, g: 0, c: 130 },
       ],
       "2026-10-12T00:05:00": [
-        { p: "ATI2201 ATI0", l: "0", g: "52", c: "118", m: true },
+        { p: "ATI2201 ATI0", l: 0, g: 52, c: 118, m: true },
       ],
     });
     expect(await env.dispatch.get("dispatch-20261011")).not.toBeNull();
@@ -102,12 +107,12 @@ describe("syncDailyDispatch", () => {
 
     expect(await getJson("dispatch-20261012")).toEqual({
       "2026-10-12T00:00:00": [
-        { p: "ATI2201 ATI0", l: "0", g: "15.829", c: "100", m: false },
-        { p: "BEN2202 BEN0", l: "0", g: "67.4", c: "100", m: false },
-        { p: "BPE0331 TWF0", l: "0", g: "14.12", c: "100", m: true },
-        { p: "MHO0331 MHO0", l: "0", g: "-0.3", c: "100", m: false },
-        { p: "HLY0331 RHO99", l: "1.6", g: "0", c: "100", m: true },
-        { p: "ALB0331", l: "60.933", g: "0", c: "100" },
+        { p: "ATI2201 ATI0", l: 0, g: 15.829, c: 100, m: false },
+        { p: "BEN2202 BEN0", l: 0, g: 67.4, c: 100, m: false },
+        { p: "BPE0331 TWF0", l: 0, g: 14.12, c: 100, m: true },
+        { p: "MHO0331 MHO0", l: 0, g: -0.3, c: 100, m: false },
+        { p: "HLY0331 RHO99", l: 1.6, g: 0, c: 100, m: true },
+        { p: "ALB0331", l: 60.933, g: 0, c: 100 },
       ],
     });
   });
@@ -156,6 +161,72 @@ describe("syncDailyDispatch", () => {
     expect(await getJson("dispatch-20261011")).toHaveProperty("2026-10-11T00:00:00");
     expect(await env.dispatch_kv.get("latestDailySyncDate")).toBe("20261012");
     expect(await env.dispatch_kv.get("dispatchDatesToReaggregate")).toBe(JSON.stringify(["2026-10-11"]));
+  });
+
+  describe("checking for republished files", () => {
+    // stored before EMI republished them on 14 October
+    async function storeFiles(dates: string[]) {
+      vi.setSystemTime(new Date("2026-10-13T00:00:00Z"));
+      for (const date of dates) {
+        await env.dispatch.put("dispatch-" + date, "{}");
+      }
+      await env.dispatch_kv.put("latestDailySyncDate", dates.at(-1)!);
+    }
+
+    it("only checks the last two weeks' files each hour, from the current year's folder", async () => {
+      await storeFiles(["20260901", "20260929", "20261011"]);
+      vi.setSystemTime(new Date("2026-10-14T02:00:00Z"));
+      const list = vi.spyOn(env.dispatch, "list");
+      const requests = mockEmi([
+        { date: "20250901", lastModified: "Wed, 14 Oct 2026 01:00:00 GMT" },
+        { date: "20260901", lastModified: "Wed, 14 Oct 2026 01:00:00 GMT" },
+        { date: "20260929", lastModified: "Wed, 14 Oct 2026 01:00:00 GMT" },
+        { date: "20260930", lastModified: "Wed, 14 Oct 2026 01:00:00 GMT" },
+        { date: "20261011", lastModified: "Wed, 14 Oct 2026 01:00:00 GMT" },
+      ]);
+
+      await syncDailyDispatch();
+
+      expect(listedFolders(requests)).toEqual(["2026/"]);
+      expect(list.mock.calls.map(([options]) => options?.startAfter)).toEqual(["dispatch-20260929"]);
+      // 30 September is missing, so it's downloaded again too
+      expect(downloadedDates(requests)).toEqual(["20260930", "20261011"]);
+    });
+
+    it("checks every file once a day", async () => {
+      await storeFiles(["20260901", "20261011"]);
+      vi.setSystemTime(new Date("2026-10-14T12:02:00Z"));
+      const requests = mockEmi([
+        { date: "20260901", lastModified: "Wed, 14 Oct 2026 01:00:00 GMT" },
+        { date: "20261011", lastModified: "Wed, 14 Oct 2026 01:00:00 GMT" },
+      ]);
+
+      await syncDailyDispatch();
+
+      expect(listedFolders(requests)).toEqual([""]);
+      expect(downloadedDates(requests)).toEqual(["20260901", "20261011"]);
+    });
+
+    it("lists the previous year's folder too while the last two weeks span the new year", async () => {
+      await env.dispatch_kv.put("latestDailySyncDate", "20270103");
+      vi.setSystemTime(new Date("2027-01-05T02:00:00Z"));
+      const requests = mockEmi([{ date: "20261225" }, { date: "20270104" }]);
+
+      await syncDailyDispatch();
+
+      expect(listedFolders(requests)).toEqual(["2026/", "2027/"]);
+      expect(downloadedDates(requests)).toEqual(["20261225", "20270104"]);
+    });
+
+    it("lists every year since the last sync when it's further behind", async () => {
+      await env.dispatch_kv.put("latestDailySyncDate", "20250601");
+      const requests = mockEmi([{ date: "20250601" }, { date: "20250602" }, { date: "20261012" }]);
+
+      await syncDailyDispatch();
+
+      expect(listedFolders(requests)).toEqual(["2025/", "2026/"]);
+      expect(downloadedDates(requests)).toEqual(["20250602", "20261012"]);
+    });
   });
 
   it("follows the listing across pages", async () => {

@@ -95,14 +95,26 @@ describe("syncHvdc", () => {
     expect(await getStoredDay("20261029")).toEqual({ series: HVDC_TIMESERIES.series, data: [["2026-10-29T00:00:00", 600, 0, 1200, -650]] });
   });
 
-  it("doesn't rewrite a day em6 hasn't added to", async () => {
+  it("doesn't rewrite anything when em6 hasn't added to its days", async () => {
     mockFetch({ [EM6_HVDC_URL]: () => Response.json(em6Hvdc()) });
     await syncHvdc();
     const put = vi.spyOn(env.dispatch, "put");
 
     await syncHvdc();
 
-    expect(put.mock.calls.map(([key]) => key)).toEqual(["hvdc"]);
+    expect(put).not.toHaveBeenCalled();
+    expect(await getStoredHvdc()).toEqual(HVDC_TIMESERIES);
+  });
+
+  it("only rewrites the days em6 has added to, and the recent HVDC", async () => {
+    mockFetch({ [EM6_HVDC_URL]: () => Response.json(em6Response([["2026-10-27T23:30", 640], ["2026-10-28T00:00", 600]])) });
+    await syncHvdc();
+    const put = vi.spyOn(env.dispatch, "put");
+
+    mockFetch({ [EM6_HVDC_URL]: () => Response.json(em6Response([["2026-10-27T23:30", 640], ["2026-10-28T00:00", 600], ["2026-10-28T00:30", 590]])) });
+    await syncHvdc();
+
+    expect(put.mock.calls.map(([key]) => key)).toEqual(["hvdc-em6-20261028", "hvdc"]);
   });
 
   it.each([
