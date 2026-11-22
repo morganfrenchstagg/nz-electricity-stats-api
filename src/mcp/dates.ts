@@ -1,4 +1,4 @@
-import { getMonthBounds } from "../services/dispatchAggregation/dispatchAggregation";
+import { getMonthBounds, getNzOffsetMinutes } from "../services/dispatchAggregation/dispatchAggregation";
 
 // dates are NZ trading dates as YYYY-MM-DD strings, as the API has them
 
@@ -43,6 +43,14 @@ export function monthsBetween(from: string, to: string): string[] {
 		months.push(month);
 	}
 	return months;
+}
+
+// the instant an NZ time without an offset (e.g. 2026-11-07T18:00) is. the offset at the time read as UTC is only wrong
+// within 13 hours of a daylight saving change, so it's checked again at the instant that gives
+export function parseNzTime(time: string): number {
+	const asUtc = Date.parse(`${time}Z`);
+	const guess = asUtc - getNzOffsetMinutes(asUtc) * 60000;
+	return asUtc - getNzOffsetMinutes(guess) * 60000;
 }
 
 export function todayInNz(now = new Date()): string {

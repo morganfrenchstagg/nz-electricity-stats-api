@@ -1,7 +1,7 @@
 import { ToolInputError } from "./api";
 import {
 	DEMAND_GROUPS, DemandGroup, demandGroupOf, GENERATION_GROUPS, GenerationGroup, generationGroupOf, getGxp, getUnit, isUnitNode,
-	matchesUnitFilter, RENEWABLE_FUELS, UnitFilter
+	matchesUnitFilter, RENEWABLE_FUELS, UnitFilter, validateUnitFilter
 } from "./nodes";
 
 export type Metric = "generation" | "demand";
@@ -13,8 +13,11 @@ export type Grouped = {
 };
 
 export function validateGroupBy(metric: Metric, groupBy: string, filter: UnitFilter) {
-	if (metric === "generation" && !(GENERATION_GROUPS as readonly string[]).includes(groupBy)) {
-		throw new ToolInputError(`group_by for generation must be one of ${GENERATION_GROUPS.join(", ")}`);
+	if (metric === "generation") {
+		if (!(GENERATION_GROUPS as readonly string[]).includes(groupBy)) {
+			throw new ToolInputError(`group_by for generation must be one of ${GENERATION_GROUPS.join(", ")}`);
+		}
+		validateUnitFilter(filter);
 	}
 	if (metric === "demand") {
 		if (!(DEMAND_GROUPS as readonly string[]).includes(groupBy)) {

@@ -1,6 +1,7 @@
 import generators from '../data/generators.json' with { type: 'json' };
 import substations from '../data/substations.json' with { type: 'json' };
 import { GeneratorDefinition, UnitDefinition } from "../clients/generators";
+import { ToolInputError } from "./api";
 
 // what the tools group a node's generation or load by. a generating unit's node has its unit code after the point of
 // connection (e.g. HLY2201 HLY5), and every other node is a grid exit point (e.g. OTA2201), where load is taken
@@ -201,6 +202,24 @@ export function matchesUnitFilter(unit: UnitInfo, filter: UnitFilter): boolean {
 		return false;
 	}
 	return true;
+}
+
+const FUELS = [...new Set(getAllUnits().map(unit => unit.fuel))].sort();
+
+// a fuel, operator or station that no unit has (e.g. a typo) is an error, rather than a result with nothing in it that
+// would read as 0
+export function validateUnitFilter(filter: UnitFilter) {
+	const units = getAllUnits();
+	const unmatched = (key: "fuel" | "operator" | "station") => (filter[key] ?? [])
+		.filter(value => !units.some(unit => matchesUnitFilter(unit, { [key]: [value] })))
+		.map(value => `${key} "${value}"`);
+	const fuels = unmatched("fuel");
+	const others = [...unmatched("operator"), ...unmatched("station")];
+	if (fuels.length || others.length) {
+		throw new ToolInputError(`Nothing matches ${[...fuels, ...others].join(", ")}.`
+			+ (fuels.length ? ` Fuels are ${FUELS.join(", ")}.` : "")
+			+ (others.length ? " Use search_generators to find operators' and stations' names." : ""));
+	}
 }
 
 const SITE_CODES = new Set(getAllUnits().map(unit => unit.site));

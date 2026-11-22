@@ -2,6 +2,10 @@ import { env } from "cloudflare:workers";
 import { PocpOutage } from "../models/pocpOutage";
 import { isValidPocpOutageResponse } from "../services/outageMapping/pocpResponse";
 
+// the outages asked for are the ones going on from this many days ago to this many days ahead
+export const OUTAGE_DAYS_BEFORE = 14;
+export const OUTAGE_DAYS_AHEAD = 3;
+
 export async function getOutageListFromCache(): Promise<Record<string, PocpOutage[]>> {
     const cachedOutages = await env.dispatch_kv.get("latestOutages");
     if (cachedOutages) {
@@ -16,8 +20,8 @@ export async function getOutageListFromPocp(): Promise<PocpOutage[]> {
     url.searchParams.set("size", "1000");
     url.searchParams.set("sort", "outageBlock,asc");
     url.searchParams.set("dateOption", "absolute");
-    url.searchParams.set("outageAtFrom", new Date(Date.now() - 1000 * 60 * 60 * 24 * 14).toISOString());
-    url.searchParams.set("outageAtTo", new Date(Date.now() + 1000 * 60 * 60 * 24 * 3).toISOString());
+    url.searchParams.set("outageAtFrom", new Date(Date.now() - 1000 * 60 * 60 * 24 * OUTAGE_DAYS_BEFORE).toISOString());
+    url.searchParams.set("outageAtTo", new Date(Date.now() + 1000 * 60 * 60 * 24 * OUTAGE_DAYS_AHEAD).toISOString());
 
     let urlString = url.toString();
     urlString += "&planningStatus=CONFIRMED&planningStatus=COMPLETED&category=GENERATION&category=EMBEDDED_GENERATION";

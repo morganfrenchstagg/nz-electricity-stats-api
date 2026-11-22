@@ -15,9 +15,9 @@ const INSTRUCTIONS = `Statistics about New Zealand's wholesale electricity marke
 What the data covers:
 - Generation from August 1997 to now: EMI's half-hourly metered generation until 10 September 2020, then the 5-minute dispatch. Only the grid's dispatched generating units, so no rooftop solar or most small embedded generation.
 - Demand (what's taken from the grid, at grid exit points and by dispatchable loads and batteries charging) from August 1997 too: EMI's metered grid export and import until 10 September 2020, then the dispatch.
-- Wholesale prices from 10 September 2020.
+- Wholesale prices from 11 September 2020.
 - The HVDC link's flows between the islands from August 1997.
-- Generators' energy offers from late 2019, and generation outages from about 14 days ago to 3 days ahead.
+- Generators' energy offers from October 2019, and generation outages from about 14 days ago to 3 days ahead.
 - EMI publishes each day's dispatch the day after, so today (and sometimes yesterday) come from the live dispatch and the latest periods can be incomplete.
 
 Units and conventions: energy in GWh (1 GWh = 1,000 MWh), power in MW, prices in $/MWh (NZD, the real-time dispatch prices, before final pricing). Dates are NZ trading dates and times are NZ local time (Pacific/Auckland) without an offset unless one is given. Fuels are Hydro, Geothermal, Gas, Coal/Gas (Huntly's Rankine units), Wind, Solar, Battery and Diesel, and renewables are hydro, geothermal, wind and solar.

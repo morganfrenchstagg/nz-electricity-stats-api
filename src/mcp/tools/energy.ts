@@ -156,7 +156,8 @@ function groupRow(metric: Metric, groupBy: string, filter: UnitFilter, series: s
 
 function getDefaultFrom(resolution: Resolution, to: string): string {
 	switch (resolution) {
-		case "annual": return FIRST_DATE;
+		// periods are included when they start within the range, so the partial year 1997 is from its start
+		case "annual": return `${FIRST_DATE.slice(0, 4)}-01-01`;
 		case "monthly": {
 			const [year, month] = to.split("-").map(Number);
 			return new Date(Date.UTC(year, month - 12, 1)).toISOString().slice(0, 10);

@@ -2,7 +2,7 @@ import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
 import { ApiClient, round, runTool, ToolInputError } from "../api";
 import { parseStart } from "../dates";
-import { GENERATION_GROUPS, GenerationGroup, generationGroupOf, getUnit, matchesUnitFilter, UnitFilter } from "../nodes";
+import { GENERATION_GROUPS, GenerationGroup, generationGroupOf, getUnit, matchesUnitFilter, UnitFilter, validateUnitFilter } from "../nodes";
 import { DEFAULT_TOP, topSchema, unitFilterShape } from "../schemas";
 
 type Tranche = { tranche: number; megawatts: number; price: number };
@@ -14,6 +14,9 @@ type OffersResponse = {
 };
 
 const DEFAULT_PRICE_BANDS = [0.01, 50, 100, 150, 200, 300, 500, 1000];
+
+// EMI's offers files begin on 1 October 2019
+const FIRST_OFFERS_DATE = "2019-10-01";
 
 export type OffersArgs = UnitFilter & {
 	date?: string;
@@ -46,7 +49,11 @@ export function registerOffersTool(server: McpServer, api: ApiClient) {
 }
 
 export async function getOffers(api: ApiClient, args: OffersArgs) {
+	validateUnitFilter(args);
 	const date = !args.date || args.date === "latest" ? "latest" : parseStart(args.date);
+	if (date !== "latest" && date < FIRST_OFFERS_DATE) {
+		throw new ToolInputError(`There are no offers for ${date}. They begin on ${FIRST_OFFERS_DATE}`);
+	}
 	const groupBy = args.group_by ?? "fuel";
 	const bands = [...(args.price_bands ?? DEFAULT_PRICE_BANDS)].sort((a, b) => a - b);
 
@@ -55,10 +62,11 @@ export async function getOffers(api: ApiClient, args: OffersArgs) {
 		throw new ToolInputError(`There are no offers for ${date}. EMI publishes each day's offers the day after`);
 	}
 
+	const offersDate = `${offers.date.slice(0, 4)}-${offers.date.slice(4, 6)}-${offers.date.slice(6)}`;
 	const [first, last] = parseTradingPeriods(args.trading_periods);
 	const periods = Object.keys(offers.data).filter(period => +period >= first && +period <= last);
 	if (periods.length === 0) {
-		throw new ToolInputError(`There are no offers in trading periods ${first}-${last} on ${offers.date}`);
+		throw new ToolInputError(`There are no offers in trading period${first === last ? ` ${first}` : `s ${first}-${last}`} on ${offersDate}`);
 	}
 
 	// summed over the periods, then averaged
@@ -101,7 +109,7 @@ export async function getOffers(api: ApiClient, args: OffersArgs) {
 	const top = args.top ?? DEFAULT_TOP;
 
 	return {
-		date: `${offers.date.slice(0, 4)}-${offers.date.slice(4, 6)}-${offers.date.slice(6)}`,
+		date: offersDate,
 		tradingPeriods: { first: Math.min(...periods.map(Number)), last: Math.max(...periods.map(Number)), count: periods.length },
 		unit: "MW, the average over the trading periods",
 		groupBy,

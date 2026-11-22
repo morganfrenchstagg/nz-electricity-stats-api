@@ -7,7 +7,7 @@ import { groupNodes, Metric, validateGroupBy } from "../grouping";
 import { DEMAND_GROUPS, DemandGroup, GENERATION_GROUPS, GenerationGroup, UnitFilter } from "../nodes";
 import { DEFAULT_TOP, topSchema, unitFilterShape } from "../schemas";
 import { GroupedRow, toTable } from "../table";
-import { hoursInNzDay } from "../../services/dispatchAggregation/dispatchAggregation";
+import { hoursInNzDay, hoursToEndOfInterval } from "../../services/dispatchAggregation/dispatchAggregation";
 
 const RESOLUTIONS = { "5min": 5, "30min": 30, "60min": 60 } as const;
 
@@ -58,8 +58,10 @@ export async function getDayProfile(api: ApiClient, args: DayProfileArgs) {
 	if (!day) {
 		throw new ToolInputError(`There's no dispatch for ${date}. The data begins on 1997-08-01 and EMI publishes each day the day after`);
 	}
-	const intervalMinutes = getIntervalMinutes(day);
+	const intervalMinutes = getIntervalMinutes(date);
 	const minutes = Math.max(RESOLUTIONS[args.resolution ?? "30min"], intervalMinutes);
+	// a live day is only so far, to the end of its latest interval, however many of the intervals before it are missing
+	const hours = day.live ? hoursToEndOfInterval(date, day.data[day.data.length - 1][0]) : hoursInNzDay(date);
 
 	// each bucket's rows, summed by group, to average once they're all in
 	const buckets = new Map<string, { values: Map<string, number>; rows: number }>();
@@ -77,7 +79,7 @@ export async function getDayProfile(api: ApiClient, args: DayProfileArgs) {
 		values: new Map([...bucket.values].map(([group, value]) => [group, value / bucket.rows])),
 	}));
 	const { columns, rows: tableRows } = toTable(rows, args.top ?? DEFAULT_TOP, 1);
-	const summary = summarise(columns, tableRows, day.live ? day.data.length * intervalMinutes / 60 : hoursInNzDay(date));
+	const summary = summarise(columns, tableRows, hours);
 
 	if (args.include_hvdc) {
 		addHvdcColumns(columns, tableRows, day.hvdc.data, minutes);
@@ -86,9 +88,9 @@ export async function getDayProfile(api: ApiClient, args: DayProfileArgs) {
 		addPriceColumns(columns, tableRows, day.series, day.pricing, minutes);
 	}
 
-	// EMI's daily files sometimes miss intervals, which the rows and energy are averaged over
-	const expectedRows = hoursInNzDay(date) * 60 / intervalMinutes;
-	const missingIntervals = day.live ? 0 : expectedRows - day.data.length;
+	// EMI's daily files and the live dispatch sometimes miss intervals, which the rows and energy are averaged over
+	const expectedRows = Math.round(hours * 60 / intervalMinutes);
+	const missingIntervals = expectedRows - day.data.length;
 
 	return {
 		date,
@@ -106,7 +108,8 @@ export async function getDayProfile(api: ApiClient, args: DayProfileArgs) {
 				? ["This day is before the dispatch data, so it's EMI's half-hourly metered generation and load, without prices."]
 				: []),
 			...(missingIntervals > 0
-				? [`${missingIntervals} of the day's ${expectedRows} intervals are missing from EMI's data, so rows without any are left out and the energy averages the rest.`]
+				? [`${missingIntervals} of the ${day.live ? `${expectedRows} intervals so far are missing from the live dispatch` : `day's ${expectedRows} intervals are missing from EMI's data`}, `
+					+ "so rows without any are left out and the energy averages the rest."]
 				: []),
 			...(args.include_hvdc && !day.hvdc.data.length ? ["There are no HVDC flows for this day yet."] : []),
 		],

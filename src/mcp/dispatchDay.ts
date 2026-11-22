@@ -2,6 +2,7 @@ import { ApiClient } from "./api";
 import { addDays, todayInNz } from "./dates";
 import { getAllSubstations, isUnitNode, normaliseName } from "./nodes";
 import { HvdcTimeseries } from "../models/hvdc";
+import { DISPATCH_AGGREGATES_START } from "../services/dispatchAggregation/dispatchAggregation";
 
 export type DispatchDay = {
 	series: string[];
@@ -48,12 +49,10 @@ export class DispatchDays {
 	}
 }
 
-// the minutes between a day's rows: 5 for the dispatch, 30 for metered generation
-export function getIntervalMinutes(day: DispatchDay): number {
-	if (day.data.length < 2) {
-		return 5;
-	}
-	return Math.round((Date.parse(day.data[1][0] + "Z") - Date.parse(day.data[0][0] + "Z")) / 60000);
+// the minutes between a day's rows: 5 for the dispatch, 30 for the metered generation the API has before it. it's from the
+// date rather than the rows, as EMI's daily files sometimes miss intervals (e.g. 00:05, which would make it look like 10)
+export function getIntervalMinutes(date: string): number {
+	return date < DISPATCH_AGGREGATES_START ? 30 : 5;
 }
 
 // the start of the bucket of minutes a row's NZ time is in, e.g. 2026-10-14T13:30 for 13:45 in 30 minute buckets

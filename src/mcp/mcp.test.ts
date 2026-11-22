@@ -5,6 +5,7 @@ import { requestWorker } from "../testing/requestWorker";
 import { outage } from "../testing/fixtures";
 import { DispatchAggregate } from "../models/dispatchAggregate";
 import { ApiClient } from "./api";
+import { parseNzTime } from "./dates";
 import { getEnergy } from "./tools/energy";
 import { getPrices } from "./tools/prices";
 import { getDayProfile } from "./tools/dayProfile";
@@ -136,11 +137,27 @@ describe("get_energy", () => {
     });
   });
 
+  it("includes the partial year 1997 in the annual default", async () => {
+    await store(env.dispatch, "aggregate-annual", aggregate(["1997-01-01", DAY_NODES], ["1998-01-01", DAY_NODES]));
+
+    const result = await getEnergy(api, { resolution: "annual", group_by: "total" });
+
+    expect(result).toMatchObject({ from: "1997-01-01", rows: [["1997", 13.2, 31.8], ["1998", 13.2, 31.8]] });
+    expect(result.notes).toContain("Data begins in August 1997, so 1997 is a partial year.");
+  });
+
   it("rejects arguments that don't make sense", async () => {
     await expect(getEnergy(api, { from: "2026-10", to: "2026-09" })).rejects.toThrow("from (2026-10-01) is after to (2026-09-30)");
     await expect(getEnergy(api, { from: "2026-13" })).rejects.toThrow('Invalid date "2026-13"');
     await expect(getEnergy(api, { metric: "demand", fuel: ["Hydro"] })).rejects.toThrow("Demand can only be filtered by island");
     await expect(getEnergy(api, { group_by: "substation" })).rejects.toThrow("group_by for generation must be one of");
+  });
+
+  it("rejects filters that match nothing, rather than returning 0", async () => {
+    await expect(getEnergy(api, { station: ["Clyde", "Narnia"] })).rejects.toThrow(
+      'Nothing matches station "Narnia". Use search_generators to find operators\' and stations\' names.');
+    await expect(getEnergy(api, { fuel: ["Nuclear"] })).rejects.toThrow('Nothing matches fuel "Nuclear". Fuels are Battery, Coal/Gas, Diesel, Gas,');
+    await expect(getEnergy(api, { fuel: ["wind"], operator: ["meridian"], resolution: "daily", from: "2026-10-01", to: "2026-10-01" })).resolves.toBeDefined();
   });
 });
 
@@ -193,6 +210,11 @@ describe("get_prices", () => {
     await expect(getPrices(api, { from: "2026-08-01", to: "2026-09-30" })).rejects.toThrow("That's 61 days");
     await expect(getPrices(api, { from: "2026-10-12", nodes: ["Nowhere"] })).rejects.toThrow("No prices for Nowhere");
   });
+
+  it("says when the dates have no prices, rather than blaming the nodes", async () => {
+    await expect(getPrices(api, { from: "2020-09-10" })).rejects.toThrow("Prices are only available from 11 September 2020");
+    await expect(getPrices(api, { from: "2026-10-01" })).rejects.toThrow("There's no dispatch between 2026-10-01 and 2026-10-01");
+  });
 });
 
 describe("get_day_profile", () => {
@@ -221,6 +243,36 @@ describe("get_day_profile", () => {
       },
     });
     expect(result.notes).toContain("285 of the day's 288 intervals are missing from EMI's data, so rows without any are left out and the energy averages the rest.");
+  });
+
+  it("keeps 5-minute rows on a day missing its 00:05 interval", async () => {
+    await store(env.dispatch, "dispatch-20261013", {
+      "2026-10-13T00:00:00": [record("ATI2201 ATI0", 60, 0, 100)],
+      "2026-10-13T00:10:00": [record("ATI2201 ATI0", 80, 0, 100)],
+      "2026-10-13T00:15:00": [record("ATI2201 ATI0", 70, 0, 100)],
+    });
+
+    const result = await getDayProfile(api, { date: "2026-10-13", resolution: "5min", group_by: "total" });
+
+    expect(result).toMatchObject({
+      resolution: "5min",
+      rows: [["2026-10-13T00:00", 60], ["2026-10-13T00:10", 80], ["2026-10-13T00:15", 70]],
+    });
+    expect(result.notes).toContain("285 of the day's 288 intervals are missing from EMI's data, so rows without any are left out and the energy averages the rest.");
+  });
+
+  it("counts a live day's energy to the end of its latest interval, however many are missing", async () => {
+    await store(env.dispatch, "timeseries", {
+      series: ["ATI2201 ATI0"],
+      data: [["2026-10-14T00:00:00", 100], ["2026-10-14T00:10:00", 140]],
+      pricing: [["2026-10-14T00:00:00", 50], ["2026-10-14T00:10:00", 50]],
+    });
+
+    const result = await getDayProfile(api, { resolution: "5min", group_by: "total" });
+
+    // the mean of 120 MW over the quarter hour to 00:15
+    expect(result).toMatchObject({ live: true, resolution: "5min", summary: { Total: { meanMW: 120, energyGWh: 0.03 } } });
+    expect(result.notes).toContain("1 of the 3 intervals so far are missing from the live dispatch, so rows without any are left out and the energy averages the rest.");
   });
 
   it("says when there's no data for the day", async () => {
@@ -288,6 +340,30 @@ describe("get_outages", () => {
       matchingOutages: 3,
     });
   });
+
+  it("reads a time without an offset, or a date's midday, in NZ time", async () => {
+    // 21:30 NZDT, during Ātiamuri's outage (08:00 to 10:00 UTC)
+    const evening = await getOutages(api, { at: "2026-10-15T21:30" });
+    const midday = await getOutages(api, { at: "2026-10-15" });
+
+    expect(evening).toMatchObject({ at: "2026-10-15T21:30:00", totalMWOut: 469 });
+    expect(midday).toMatchObject({ at: "2026-10-15T12:00:00", totalMWOut: 385 });
+  });
+
+  it("rejects times outside the outages it has, as the total would be too low", async () => {
+    await expect(getOutages(api, { at: "2026-09-01" })).rejects.toThrow(
+      "There are only outages from 2026-09-30T22:01:00 to 2026-10-17T22:01:00 (14 days ago to 3 days ahead), so there's no total for 2026-09-01T12:00:00");
+    await expect(getOutages(api, { at: "2026-10-20T12:00:00+13:00" })).rejects.toThrow("There are only outages from");
+  });
+});
+
+describe("parseNzTime", () => {
+  it("applies the NZ offset in force at the time, either side of daylight saving starting", () => {
+    expect(parseNzTime("2026-07-01T12:00")).toBe(Date.parse("2026-07-01T12:00:00+12:00"));
+    expect(parseNzTime("2026-11-07T18:00:00")).toBe(Date.parse("2026-11-07T18:00:00+13:00"));
+    expect(parseNzTime("2026-09-27T01:30")).toBe(Date.parse("2026-09-27T01:30:00+12:00"));
+    expect(parseNzTime("2026-09-27T03:30")).toBe(Date.parse("2026-09-27T03:30:00+13:00"));
+  });
 });
 
 describe("get_offers", () => {
@@ -332,6 +408,11 @@ describe("get_offers", () => {
 
   it("rejects trading periods that don't exist", async () => {
     await expect(getOffers(api, { date: "2026-10-12", trading_periods: "40-60" })).rejects.toThrow('Invalid trading_periods "40-60"');
+    await expect(getOffers(api, { date: "2026-10-12", trading_periods: "49" })).rejects.toThrow("There are no offers in trading period 49 on 2026-10-12");
+  });
+
+  it("says when offers began, for a day before then", async () => {
+    await expect(getOffers(api, { date: "2019-01-15" })).rejects.toThrow("There are no offers for 2019-01-15. They begin on 2019-10-01");
   });
 });
 
@@ -372,6 +453,10 @@ describe("get_generating_capacity", () => {
       changes: { since: "2026-01-01", commissioned: [{ unit: "Huntly Battery", date: "2026-07-02", capacityMW: 100 }], retired: [] },
     });
     expect(then).toMatchObject({ asOf: "2010-12-31", totalMW: 1409 });
+  });
+
+  it("rejects an operator no unit has", () => {
+    expect(() => getGeneratingCapacity({ operator: ["Narnia Power"] })).toThrow('Nothing matches operator "Narnia Power"');
   });
 });
 

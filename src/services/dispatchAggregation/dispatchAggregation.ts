@@ -193,7 +193,7 @@ export function hoursInNzDay(date: string): number {
 // the hours from the start of a trading day to the end of the 5 minute interval starting at timestamp (an NZ time
 // without an offset, e.g. 2026-10-12T13:05:00). the clock is an hour off from 03:00 on the days daylight saving
 // starts and ends (the repeated hour's intervals share timestamps, so only its first occurrence is counted)
-function hoursToEndOfInterval(date: string, timestamp: string): number {
+export function hoursToEndOfInterval(date: string, timestamp: string): number {
     const [hour, minute] = timestamp.slice(11, 16).split(":").map(Number);
     const clockHours = hour + (minute + 5) / 60;
     return hour >= 3 ? clockHours + hoursInNzDay(date) - 24 : clockHours;
@@ -212,7 +212,7 @@ export function getTradingPeriodStarts(date: string, periods: number): string[] 
     });
 }
 
-function getNzOffsetMinutes(instant: number): number {
+export function getNzOffsetMinutes(instant: number): number {
     const parts = nzDateTimeFormat.formatToParts(new Date(instant));
     const get = (type: Intl.DateTimeFormatPartTypes) => +parts.find(part => part.type === type)!.value;
     const nzWallClockAsUtc = Date.UTC(get("year"), get("month") - 1, get("day"), get("hour"), get("minute"));
