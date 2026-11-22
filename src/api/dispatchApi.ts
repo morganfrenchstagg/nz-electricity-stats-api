@@ -56,8 +56,10 @@ app.get("/rtd", async (c) => {
 // timestamps are NZ times, in the same format as the ones returned
 const SINCE_FORMAT = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}$/;
 
-// optionally only return the intervals after a timestamp, e.g. ?since=2026-10-14T21:55:00
-app.get("/recent", async (c) => {
+// optionally only return the intervals after a timestamp, e.g. ?since=2026-10-14T21:55:00. clients that are up to date
+// all ask for the intervals since the latest one, so the edge cache answers most polls without reading the whole
+// timeseries from R2
+app.get("/recent", edgeCache, async (c) => {
 	const since = c.req.query("since");
 	if (since !== undefined && !SINCE_FORMAT.test(since)) {
 		c.status(400);

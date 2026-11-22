@@ -130,7 +130,7 @@ describe("generateTimeseries", () => {
     });
   });
 
-  it("existing dataset should generate a timeseries based on the input + new node in different order", () => {
+  it("keeps the existing columns when the dispatch lists the nodes in a different order", () => {
     // this is unlikely to happen based on my observation of the api behaviour, but testing this edge case just in case
     const existingTimeseries = {
       series: ["ABY0111", "ARA2201 ARA0", "BRB0331 RUK99"],
@@ -170,14 +170,14 @@ describe("generateTimeseries", () => {
 
     const timeseries = generateTimeseries(existingTimeseries, exampleRtdData);
     expect(timeseries).toEqual({
-      series: ["ABY0111", "BRB0331 RUK99", "ARA2201 ARA0"],
+      series: ["ABY0111", "ARA2201 ARA0", "BRB0331 RUK99"],
       data: [
-        ["2026-05-29T13:30:00", -2.576, -1, 72],
-        ["2026-05-29T13:35:00", -3, -8.82, 70],
+        ["2026-05-29T13:30:00", -2.576, 72, -1],
+        ["2026-05-29T13:35:00", -3, 70, -8.82],
       ],
       pricing: [
-        ["2026-05-29T13:30:00", 0.01, 12, 100],
-        ["2026-05-29T13:35:00", 94.08, 111.5, 100.27],
+        ["2026-05-29T13:30:00", 0.01, 100, 12],
+        ["2026-05-29T13:35:00", 94.08, 100.27, 111.5],
       ],
     });
   });
@@ -285,7 +285,7 @@ describe("generateTimeseries", () => {
     const existingTimeseries = {
       series: ["ABY0111", "ARA2201 ARA0"],
       data: Array.from({ length: 864 }, (_, i) => [`2026-05-29T${String(Math.floor(i / 12)).padStart(2, "0")}:${String((i % 12) * 5).padStart(2, "0")}:00`, -2.576, 72]),
-      pricing: Array.from({ length: 864 }, (_, i) => [`${i}:00`, i, i]),
+      pricing: Array.from({ length: 864 }, (_, i) => [`2026-05-29T${String(Math.floor(i / 12)).padStart(2, "0")}:${String((i % 12) * 5).padStart(2, "0")}:00`, i, i]),
     };
 
     expect(existingTimeseries.data[0][0]).toBe("2026-05-29T00:00:00");
@@ -317,6 +317,29 @@ describe("generateTimeseries", () => {
       94.08,
       0
     ])
+  });
+
+  it("drops as many of the oldest timestamps as it takes to get back to 864 entries", () => {
+    const timestamp = (i: number) => `2026-05-29T${String(Math.floor(i / 12)).padStart(2, "0")}:${String((i % 12) * 5).padStart(2, "0")}:00`;
+    const existingTimeseries = {
+      series: ["ABY0111"],
+      data: Array.from({ length: 870 }, (_, i) => [timestamp(i), i]),
+      pricing: Array.from({ length: 870 }, (_, i) => [timestamp(i), i]),
+    };
+
+    const timeseries = generateTimeseries(existingTimeseries, [{
+      PointOfConnectionCode: "ABY0111",
+      FiveMinuteIntervalDatetime: "2026-07-01T13:30:00",
+      SPDLoadMegawatt: 0,
+      SPDGenerationMegawatt: 3,
+      DollarsPerMegawattHour: 94.08,
+    }]);
+
+    expect(timeseries.data.length).toBe(864);
+    expect(timeseries.pricing.length).toBe(864);
+    expect(timeseries.data[0]).toEqual([timestamp(7), 7]);
+    expect(timeseries.pricing[0]).toEqual([timestamp(7), 7]);
+    expect(timeseries.data[863]).toEqual(["2026-07-01T13:30:00", 3]);
   });
 
   // todo - no pricing data available

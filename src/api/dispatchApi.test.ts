@@ -129,6 +129,23 @@ describe("dispatch api", () => {
       expect(response.headers.get("Cache-Control")).toBe("max-age=30");
     });
 
+    it("answers later requests from the edge cache until the next interval should be available", async () => {
+      await env.dispatch.put("timeseries", JSON.stringify(timeseries("2026-10-14T22:00:00")));
+      await (await requestWorker("/v1/dispatch/recent?since=2026-10-14T21:45:00")).finishBackgroundWork();
+      await env.dispatch.put("timeseries", JSON.stringify(timeseries("2026-10-14T22:05:00")));
+
+      // 22:05, a minute before the next interval is expected
+      vi.setSystemTime(new Date("2026-10-14T09:05:00Z"));
+      const cached = await getJson("/v1/dispatch/recent?since=2026-10-14T21:45:00");
+      expect(cached.json.data).toEqual([["2026-10-14T22:00:00", 50]]);
+      expect(cached.response.headers.get("Age")).toBe("240");
+
+      // 22:06
+      vi.setSystemTime(new Date("2026-10-14T09:06:00Z"));
+      const { json } = await getJson("/v1/dispatch/recent?since=2026-10-14T21:45:00");
+      expect(json.data).toEqual([["2026-10-14T22:05:00", 50]]);
+    });
+
     it("returns an empty timeseries before anything has been synced", async () => {
       const { response, json } = await getJson("/v1/dispatch/recent");
 
