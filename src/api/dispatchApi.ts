@@ -3,7 +3,6 @@ import { Hono } from "hono";
 import { cors } from "hono/cors";
 import { checkForMissingUnits } from "../services/missingUnits/missingUnitChecker";
 import { fetchDataFromEmiApi, fetchCachedDataFromEmiApi } from "../clients/emiApi";
-import legacyDispatchApi from "./legacyDispatchApi";
 import aggregatesApi from "./aggregatesApi";
 import { getSubstations } from "../clients/substations";
 import { mapBySiteCode } from "../services/rtdMapping/mapBySiteCode";
@@ -27,7 +26,6 @@ import { edgeCache } from "../utilities/edgeCache";
 const app = new Hono();
 app.use(cors());
 
-app.route('/legacy', legacyDispatchApi);
 app.route('/aggregates', aggregatesApi);
 
 
