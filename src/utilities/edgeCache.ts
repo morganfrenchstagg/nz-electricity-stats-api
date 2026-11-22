@@ -2,6 +2,9 @@ import { MiddlewareHandler } from "hono";
 
 // when a response was put in the cache (ms since the epoch), so the time it's spent there can be taken off its max-age
 const CACHED_AT_HEADER = "X-Edge-Cached-At";
+// the Cache-Control a response was put in the cache with. responses served from Cloudflare's cache come back with
+// no-store added to it, which stops browsers keeping them, so it's put back as it was
+const CACHE_CONTROL_HEADER = "X-Edge-Cache-Control";
 
 // a Worker's responses only reach Cloudflare's cache if the Worker puts them there, so their Cache-Control on its own
 // only saves the browser that made the request from asking again. this keeps each successful response with a max-age
@@ -27,16 +30,23 @@ export const edgeCache: MiddlewareHandler = async (c, next) => {
 	if (c.res.status === 200 && getMaxAge(c.res.headers.get("Cache-Control")) > 0) {
 		const response = new Response(c.res.clone().body, c.res);
 		response.headers.set(CACHED_AT_HEADER, String(Date.now()));
+		response.headers.set(CACHE_CONTROL_HEADER, c.res.headers.get("Cache-Control")!);
 		c.executionCtx.waitUntil(cache.put(key, response));
 	}
 };
 
 // a cached response keeps the max-age it was put there with, so it says how long it's been cached for, as a CDN's
-// would, for browsers to only keep it for the rest of that rather than the whole max-age again
+// would, for browsers to only keep it for the rest of that rather than the whole max-age again. entries cached before
+// the Cache-Control was kept with them keep whatever Cloudflare returns until they expire
 function withAge(cached: Response): Response {
 	const response = new Response(cached.body, cached);
 	const cachedAt = Number(response.headers.get(CACHED_AT_HEADER));
 	response.headers.delete(CACHED_AT_HEADER);
+	const cacheControl = response.headers.get(CACHE_CONTROL_HEADER);
+	response.headers.delete(CACHE_CONTROL_HEADER);
+	if (cacheControl) {
+		response.headers.set("Cache-Control", cacheControl);
+	}
 	if (cachedAt > 0) {
 		response.headers.set("Age", String(Math.max(0, Math.floor((Date.now() - cachedAt) / 1000))));
 	}

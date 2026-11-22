@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { requestWorker } from "../testing/requestWorker";
 import { mockFetch } from "../testing/fetchMock";
+import { edgeCacheStorage } from "../testing/cloudflareWorkers";
 
 const ARCGIS_URL = "https://services3.arcgis.com/AkUq3zcWf7TVqyR9/arcgis/rest/services/TransmissionLines/FeatureServer/0/query";
 const NOW = new Date("2026-10-14T09:00:00Z").getTime();
@@ -52,6 +53,28 @@ describe("transmission lines api", () => {
     expect(await response.text()).toBe(lines("new"));
     expect(response.headers.get("Content-Type")).toBe("application/geo+json");
     expect(response.headers.get("Age")).toBe("3600");
+  });
+
+  it("returns cached responses with the Cache-Control they were cached with", async () => {
+    mockFetch({ [ARCGIS_URL]: () => new Response(lines("new")) });
+    await (await requestWorker("/v1/transmission-lines")).finishBackgroundWork();
+    // Cloudflare's cache adds no-store to the responses it returns
+    const cache = edgeCacheStorage.default;
+    const match = cache.match.bind(cache);
+    vi.spyOn(cache, "match").mockImplementation(async (key) => {
+      const response = await match(key);
+      if (!response) {
+        return response;
+      }
+      const withNoStore = new Response(response.body, response);
+      withNoStore.headers.set("Cache-Control", `${response.headers.get("Cache-Control")}, no-store`);
+      return withNoStore;
+    });
+
+    const { response } = await requestWorker("/v1/transmission-lines");
+
+    expect(response.headers.get("Cache-Control")).toBe("public, max-age=86400");
+    expect(response.headers.has("X-Edge-Cache-Control")).toBe(false);
   });
 
   it("calls ArcGIS again once the edge cache's day is up", async () => {
