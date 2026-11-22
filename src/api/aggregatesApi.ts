@@ -29,10 +29,14 @@ const COMPLETE_MAX_AGE_SECONDS = 30 * ONE_DAY_IN_SECONDS;
 const app = new Hono();
 app.use(cors());
 
+// the latest day aggregated, and the latest day of EMI's metered HVDC flows. the HVDC's days after it come from em6
+// until EMI publishes their month, so they can still change until then
 app.get("/", async (c) => {
-	return c.json({
-		latestDate: await env.dispatch_kv.get(LATEST_AGGREGATED_DATE_KEY)
-	});
+	const [latestDate, latestHvdcDate] = await Promise.all([
+		env.dispatch_kv.get(LATEST_AGGREGATED_DATE_KEY),
+		env.dispatch_kv.get(LATEST_METERED_HVDC_DATE_KEY),
+	]);
+	return c.json({ latestDate, latestHvdcDate });
 });
 
 // e.g. /2026/weekly - one data point per ISO week (Monday to Sunday) in the year

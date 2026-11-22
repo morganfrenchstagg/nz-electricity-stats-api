@@ -38,12 +38,13 @@ async function getJson(path: string) {
 }
 
 describe("aggregates api", () => {
-  it("returns the latest aggregated date", async () => {
+  it("returns the latest aggregated date and the latest metered HVDC date", async () => {
     await env.dispatch_kv.put("latestAggregatedDispatchDate", "2026-10-12");
+    await env.dispatch_kv.put("latestMeteredHvdcDate", "2026-09-30");
 
     const { json } = await getJson("/v1/dispatch/aggregates");
 
-    expect(json).toEqual({ latestDate: "2026-10-12" });
+    expect(json).toEqual({ latestDate: "2026-10-12", latestHvdcDate: "2026-09-30" });
   });
 
   it("returns a month's daily totals as net MWh for each node", async () => {
