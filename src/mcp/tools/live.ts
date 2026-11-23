@@ -3,7 +3,7 @@ import { z } from "zod";
 import { ApiClient, round, runTool } from "../api";
 import { DispatchDay, resolvePriceNode } from "../dispatchDay";
 import { groupNodes } from "../grouping";
-import { GENERATION_GROUPS, GenerationGroup, generationGroupOf, getAllUnits, getGxp, getUnit, isUnitNode, matchesUnitFilter, UnitFilter, UnitInfo } from "../nodes";
+import { GENERATION_GROUPS, GenerationGroup, generationGroupOf, getAllUnits, getGxp, getUnit, isUnitNode, matchesUnitFilter, UnitFilter, UnitInfo, validateUnitFilter } from "../nodes";
 import { DEFAULT_TOP, topSchema, unitFilterShape } from "../schemas";
 import { toTable } from "../table";
 
@@ -34,6 +34,7 @@ export function registerLiveTool(server: McpServer, api: ApiClient) {
 }
 
 export async function getCurrentState(api: ApiClient, args: LiveArgs, now = new Date()) {
+	validateUnitFilter(args);
 	const groupBy = args.group_by ?? "fuel";
 	const [recent, outages] = await Promise.all([
 		api.get<DispatchDay>(`/v1/dispatch/recent?since=${toNzTime(new Date(now.getTime() - LOOKBACK_MINUTES * 60000))}`),

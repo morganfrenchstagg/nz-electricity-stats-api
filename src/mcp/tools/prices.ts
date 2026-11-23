@@ -5,10 +5,14 @@ import { parseEnd, parseStart, todayInNz } from "../dates";
 import { DispatchDays, resolvePriceNode, toBucket } from "../dispatchDay";
 import { getGxp } from "../nodes";
 import { checkSize } from "../table";
-import { getDatesBetween } from "../../services/dispatchAggregation/dispatchAggregation";
+import { DISPATCH_AGGREGATES_START, getDatesBetween } from "../../services/dispatchAggregation/dispatchAggregation";
 
 // each day is about 1MB of dispatch, so a month is as much as a single call reads
 const MAX_DAYS = 31;
+
+// EMI's first daily dispatch file starts at 9:35am on 10 September 2020, so the API has that day from the metered
+// generation, without prices
+const FIRST_PRICE_DATE = DISPATCH_AGGREGATES_START;
 
 // the North and South Islands' reference nodes, which prices are usually quoted at
 const DEFAULT_NODES = ["OTA2201", "BEN2201"];
@@ -29,7 +33,7 @@ export function registerPricesTool(server: McpServer, api: ApiClient) {
 	server.registerTool("get_prices", {
 		title: "Wholesale prices",
 		description: "Wholesale spot prices ($/MWh) at grid nodes from the 5-minute dispatch, for up to 31 days at a time, with each node's "
-			+ "mean, median, percentiles and when its highest and lowest prices were. Prices are only available from 10 September 2020. "
+			+ "mean, median, percentiles and when its highest and lowest prices were. Prices are only available from 11 September 2020. "
 			+ "Use it for questions like 'What was the average price at Otahuhu last week?', 'When did prices spike yesterday?' or "
 			+ "'How far apart were North and South Island prices in October?'. For more than a month, call it once per month.",
 		inputSchema: {
@@ -54,6 +58,9 @@ export async function getPrices(api: ApiClient, args: PricesArgs) {
 	}
 	if (dates.length > MAX_DAYS) {
 		throw new ToolInputError(`That's ${dates.length} days, more than the ${MAX_DAYS} a call can read. Split it into months`);
+	}
+	if (to < FIRST_PRICE_DATE) {
+		throw new ToolInputError("Prices are only available from 11 September 2020, the first full day of EMI's dispatch data");
 	}
 	const resolution = args.resolution ?? (dates.length > 1 ? "daily" : "30min");
 	const requested = args.nodes?.length ? args.nodes : DEFAULT_NODES;
@@ -89,8 +96,10 @@ export async function getPrices(api: ApiClient, args: PricesArgs) {
 
 	const found = requested.filter(request => samples.get(request)!.length > 0);
 	if (found.length === 0) {
-		throw new ToolInputError(`No prices for ${requested.join(", ")} between ${from} and ${to}. `
-			+ "Use a node code like OTA2201, a site code like OTA or a substation name like Otahuhu, from 10 September 2020");
+		throw new ToolInputError(missingDates.length === dates.length
+			? `There's no dispatch between ${from} and ${to}. Prices are available from 11 September 2020 to today`
+			: `No prices for ${requested.join(", ")} between ${from} and ${to}. `
+				+ "Use a node code like OTA2201, a site code like OTA or a substation name like Otahuhu");
 	}
 	for (const request of found) {
 		samples.get(request)!.sort((a, b) => a.time.localeCompare(b.time));
@@ -130,7 +139,7 @@ export async function getPrices(api: ApiClient, args: PricesArgs) {
 			"Each row is the mean of its 5-minute dispatch prices, which are the real-time prices, before final pricing.",
 			"EMI's daily dispatch files leave out nodes with no generation or load, so where a node isn't in them its prices are from "
 				+ "the nearest node at the same substation (see nodesUsed), e.g. OTA0221 for OTA2201. They're within a few percent of each other.",
-			...(from < "2020-09-11" ? ["Prices are only available from 10 September 2020 (9:35am), when EMI's daily dispatch files begin."] : []),
+			...(from < FIRST_PRICE_DATE ? ["Prices are only available from 11 September 2020, the first full day of EMI's dispatch data."] : []),
 			...(liveDates.length > 0 ? ["The live dates are from the live dispatch, as EMI hasn't published them yet, and today only so far."] : []),
 		],
 	};

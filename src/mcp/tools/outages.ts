@@ -1,12 +1,16 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
 import { ApiClient, round, runTool, ToolInputError } from "../api";
-import { GENERATION_GROUPS, GenerationGroup, generationGroupOf, getUnit, matchesUnitFilter, UnitFilter } from "../nodes";
+import { parseNzTime } from "../dates";
+import { GENERATION_GROUPS, GenerationGroup, generationGroupOf, getUnit, matchesUnitFilter, UnitFilter, validateUnitFilter } from "../nodes";
+import { OUTAGE_DAYS_AHEAD, OUTAGE_DAYS_BEFORE } from "../../clients/pocpApi";
 import { unitFilterShape } from "../schemas";
 import { getActiveOutages, Outages, toNzTime } from "./live";
 
 // the most outages listed, so a broad request doesn't flood the agent's context
 const MAX_OUTAGES = 40;
+
+const ONE_DAY_IN_MS = 24 * 60 * 60 * 1000;
 
 export type OutagesArgs = UnitFilter & {
 	at?: string;
@@ -23,8 +27,9 @@ export function registerOutagesTool(server: McpServer, api: ApiClient) {
 			+ "It has no history before that window.",
 		inputSchema: {
 			at: z.string().optional()
-				.describe("Sum up the outages going on at this time, as an ISO date and time with its offset (e.g. 2026-11-07T18:00:00+13:00) "
-					+ "or a date (its midday in NZ). Defaults to now. The outages listed are the ones active or upcoming at this time"),
+				.describe("Sum up the outages going on at this time, from 14 days ago to 3 days ahead: an ISO date and time, in NZ time "
+					+ "unless it has an offset (e.g. 2026-11-07T18:00 or 2026-11-07T18:00:00+13:00), or a date (its midday in NZ). "
+					+ "Defaults to now. The outages listed are the ones active or upcoming at this time"),
 			group_by: z.enum(GENERATION_GROUPS).optional().describe("How to sum the MW out. Defaults to fuel"),
 			include_ended: z.boolean().optional().describe("Also list the outages that had ended by then"),
 			...unitFilterShape,
@@ -34,7 +39,15 @@ export function registerOutagesTool(server: McpServer, api: ApiClient) {
 }
 
 export async function getOutages(api: ApiClient, args: OutagesArgs, now = new Date()) {
+	validateUnitFilter(args);
 	const at = args.at ? parseTime(args.at) : now;
+	const earliest = new Date(now.getTime() - OUTAGE_DAYS_BEFORE * ONE_DAY_IN_MS);
+	const latest = new Date(now.getTime() + OUTAGE_DAYS_AHEAD * ONE_DAY_IN_MS);
+	if (at < earliest || at > latest) {
+		// the outages that had ended before the window, or start after it, aren't known, so a total would be too low
+		throw new ToolInputError(`There are only outages from ${toNzTime(earliest)} to ${toNzTime(latest)} (${OUTAGE_DAYS_BEFORE} days ago to `
+			+ `${OUTAGE_DAYS_AHEAD} days ahead), so there's no total for ${toNzTime(at)}`);
+	}
 	const groupBy = args.group_by ?? "fuel";
 	const outages = await api.get<Outages>("/v1/outages") ?? {};
 
@@ -84,10 +97,14 @@ export async function getOutages(api: ApiClient, args: OutagesArgs, now = new Da
 	};
 }
 
+// a date is its midday in NZ, and a time without an offset is NZ time, as the dispatch's times are
 function parseTime(input: string): Date {
-	const time = Date.parse(/^\d{4}-\d{2}-\d{2}$/.test(input) ? `${input}T12:00:00+12:00` : input);
+	const trimmed = input.trim();
+	const time = /^\d{4}-\d{2}-\d{2}$/.test(trimmed) ? parseNzTime(`${trimmed}T12:00`)
+		: /^\d{4}-\d{2}-\d{2}[T ]\d{2}:\d{2}(:\d{2}(\.\d+)?)?$/.test(trimmed) ? parseNzTime(trimmed.replace(" ", "T"))
+		: Date.parse(trimmed);
 	if (isNaN(time)) {
-		throw new ToolInputError(`Invalid time "${input}", expected e.g. 2026-11-07T18:00:00+13:00 or 2026-11-07`);
+		throw new ToolInputError(`Invalid time "${input}", expected e.g. 2026-11-07T18:00, 2026-11-07T18:00:00+13:00 or 2026-11-07`);
 	}
 	return new Date(time);
 }

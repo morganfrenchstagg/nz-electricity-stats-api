@@ -2,7 +2,7 @@ import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
 import { round, runTool, ToolInputError } from "../api";
 import { parseEnd, parseStart, todayInNz } from "../dates";
-import { GENERATION_GROUPS, GenerationGroup, generationGroupOf, getAllSubstations, getAllUnits, matchesUnitFilter, normaliseName, UnitFilter, UnitInfo } from "../nodes";
+import { GENERATION_GROUPS, GenerationGroup, generationGroupOf, getAllSubstations, getAllUnits, matchesUnitFilter, normaliseName, UnitFilter, UnitInfo, validateUnitFilter } from "../nodes";
 import { unitFilterShape } from "../schemas";
 import { isInService } from "./live";
 import generators from '../../data/generators.json' with { type: 'json' };
@@ -53,6 +53,7 @@ export function registerGeneratorTools(server: McpServer) {
 }
 
 export function searchGenerators(args: SearchArgs) {
+	validateUnitFilter(args);
 	const query = args.query ? normaliseName(args.query) : undefined;
 	const now = new Date();
 
@@ -100,6 +101,7 @@ export function searchGenerators(args: SearchArgs) {
 }
 
 export function getGeneratingCapacity(args: CapacityArgs) {
+	validateUnitFilter(args);
 	const groupBy = args.group_by ?? "fuel";
 	const asOf = args.as_of ? parseEnd(args.as_of) : todayInNz();
 	// the end of the day in NZ, near enough for a commissioning date
