@@ -1,18 +1,19 @@
 import { GeneratorDefinition, UnitDefinition } from "../../clients/generators";
 import { PocpOutage } from "../../models/pocpOutage";
 
-export function mapOutagesByUnit(outages: PocpOutage[], generatorDefinitions: GeneratorDefinition[]) {
+// `at` is when the units are matched as they were, e.g. a past day's outages are mapped to the units in service that day
+export function mapOutagesByUnit(outages: PocpOutage[], generatorDefinitions: GeneratorDefinition[], at = Date.now()) {
     const unitOutages: Record<string, PocpOutage[]> = {};
 
     const allUnits = generatorDefinitions.flatMap(generator => generator.units);
 
     // a unit that moved node is listed twice with the same unit code: decommissioned at its old node and in service at
-    // its new one. each match below prefers an in-service unit so the outage lands on the node the live view looks up,
-    // falling back to any unit so outages on retired plant (e.g. TCC) still map where they did rather than onto a looser match
-    const now = Date.now();
+    // its new one. each match below prefers a unit in service at `at` so the outage lands on the node the map looks up
+    // then, falling back to any unit so outages on retired plant (e.g. TCC) still map where they did rather than onto a
+    // looser match
     const isInService = (unit: UnitDefinition) =>
-        (unit.commissioned === undefined || Date.parse(unit.commissioned) <= now) &&
-        (unit.decomissioned === undefined || Date.parse(unit.decomissioned) > now);
+        (unit.commissioned === undefined || Date.parse(unit.commissioned) <= at) &&
+        (unit.decomissioned === undefined || Date.parse(unit.decomissioned) > at);
     const findUnit = (units: UnitDefinition[], matches: (unit: UnitDefinition) => boolean) =>
         units.find(unit => matches(unit) && isInService(unit)) ?? units.find(matches);
 
