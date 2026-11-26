@@ -2678,7 +2678,8 @@
                 "node": "MPE1101 PNK0",
                 "capacity": 18,
                 "fuel": "Solar",
-                "fuelCode": "SOL"
+                "fuelCode": "SOL",
+                "commissioned": "2026-11-12T11:00:00.000Z"
             }
         ],
         "location": {
