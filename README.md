@@ -17,7 +17,7 @@ The API republishes data from:
 
 - [Electricity Market Information (EMI)](https://www.emi.ea.govt.nz): real-time dispatch, nodal prices and volumes, metered generation, load and HVDC flows, and bids and offers (`/v1/dispatch`, `/v1/offers`). Dispatch before 11 September 2020 comes from metered generation and load (see below). © [Electricity Authority](https://www.ea.govt.nz/copyright-disclaimer-transparency/), licensed under [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/).
 - [Transpower open data](https://data-transpower.opendata.arcgis.com/): transmission lines (`/v1/transmission-lines`). © [Transpower New Zealand](https://www.transpower.co.nz), licensed under [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/).
-- Transpower's [Planned Outage Coordination Process (POCP)](https://customerportal.transpower.co.nz/pocp/outages): generation outages (`/v1/outages`).
+- Transpower's [Planned Outage Coordination Process (POCP)](https://customerportal.transpower.co.nz/pocp/outages): generation outages (`/v1/outages` and `/v1/outages/:date`).
 - [em6](https://www.em6.co.nz): the HVDC's flows and transfer limits in each half hour (`hvdc` in `/v1/dispatch/recent`, `/v1/dispatch/:date` and `/v1/dispatch/aggregates`, see below).
 
 `GET /v1/attribution` lists these sources and the credit to give each one, and every `/v1` response links to it with a `Link: </v1/attribution>; rel="license"` header. If you re-use the data, credit its source as listed there. The sources are defined in `src/attribution.ts`.
@@ -65,6 +65,12 @@ For `/v1/dispatch/:date`, the flows come from EMI's metered [HVDC flows](https:/
 EMI's meters have changed over the years (each pole, the link as a whole, then each converter station's AC connections), and only the end the HVDC sends from is metered the whole time. So each way's flow is what was sent into the link: at Benmore going north, and at Haywards going south. It's a few percent more than what arrives at the other end, after losses. Since Pole 3 (2013) the HVDC often runs both ways within a half hour at low power, as its flow reverses, so north and south can both be above 0.
 
 The aggregates (`/v1/dispatch/aggregates`) have the MWh the HVDC sent north and south in each period as `hvdc`, a timeseries with `northFlow` and `southFlow` (the `nodes` filter doesn't apply to it). The days since EMI's latest month come from em6 until EMI publishes them, so a period isn't cached as complete until it has. `/v1/dispatch/aggregates` itself returns the last day EMI has published as `latestHvdcDate`, alongside the last day aggregated (`latestDate`).
+
+## Outages
+
+`/v1/outages` has the generation outages going on from 14 days ago to 3 days ahead, by unit, which the sync keeps from POCP every 2 minutes. `/v1/outages/:date` has the ones going on at any time in an NZ day (e.g. `/v1/outages/2024-03-10`), in the same shape, asked for from POCP when requested, as it keeps its outages for years (back to at least 2012). Each outage is mapped to the units in service as that day ends, so a unit that's since moved node (e.g. Pātea) is at the node it was at then.
+
+POCP revises an outage for a few days after it ends (e.g. to when it was completed), so a day is cached for an hour until it's 14 days old, and for a week after that.
 
 ## Offers
 

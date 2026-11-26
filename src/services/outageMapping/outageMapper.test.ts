@@ -413,6 +413,25 @@ describe("outageMapper", () => {
             });
         })
 
+        it("maps a unit to the node it was at the time asked for, e.g. a past day's", () => {
+            vi.setSystemTime(new Date("2026-11-26T09:00:00.000Z"));
+
+            const outages = [
+                {
+                    outageBlock: "PTA_1"
+                }
+            ] as PocpOutage[];
+
+            const result = mapOutagesByUnit(outages, movedUnitGenerators, Date.parse("2026-03-10T10:59:59.999Z"));
+            expect(result).toEqual({
+                "HWA1101 PTA1": [
+                    {
+                        outageBlock: "PTA_1"
+                    }
+                ]
+            });
+        })
+
         it("maps a unit to its new node from when it's commissioned", () => {
             vi.setSystemTime(new Date("2026-06-25T02:00:00.000Z"));
 
