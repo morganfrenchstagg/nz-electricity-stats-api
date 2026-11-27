@@ -20,6 +20,7 @@ const generators: GeneratorDefinition[] = [
     ],
     location: { lat: 0, long: 0 },
     gridZone: "NIS",
+    island: "NI",
     operator: "Meridian Energy",
   },
 ];

@@ -40,6 +40,7 @@ const generators: GeneratorDefinition[] = [
     ],
     location: { lat: 0, long: 0 },
     gridZone: "CNI",
+    island: "NI",
     operator: "Genesis Energy",
   },
 ];

@@ -1,10 +1,6 @@
-import { Hono } from "hono";
-import { cors } from "hono/cors";
+import app from "./app";
 import { syncOffers } from "./sync/syncOffers";
 import { syncDispatch } from "./sync/syncDispatch";
-import dispatchApi from "./api/dispatchApi";
-import { getGenerators } from "./clients/generators";
-import { getSubstations } from "./clients/substations";
 import { syncDailyDispatch } from "./sync/syncDailyDispatch";
 import { syncDispatchAggregates } from "./sync/syncDispatchAggregates";
 import { syncGenerationRecords } from "./sync/syncGenerationRecords";
@@ -13,90 +9,6 @@ import { syncHvdc } from "./sync/syncHvdc";
 import { syncHvdcHistory } from "./sync/syncHvdcHistory";
 import { backfillFogp } from "./sync/backfillFogp";
 import { checkForStaleData } from "./sync/staleDataCheck";
-import offersApi from "./api/offersApi";
-import { getJsonResponseWithMaxAgeHeader } from "./utilities/utilities";
-import outagesApi from "./api/outagesApi";
-import transmissionLinesApi from "./api/transmissionLinesApi";
-import { ATTRIBUTION, ATTRIBUTION_LINK } from "./attribution";
-import { WebStandardStreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/webStandardStreamableHttp.js";
-import { createMcpServer } from "./mcp/mcpServer";
-
-const app = new Hono();
-
-app.use(cors());
-
-// catches anything the routes (including the mounted sub-apps) don't handle themselves, so callers get a JSON
-// body instead of Hono's plain-text 500
-app.onError((err, c) => {
-  console.error(`Unhandled error for ${c.req.method} ${c.req.path}`, err);
-  return c.json({ message: "Internal server error" }, 500, { "Cache-Control": "no-store" });
-});
-
-// every data response points to where its sources and licences are credited (see attribution.ts)
-app.use("/v1/*", async (c, next) => {
-  await next();
-  c.header("Link", ATTRIBUTION_LINK, { append: true });
-});
-
-app.get("/", async (c) => {
-  return c.body(null, 200);
-});
-
-app.get("ping", async (c) => {
-  return c.text("pong");
-});
-
-app.get("/v1/attribution", async () => {
-  return getJsonResponseWithMaxAgeHeader(ATTRIBUTION);
-});
-
-app.get("/v1/definitions", async () => {
-  const generators = await getGenerators();
-  const substations = await getSubstations();
-
-  const output = {
-    generators,
-    substations,
-  };
-
-  return getJsonResponseWithMaxAgeHeader(output);
-});
-
-app.get("/v1/generators", async () => {
-  return getJsonResponseWithMaxAgeHeader(await getGenerators());
-});
-
-app.get("/v1/substations", async () => {
-  return getJsonResponseWithMaxAgeHeader(await getSubstations());
-});
-
-app.route("/v1/dispatch", dispatchApi);
-app.route("/v1/offers", offersApi);
-app.route("/v1/outages", outagesApi);
-app.route("/v1/transmission-lines", transmissionLinesApi);
-
-// an MCP server whose tools answer agents' questions from the routes above, requesting them from the worker itself
-// rather than over the network. it's stateless, so each request gets a server of its own
-app.post("/mcp", async (c) => {
-  const server = createMcpServer(async (path) =>
-    app.fetch(new Request(new URL(path, c.req.url)), c.env, c.executionCtx),
-  );
-  const transport = new WebStandardStreamableHTTPServerTransport({
-    sessionIdGenerator: undefined,
-    enableJsonResponse: true,
-  });
-  await server.connect(transport);
-  return transport.handleRequest(c.req.raw);
-});
-
-// a stateless server has no stream for the client to open, or session for it to end
-app.on(["GET", "DELETE"], "/mcp", async (c) => {
-  return c.json(
-    { jsonrpc: "2.0", error: { code: -32000, message: "Method not allowed" }, id: null },
-    405,
-    { Allow: "POST" },
-  );
-});
 
 async function scheduled(controller: ScheduledController) {
   switch (controller.cron) {

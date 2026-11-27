@@ -192,7 +192,7 @@ export function toTimeseries(
     .sort();
 
   // a node with no data for a period didn't generate or consume anything, so is 0
-  const data = aggregate.data.map((dataPoint) => [
+  const data = aggregate.data.map((dataPoint): [string, ...number[]] => [
     dataPoint.from,
     ...series.map((node) =>
       dataPoint.nodes[node] ? round(dataPoint.nodes[node].g - dataPoint.nodes[node].l) : 0,

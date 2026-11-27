@@ -1,5 +1,6 @@
 import { env } from "cloudflare:workers";
-import { Context, Hono } from "hono";
+import { createRoute, z } from "@hono/zod-openapi";
+import { Context } from "hono";
 import { cors } from "hono/cors";
 import {
   AggregateDataPoint,
@@ -20,8 +21,10 @@ import {
 } from "../sync/syncDispatchAggregates";
 import { LATEST_METERED_HVDC_DATE_KEY } from "../sync/syncHvdcHistory";
 import { HVDC_AGGREGATE_PREFIX } from "../services/hvdc/hvdc";
-import { getJsonResponseWithHeaders, ONE_DAY_IN_SECONDS } from "../utilities/utilities";
+import { ONE_DAY_IN_SECONDS } from "../utilities/utilities";
 import { edgeCache } from "../utilities/edgeCache";
+import { createApi, json, message } from "../openapi";
+import { nodeList, nzDate, timeseriesRow } from "./schemas";
 
 // how long to cache periods still receiving data once their next day is overdue
 const OVERDUE_MAX_AGE_SECONDS = 5 * 60;
@@ -33,45 +36,157 @@ const LIVE_MAX_AGE_SECONDS = 5 * 60;
 // codes change, which is rare enough to be worth a client seeing an old copy for a while
 const COMPLETE_MAX_AGE_SECONDS = 30 * ONE_DAY_IN_SECONDS;
 
-const app = new Hono();
+const app = createApi();
 app.use(cors());
+
+const statusRoute = createRoute({
+  method: "get",
+  path: "/",
+  tags: ["Aggregates"],
+  operationId: "getAggregatesStatus",
+  summary: "How far the aggregates go",
+  responses: {
+    200: json(
+      "The latest days",
+      z
+        .object({
+          latestDate: z
+            .string()
+            .nullable()
+            .openapi({ format: "date", description: "The last day aggregated" }),
+          latestHvdcDate: z.string().nullable().openapi({
+            format: "date",
+            description:
+              "The last day of EMI's metered HVDC flows. The HVDC's days after it come from em6 until EMI publishes them",
+          }),
+        })
+        .openapi("AggregatesStatus"),
+    ),
+  },
+});
 
 // the latest day aggregated, and the latest day of EMI's metered HVDC flows. the HVDC's days after it come from em6
 // until EMI publishes their month, so they can still change until then
-app.get("/", async (c) => {
+app.openapi(statusRoute, async (c) => {
   const [latestDate, latestHvdcDate] = await Promise.all([
     env.dispatch_kv.get(LATEST_AGGREGATED_DATE_KEY),
     env.dispatch_kv.get(LATEST_METERED_HVDC_DATE_KEY),
   ]);
-  return c.json({ latestDate, latestHvdcDate });
+  return c.json({ latestDate, latestHvdcDate }, 200);
 });
 
+const AggregateTimeseriesSchema = z
+  .object({
+    series: nodeList,
+    data: z.array(timeseriesRow(nzDate)).openapi({
+      description:
+        "A row for each period: its first day, then each node's generation less load (MWh). A node with no data in a " +
+        "period is 0",
+      example: [["2026-10-01", -812.5, 4920.1]],
+    }),
+    hvdc: z
+      .object({
+        series: z.array(z.string().openapi({ enum: ["northFlow", "southFlow"] })),
+        data: z.array(timeseriesRow(nzDate)),
+      })
+      .openapi({ description: "The energy the HVDC sent north and south in each period (MWh)" }),
+  })
+  .openapi("AggregateTimeseries");
+
+const year = z
+  .string()
+  .regex(/^[0-9]{4}$/, "Invalid year, expected one like 2026")
+  .openapi({ example: "2026" });
+
+const INVALID_MONTH = "Invalid month, expected 1-12";
+
+const month = z.coerce
+  .number({ error: INVALID_MONTH })
+  .int(INVALID_MONTH)
+  .min(1, INVALID_MONTH)
+  .max(12, INVALID_MONTH)
+  .openapi({ example: 10 });
+
+const nodesQuery = z.object({
+  nodes: z.string().optional().openapi({
+    description:
+      "Only the nodes starting with one of these, comma separated, e.g. `HLY2201,ABY0111`. It doesn't apply to `hvdc`",
+  }),
+});
+
+// what the routes for each resolution share, as they only differ in their period
+const aggregateRoute = {
+  method: "get" as const,
+  middleware: edgeCache,
+  tags: ["Aggregates"],
+  responses: {
+    200: json(
+      "The period's data points. Periods that have ended are cached for a long time, ones with days from the live " +
+        "dispatch for a few minutes",
+      AggregateTimeseriesSchema,
+    ),
+    400: message("The year or month isn't valid"),
+    404: message("Nothing has been aggregated for the period"),
+  },
+};
+
 // e.g. /2026/weekly - one data point per ISO week (Monday to Sunday) in the year
-app.get("/:year{[0-9]{4}}/weekly", edgeCache, async (c) => {
-  return getAggregateResponse(c, "weekly", c.req.param("year"));
+const weeklyRoute = createRoute({
+  ...aggregateRoute,
+  path: "/{year}/weekly",
+  operationId: "getWeeklyAggregates",
+  summary: "Each ISO week in a year",
+  description:
+    "Each node's net energy in each ISO week (Monday to Sunday) of the ISO week year, so it can include the first few " +
+    "days of the next year.",
+  request: { params: z.object({ year }), query: nodesQuery },
+});
+
+app.openapi(weeklyRoute, async (c) => {
+  return getAggregateResponse(c, "weekly", c.req.valid("param").year);
 });
 
 // e.g. /2026/monthly - one data point per month in the year
-app.get("/:year{[0-9]{4}}/monthly", edgeCache, async (c) => {
-  return getAggregateResponse(c, "monthly", c.req.param("year"));
+const monthlyRoute = createRoute({
+  ...aggregateRoute,
+  path: "/{year}/monthly",
+  operationId: "getMonthlyAggregates",
+  summary: "Each month in a year",
+  request: { params: z.object({ year }), query: nodesQuery },
+});
+
+app.openapi(monthlyRoute, async (c) => {
+  return getAggregateResponse(c, "monthly", c.req.valid("param").year);
 });
 
 // e.g. /2026/10 - one data point per day in the month
-app.get("/:year{[0-9]{4}}/:month{[0-9]{1,2}}", edgeCache, async (c) => {
-  const month = +c.req.param("month");
-  if (month < 1 || month > 12) {
-    c.status(400);
-    return c.json({ message: "Invalid month, expected 1-12" });
-  }
-  return getAggregateResponse(
-    c,
-    "daily",
-    `${c.req.param("year")}-${String(month).padStart(2, "0")}`,
-  );
+const dailyRoute = createRoute({
+  ...aggregateRoute,
+  path: "/{year}/{month}",
+  operationId: "getDailyAggregates",
+  summary: "Each day in a month",
+  description:
+    "Each node's net energy on each day of the month. The days EMI hasn't published yet (e.g. today so far) come from " +
+    "the live dispatch.",
+  request: { params: z.object({ year, month }), query: nodesQuery },
+});
+
+app.openapi(dailyRoute, async (c) => {
+  const { year, month } = c.req.valid("param");
+  return getAggregateResponse(c, "daily", `${year}-${String(month).padStart(2, "0")}`);
 });
 
 // /annual - one data point per year
-app.get("/annual", edgeCache, async (c) => {
+const annualRoute = createRoute({
+  ...aggregateRoute,
+  path: "/annual",
+  operationId: "getAnnualAggregates",
+  summary: "Each year",
+  description: "Each node's net energy in each year since 1997.",
+  request: { query: nodesQuery },
+});
+
+app.openapi(annualRoute, async (c) => {
   return getAggregateResponse(c, "annual", "all");
 });
 
@@ -105,8 +220,7 @@ async function getAggregateResponse(c: Context, resolution: AggregateResolution,
   }
 
   if (!aggregate) {
-    c.status(404);
-    return c.json({ message: "No data for this period" });
+    return c.json({ message: "No data for this period" }, 404);
   }
 
   // optionally filter by a comma separated list of node prefixes, e.g. ?nodes=HLY2201,ABY0111
@@ -121,10 +235,7 @@ async function getAggregateResponse(c: Context, resolution: AggregateResolution,
     ? toTimeseries((await hvdcFile.json()) as DispatchAggregate)
     : { series: [], data: [] };
 
-  return getJsonResponseWithHeaders(
-    { ...timeseries, hvdc },
-    { "Cache-Control": `max-age=${maxAgeSeconds}` },
-  );
+  return c.json({ ...timeseries, hvdc }, 200, { "Cache-Control": `max-age=${maxAgeSeconds}` });
 }
 
 // the days in the month (e.g. 2026-10) the live dispatch has that haven't been aggregated yet

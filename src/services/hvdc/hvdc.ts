@@ -1,5 +1,5 @@
 import { AggregateDataPoint } from "../../models/dispatchAggregate";
-import { Em6HvdcResponse, Em6Time, HvdcTimeseries } from "../../models/hvdc";
+import { Em6HvdcResponse, Em6Time, HvdcRow, HvdcTimeseries } from "../../models/hvdc";
 import {
   getDatesBetween,
   getTradingPeriodStarts,
@@ -43,7 +43,7 @@ export function isValidHvdcResponse(json: any): boolean {
 
 export function toHvdcTimeseries(response: Em6HvdcResponse): HvdcTimeseries {
   const series = HVDC_SERIES;
-  const rows = new Map<string, (string | number | null)[]>();
+  const rows = new Map<string, HvdcRow>();
 
   series.forEach((name, index) => {
     for (const [time, value] of response.data[EM6_SERIES[name]]) {
@@ -129,7 +129,7 @@ export function toMeteredHvdcDays(records: Record<string, string>[]): Map<string
     [...days].map(([date, periods]) => {
       const numbers = [...periods.keys()].sort((a, b) => a - b);
       const starts = getTradingPeriodStarts(date, Math.max(0, ...numbers));
-      const data = numbers.map((period) => {
+      const data = numbers.map((period): HvdcRow => {
         const [north, south] = periods.get(period)!;
         return [starts[period - 1], roundOrNull(north), roundOrNull(south), null, null];
       });
@@ -186,8 +186,8 @@ export function calculateHvdcEnergy(date: string, day: HvdcTimeseries): Aggregat
 }
 
 // timestamps are all NZ times in the same format, so they sort as strings
-function sortRows(rows: (string | number | null)[][]): (string | number | null)[][] {
-  return rows.sort((a, b) => (a[0] as string).localeCompare(b[0] as string));
+function sortRows(rows: HvdcRow[]): HvdcRow[] {
+  return rows.sort((a, b) => a[0].localeCompare(b[0]));
 }
 
 // in the same format as the dispatch timestamps, e.g. 2026-10-28T20:30:00
