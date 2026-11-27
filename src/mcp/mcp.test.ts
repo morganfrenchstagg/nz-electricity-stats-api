@@ -15,9 +15,11 @@ import { getOffers } from "./tools/offers";
 import { getGeneratingCapacity, searchGenerators } from "./tools/generators";
 
 // the tools request the worker's own routes, as they do in production
-const api = new ApiClient(async path => (await requestWorker(path)).response);
+const api = new ApiClient(async (path) => (await requestWorker(path)).response);
 
-const aggregate = (...days: [string, DispatchAggregate["data"][number]["nodes"]][]): DispatchAggregate => ({
+const aggregate = (
+  ...days: [string, DispatchAggregate["data"][number]["nodes"]][]
+): DispatchAggregate => ({
   data: days.map(([from, nodes]) => ({ from, to: from, nodes })),
 });
 
@@ -27,17 +29,36 @@ const DAY_NODES = {
   "BEN2202 BEN0": { g: 3000, l: 0 },
   "HLY2201 HLY5": { g: 9000, l: 0 },
   "HLY2201 HLY91": { g: 0, l: 50 },
-  "OTA0221": { g: 0, l: 8000 },
+  OTA0221: { g: 0, l: 8000 },
 };
 
-const record = (p: string, g: number, l: number, c: number) => ({ p, g: `${g}`, l: `${l}`, c: `${c}` });
+const record = (p: string, g: number, l: number, c: number) => ({
+  p,
+  g: `${g}`,
+  l: `${l}`,
+  c: `${c}`,
+});
 
 // a few of a day's 5-minute intervals, as EMI's daily dispatch files have them. Ōtāhuhu's only node is OTA0221 and
 // Benmore's its unit's, as the files leave out nodes with no generation or load
 const DISPATCH_DAY = {
-  "2026-10-12T00:00:00": [record("ATI2201 ATI0", 60, 0, 100), record("HLY2201 HLY5", 300, 0, 100), record("OTA0221", 0, 500, 100), record("BEN2202 BEN0", 200, 0, 40)],
-  "2026-10-12T00:05:00": [record("ATI2201 ATI0", 80, 0, 140), record("HLY2201 HLY5", 300, 0, 140), record("OTA0221", 0, 500, 140), record("BEN2202 BEN0", 200, 0, 20)],
-  "2026-10-12T00:30:00": [record("ATI2201 ATI0", 70, 0, 300), record("OTA0221", 0, 400, 300), record("BEN2202 BEN0", 100, 0, 30)],
+  "2026-10-12T00:00:00": [
+    record("ATI2201 ATI0", 60, 0, 100),
+    record("HLY2201 HLY5", 300, 0, 100),
+    record("OTA0221", 0, 500, 100),
+    record("BEN2202 BEN0", 200, 0, 40),
+  ],
+  "2026-10-12T00:05:00": [
+    record("ATI2201 ATI0", 80, 0, 140),
+    record("HLY2201 HLY5", 300, 0, 140),
+    record("OTA0221", 0, 500, 140),
+    record("BEN2202 BEN0", 200, 0, 20),
+  ],
+  "2026-10-12T00:30:00": [
+    record("ATI2201 ATI0", 70, 0, 300),
+    record("OTA0221", 0, 400, 300),
+    record("BEN2202 BEN0", 100, 0, 30),
+  ],
 };
 
 async function store(bucket: R2Bucket, key: string, value: unknown) {
@@ -52,12 +73,20 @@ beforeEach(() => {
 
 describe("get_energy", () => {
   beforeEach(async () => {
-    await store(env.dispatch, "aggregate-daily-2026-10", aggregate(["2026-10-01", DAY_NODES], ["2026-10-02", DAY_NODES]));
+    await store(
+      env.dispatch,
+      "aggregate-daily-2026-10",
+      aggregate(["2026-10-01", DAY_NODES], ["2026-10-02", DAY_NODES]),
+    );
     await env.dispatch_kv.put("latestAggregatedDispatchDate", "2026-10-01");
   });
 
   it("groups generation by fuel in GWh, with the renewable share and the periods still receiving data", async () => {
-    const result = await getEnergy(api, { resolution: "daily", from: "2026-10-01", to: "2026-10-02" });
+    const result = await getEnergy(api, {
+      resolution: "daily",
+      from: "2026-10-01",
+      to: "2026-10-02",
+    });
 
     expect(result).toMatchObject({
       metric: "generation",
@@ -77,87 +106,201 @@ describe("get_energy", () => {
   });
 
   it("counts load at grid exit points and units (e.g. a battery charging) as demand", async () => {
-    const result = await getEnergy(api, { metric: "demand", resolution: "daily", from: "2026-10-01", to: "2026-10-01" });
+    const result = await getEnergy(api, {
+      metric: "demand",
+      resolution: "daily",
+      from: "2026-10-01",
+      to: "2026-10-01",
+    });
 
-    expect(result).toMatchObject({ groupBy: "island", columns: ["period", "North"], rows: [["2026-10-01", 8.05]] });
+    expect(result).toMatchObject({
+      groupBy: "island",
+      columns: ["period", "North"],
+      rows: [["2026-10-01", 8.05]],
+    });
   });
 
   it("filters generation and sums the groups after top into Other", async () => {
-    const southern = await getEnergy(api, { resolution: "daily", from: "2026-10-01", to: "2026-10-01", group_by: "station", island: "South" });
-    const top = await getEnergy(api, { resolution: "daily", from: "2026-10-01", to: "2026-10-01", group_by: "unit", top: 1 });
+    const southern = await getEnergy(api, {
+      resolution: "daily",
+      from: "2026-10-01",
+      to: "2026-10-01",
+      group_by: "station",
+      island: "South",
+    });
+    const top = await getEnergy(api, {
+      resolution: "daily",
+      from: "2026-10-01",
+      to: "2026-10-01",
+      group_by: "unit",
+      top: 1,
+    });
 
-    expect(southern).toMatchObject({ columns: ["period", "Benmore", "renewable_share_%"], rows: [["2026-10-01", 3, 100]] });
+    expect(southern).toMatchObject({
+      columns: ["period", "Benmore", "renewable_share_%"],
+      rows: [["2026-10-01", 3, 100]],
+    });
     expect(top).toMatchObject({
-      columns: ["period", "Huntly Unit 5 (HLY2201 HLY5)", "Other (2 more)", "total", "renewable_share_%"],
+      columns: [
+        "period",
+        "Huntly Unit 5 (HLY2201 HLY5)",
+        "Other (2 more)",
+        "total",
+        "renewable_share_%",
+      ],
       rows: [["2026-10-01", 9, 4.2, 13.2, 31.8]],
     });
   });
 
   it("reads each year's file for months that span years", async () => {
-    await store(env.dispatch, "aggregate-monthly-2025", aggregate(["2025-11-01", DAY_NODES], ["2025-12-01", DAY_NODES]));
+    await store(
+      env.dispatch,
+      "aggregate-monthly-2025",
+      aggregate(["2025-11-01", DAY_NODES], ["2025-12-01", DAY_NODES]),
+    );
     await store(env.dispatch, "aggregate-monthly-2026", aggregate(["2026-01-01", DAY_NODES]));
 
-    const result = await getEnergy(api, { resolution: "monthly", from: "2025-12", to: "2026-01", group_by: "total" });
+    const result = await getEnergy(api, {
+      resolution: "monthly",
+      from: "2025-12",
+      to: "2026-01",
+      group_by: "total",
+    });
 
-    expect(result).toMatchObject({ columns: ["period", "Total", "renewable_share_%"], rows: [["2025-12", 13.2, 31.8], ["2026-01", 13.2, 31.8]] });
+    expect(result).toMatchObject({
+      columns: ["period", "Total", "renewable_share_%"],
+      rows: [
+        ["2025-12", 13.2, 31.8],
+        ["2026-01", 13.2, 31.8],
+      ],
+    });
   });
 
   it("takes demand before the dispatch data from the metered load", async () => {
-    await store(env.dispatch, "aggregate-annual", aggregate(["2019-01-01", { "ATI2201 ATI0": { g: 1200, l: 0 }, "ABY0111": { g: 0, l: 900 } }], ["2021-01-01", DAY_NODES]));
+    await store(
+      env.dispatch,
+      "aggregate-annual",
+      aggregate(
+        ["2019-01-01", { "ATI2201 ATI0": { g: 1200, l: 0 }, ABY0111: { g: 0, l: 900 } }],
+        ["2021-01-01", DAY_NODES],
+      ),
+    );
 
-    const result = await getEnergy(api, { metric: "demand", resolution: "annual", from: "2019", to: "2021", group_by: "total" });
+    const result = await getEnergy(api, {
+      metric: "demand",
+      resolution: "annual",
+      from: "2019",
+      to: "2021",
+      group_by: "total",
+    });
 
-    expect(result).toMatchObject({ rows: [["2019", 0.9], ["2021", 8.05]] });
-    expect(result.notes).toContain("Before 2020-09-11 demand comes from EMI's metered grid export and import at each point of connection. "
-      + "Grid import begins in October 2000, so before then it's only what was taken from the grid, without what was injected.");
+    expect(result).toMatchObject({
+      rows: [
+        ["2019", 0.9],
+        ["2021", 8.05],
+      ],
+    });
+    expect(result.notes).toContain(
+      "Before 2020-09-11 demand comes from EMI's metered grid export and import at each point of connection. " +
+        "Grid import begins in October 2000, so before then it's only what was taken from the grid, without what was injected.",
+    );
   });
 
   it("knows the islands of points of connection that have since been retired", async () => {
     // Palmerston, in Otago
-    await store(env.dispatch, "aggregate-annual", aggregate(["2005-01-01", { "PAL0331": { g: 0, l: 50000 } }]));
+    await store(
+      env.dispatch,
+      "aggregate-annual",
+      aggregate(["2005-01-01", { PAL0331: { g: 0, l: 50000 } }]),
+    );
 
-    const result = await getEnergy(api, { metric: "demand", resolution: "annual", from: "2005", to: "2005", group_by: "substation", island: "South" });
+    const result = await getEnergy(api, {
+      metric: "demand",
+      resolution: "annual",
+      from: "2005",
+      to: "2005",
+      group_by: "substation",
+      island: "South",
+    });
 
     expect(result).toMatchObject({ columns: ["period", "Palmerston"], rows: [["2005", 50]] });
   });
 
   it("flags HVDC periods after EMI's latest metered month as incomplete", async () => {
     const hvdc = { northFlow: { g: 500000, l: 0 }, southFlow: { g: 1000, l: 0 } };
-    await store(env.dispatch, "aggregate-monthly-2026", aggregate(["2026-08-01", DAY_NODES], ["2026-09-01", DAY_NODES]));
-    await store(env.dispatch, "aggregate-hvdc-monthly-2026", aggregate(["2026-08-01", hvdc], ["2026-09-01", hvdc]));
+    await store(
+      env.dispatch,
+      "aggregate-monthly-2026",
+      aggregate(["2026-08-01", DAY_NODES], ["2026-09-01", DAY_NODES]),
+    );
+    await store(
+      env.dispatch,
+      "aggregate-hvdc-monthly-2026",
+      aggregate(["2026-08-01", hvdc], ["2026-09-01", hvdc]),
+    );
     await env.dispatch_kv.put("latestMeteredHvdcDate", "2026-08-31");
 
     const result = await getEnergy(api, { metric: "hvdc", from: "2026-08", to: "2026-09" });
 
     expect(result).toMatchObject({
       columns: ["period", "north", "south", "total"],
-      rows: [["2026-08", 500, 1, 501], ["2026-09", 500, 1, 501]],
+      rows: [
+        ["2026-08", 500, 1, 501],
+        ["2026-09", 500, 1, 501],
+      ],
       latestCompleteDate: "2026-08-31",
       incompletePeriods: ["2026-09"],
     });
   });
 
   it("includes the partial year 1997 in the annual default", async () => {
-    await store(env.dispatch, "aggregate-annual", aggregate(["1997-01-01", DAY_NODES], ["1998-01-01", DAY_NODES]));
+    await store(
+      env.dispatch,
+      "aggregate-annual",
+      aggregate(["1997-01-01", DAY_NODES], ["1998-01-01", DAY_NODES]),
+    );
 
     const result = await getEnergy(api, { resolution: "annual", group_by: "total" });
 
-    expect(result).toMatchObject({ from: "1997-01-01", rows: [["1997", 13.2, 31.8], ["1998", 13.2, 31.8]] });
+    expect(result).toMatchObject({
+      from: "1997-01-01",
+      rows: [
+        ["1997", 13.2, 31.8],
+        ["1998", 13.2, 31.8],
+      ],
+    });
     expect(result.notes).toContain("Data begins in August 1997, so 1997 is a partial year.");
   });
 
   it("rejects arguments that don't make sense", async () => {
-    await expect(getEnergy(api, { from: "2026-10", to: "2026-09" })).rejects.toThrow("from (2026-10-01) is after to (2026-09-30)");
+    await expect(getEnergy(api, { from: "2026-10", to: "2026-09" })).rejects.toThrow(
+      "from (2026-10-01) is after to (2026-09-30)",
+    );
     await expect(getEnergy(api, { from: "2026-13" })).rejects.toThrow('Invalid date "2026-13"');
-    await expect(getEnergy(api, { metric: "demand", fuel: ["Hydro"] })).rejects.toThrow("Demand can only be filtered by island");
-    await expect(getEnergy(api, { group_by: "substation" })).rejects.toThrow("group_by for generation must be one of");
+    await expect(getEnergy(api, { metric: "demand", fuel: ["Hydro"] })).rejects.toThrow(
+      "Demand can only be filtered by island",
+    );
+    await expect(getEnergy(api, { group_by: "substation" })).rejects.toThrow(
+      "group_by for generation must be one of",
+    );
   });
 
   it("rejects filters that match nothing, rather than returning 0", async () => {
     await expect(getEnergy(api, { station: ["Clyde", "Narnia"] })).rejects.toThrow(
-      'Nothing matches station "Narnia". Use search_generators to find operators\' and stations\' names.');
-    await expect(getEnergy(api, { fuel: ["Nuclear"] })).rejects.toThrow('Nothing matches fuel "Nuclear". Fuels are Battery, Coal/Gas, Diesel, Gas,');
-    await expect(getEnergy(api, { fuel: ["wind"], operator: ["meridian"], resolution: "daily", from: "2026-10-01", to: "2026-10-01" })).resolves.toBeDefined();
+      "Nothing matches station \"Narnia\". Use search_generators to find operators' and stations' names.",
+    );
+    await expect(getEnergy(api, { fuel: ["Nuclear"] })).rejects.toThrow(
+      'Nothing matches fuel "Nuclear". Fuels are Battery, Coal/Gas, Diesel, Gas,',
+    );
+    await expect(
+      getEnergy(api, {
+        fuel: ["wind"],
+        operator: ["meridian"],
+        resolution: "daily",
+        from: "2026-10-01",
+        to: "2026-10-01",
+      }),
+    ).resolves.toBeDefined();
   });
 });
 
@@ -173,13 +316,25 @@ describe("get_prices", () => {
       resolution: "30min",
       nodes: [
         { requested: "OTA2201", nodesUsed: ["OTA0221"], substation: "Ōtāhuhu", island: "North" },
-        { requested: "BEN2201", nodesUsed: ["BEN2202 BEN0"], substation: "Benmore AC", island: "South" },
+        {
+          requested: "BEN2201",
+          nodesUsed: ["BEN2202 BEN0"],
+          substation: "Benmore AC",
+          island: "South",
+        },
       ],
       columns: ["period", "OTA2201", "BEN2201"],
-      rows: [["2026-10-12T00:00", 120, 30], ["2026-10-12T00:30", 300, 30]],
+      rows: [
+        ["2026-10-12T00:00", 120, 30],
+        ["2026-10-12T00:30", 300, 30],
+      ],
       summary: {
         OTA2201: {
-          intervals: 3, mean: 180, median: 140, p10: 100, p90: 300,
+          intervals: 3,
+          mean: 180,
+          median: 140,
+          p10: 100,
+          p90: 300,
           min: { price: 100, at: "2026-10-12T00:00:00" },
           max: { price: 300, at: "2026-10-12T00:30:00" },
         },
@@ -190,30 +345,51 @@ describe("get_prices", () => {
   it("takes the days EMI hasn't published from the live dispatch", async () => {
     await store(env.dispatch, "timeseries", {
       series: ["OTA2201", "BEN2201"],
-      data: [["2026-10-14T00:00:00", -500, 0], ["2026-10-14T00:05:00", -500, 0]],
-      pricing: [["2026-10-14T00:00:00", 200, 50], ["2026-10-14T00:05:00", 100, 50]],
+      data: [
+        ["2026-10-14T00:00:00", -500, 0],
+        ["2026-10-14T00:05:00", -500, 0],
+      ],
+      pricing: [
+        ["2026-10-14T00:00:00", 200, 50],
+        ["2026-10-14T00:05:00", 100, 50],
+      ],
     });
 
-    const result = await getPrices(api, { from: "2026-10-12", to: "2026-10-14", nodes: ["Otahuhu"] });
+    const result = await getPrices(api, {
+      from: "2026-10-12",
+      to: "2026-10-14",
+      nodes: ["Otahuhu"],
+    });
 
     expect(result).toMatchObject({
       resolution: "daily",
       nodes: [{ requested: "Otahuhu", nodesUsed: ["OTA0221", "OTA2201"] }],
       columns: ["period", "Otahuhu mean", "Otahuhu min", "Otahuhu max"],
-      rows: [["2026-10-12", 180, 100, 300], ["2026-10-14", 150, 100, 200]],
+      rows: [
+        ["2026-10-12", 180, 100, 300],
+        ["2026-10-14", 150, 100, 200],
+      ],
       missingDates: ["2026-10-13"],
       liveDates: ["2026-10-14"],
     });
   });
 
   it("rejects more than a month, or nodes with no prices", async () => {
-    await expect(getPrices(api, { from: "2026-08-01", to: "2026-09-30" })).rejects.toThrow("That's 61 days");
-    await expect(getPrices(api, { from: "2026-10-12", nodes: ["Nowhere"] })).rejects.toThrow("No prices for Nowhere");
+    await expect(getPrices(api, { from: "2026-08-01", to: "2026-09-30" })).rejects.toThrow(
+      "That's 61 days",
+    );
+    await expect(getPrices(api, { from: "2026-10-12", nodes: ["Nowhere"] })).rejects.toThrow(
+      "No prices for Nowhere",
+    );
   });
 
   it("says when the dates have no prices, rather than blaming the nodes", async () => {
-    await expect(getPrices(api, { from: "2020-09-10" })).rejects.toThrow("Prices are only available from 11 September 2020");
-    await expect(getPrices(api, { from: "2026-10-01" })).rejects.toThrow("There's no dispatch between 2026-10-01 and 2026-10-01");
+    await expect(getPrices(api, { from: "2020-09-10" })).rejects.toThrow(
+      "Prices are only available from 11 September 2020",
+    );
+    await expect(getPrices(api, { from: "2026-10-01" })).rejects.toThrow(
+      "There's no dispatch between 2026-10-01 and 2026-10-01",
+    );
   });
 });
 
@@ -222,27 +398,52 @@ describe("get_day_profile", () => {
     await store(env.dispatch, "dispatch-20261012", DISPATCH_DAY);
     await store(env.dispatch, "hvdc-metered-20261012", {
       series: ["northFlow", "southFlow"],
-      data: [["2026-10-12T00:00:00", 600, 0], ["2026-10-12T00:30:00", 500, 10]],
+      data: [
+        ["2026-10-12T00:00:00", 600, 0],
+        ["2026-10-12T00:30:00", 500, 10],
+      ],
     });
   });
 
   it("averages the intervals in each half hour, with each group's peak and energy", async () => {
-    const result = await getDayProfile(api, { date: "2026-10-12", include_hvdc: true, include_prices: true });
+    const result = await getDayProfile(api, {
+      date: "2026-10-12",
+      include_hvdc: true,
+      include_prices: true,
+    });
 
     expect(result).toMatchObject({
       resolution: "30min",
       live: false,
-      columns: ["period", "Hydro", "Gas", "total", "hvdc_north_MW", "hvdc_south_MW", "OTA2201_$/MWh (from OTA0221)", "BEN2201_$/MWh (from BEN2202 BEN0)"],
+      columns: [
+        "period",
+        "Hydro",
+        "Gas",
+        "total",
+        "hvdc_north_MW",
+        "hvdc_south_MW",
+        "OTA2201_$/MWh (from OTA0221)",
+        "BEN2201_$/MWh (from BEN2202 BEN0)",
+      ],
       rows: [
         ["2026-10-12T00:00", 270, 300, 570, 600, 0, 120, 30],
         ["2026-10-12T00:30", 170, 0, 170, 500, 10, 300, 30],
       ],
       summary: {
-        Hydro: { meanMW: 220, peakMW: 270, peakAt: "2026-10-12T00:00", lowestMW: 170, lowestAt: "2026-10-12T00:30", energyGWh: 5.28 },
+        Hydro: {
+          meanMW: 220,
+          peakMW: 270,
+          peakAt: "2026-10-12T00:00",
+          lowestMW: 170,
+          lowestAt: "2026-10-12T00:30",
+          energyGWh: 5.28,
+        },
         total: { meanMW: 370, peakMW: 570, energyGWh: 8.88 },
       },
     });
-    expect(result.notes).toContain("285 of the day's 288 intervals are missing from EMI's data, so rows without any are left out and the energy averages the rest.");
+    expect(result.notes).toContain(
+      "285 of the day's 288 intervals are missing from EMI's data, so rows without any are left out and the energy averages the rest.",
+    );
   });
 
   it("keeps 5-minute rows on a day missing its 00:05 interval", async () => {
@@ -252,31 +453,55 @@ describe("get_day_profile", () => {
       "2026-10-13T00:15:00": [record("ATI2201 ATI0", 70, 0, 100)],
     });
 
-    const result = await getDayProfile(api, { date: "2026-10-13", resolution: "5min", group_by: "total" });
+    const result = await getDayProfile(api, {
+      date: "2026-10-13",
+      resolution: "5min",
+      group_by: "total",
+    });
 
     expect(result).toMatchObject({
       resolution: "5min",
-      rows: [["2026-10-13T00:00", 60], ["2026-10-13T00:10", 80], ["2026-10-13T00:15", 70]],
+      rows: [
+        ["2026-10-13T00:00", 60],
+        ["2026-10-13T00:10", 80],
+        ["2026-10-13T00:15", 70],
+      ],
     });
-    expect(result.notes).toContain("285 of the day's 288 intervals are missing from EMI's data, so rows without any are left out and the energy averages the rest.");
+    expect(result.notes).toContain(
+      "285 of the day's 288 intervals are missing from EMI's data, so rows without any are left out and the energy averages the rest.",
+    );
   });
 
   it("counts a live day's energy to the end of its latest interval, however many are missing", async () => {
     await store(env.dispatch, "timeseries", {
       series: ["ATI2201 ATI0"],
-      data: [["2026-10-14T00:00:00", 100], ["2026-10-14T00:10:00", 140]],
-      pricing: [["2026-10-14T00:00:00", 50], ["2026-10-14T00:10:00", 50]],
+      data: [
+        ["2026-10-14T00:00:00", 100],
+        ["2026-10-14T00:10:00", 140],
+      ],
+      pricing: [
+        ["2026-10-14T00:00:00", 50],
+        ["2026-10-14T00:10:00", 50],
+      ],
     });
 
     const result = await getDayProfile(api, { resolution: "5min", group_by: "total" });
 
     // the mean of 120 MW over the quarter hour to 00:15
-    expect(result).toMatchObject({ live: true, resolution: "5min", summary: { Total: { meanMW: 120, energyGWh: 0.03 } } });
-    expect(result.notes).toContain("1 of the 3 intervals so far are missing from the live dispatch, so rows without any are left out and the energy averages the rest.");
+    expect(result).toMatchObject({
+      live: true,
+      resolution: "5min",
+      summary: { Total: { meanMW: 120, energyGWh: 0.03 } },
+    });
+    expect(result.notes).toContain(
+      "1 of the 3 intervals so far are missing from the live dispatch, so rows without any are left out and the energy averages the rest.",
+    );
   });
 
   it("says when there's no data for the day", async () => {
-    await expect(getDayProfile(api, { date: "2026-10-01" })).rejects.toThrow("There's no dispatch for 2026-10-01");
+    await expect(getDayProfile(api, { date: "2026-10-01" })).rejects.toThrow(
+      "There's no dispatch for 2026-10-01",
+    );
   });
 });
 
@@ -285,11 +510,23 @@ describe("get_current_state", () => {
     const row = (time: string, ...values: number[]) => [time, ...values];
     await store(env.dispatch, "timeseries", {
       series: ["ATI2201 ATI0", "HLY2201 HLY5", "HLY2201 HLY91", "OTA2201", "BEN2201", "MAN2201"],
-      data: [row("2026-10-14T21:55:00", 60, 0, -40, -500, 0, 0), row("2026-10-14T22:00:00", 80, 300, -50, -450, 0, 0)],
-      pricing: [row("2026-10-14T21:55:00", 140, 140, 140, 140, 30, 10), row("2026-10-14T22:00:00", 150, 150, 150, 150, 30, 10)],
+      data: [
+        row("2026-10-14T21:55:00", 60, 0, -40, -500, 0, 0),
+        row("2026-10-14T22:00:00", 80, 300, -50, -450, 0, 0),
+      ],
+      pricing: [
+        row("2026-10-14T21:55:00", 140, 140, 140, 140, 30, 10),
+        row("2026-10-14T22:00:00", 150, 150, 150, 150, 30, 10),
+      ],
     });
-    await store(env.dispatch, "hvdc", { series: ["northFlow", "southFlow", "northLimit", "southLimit"], data: [["2026-10-14T21:00:00", 700, 0, 1200, -600]] });
-    await env.dispatch_kv.put("latestOutages", JSON.stringify({ "HLY2201 HLY5": [outage("HLY_5", { mwattLost: 385 })] }));
+    await store(env.dispatch, "hvdc", {
+      series: ["northFlow", "southFlow", "northLimit", "southLimit"],
+      data: [["2026-10-14T21:00:00", 700, 0, 1200, -600]],
+    });
+    await env.dispatch_kv.put(
+      "latestOutages",
+      JSON.stringify({ "HLY2201 HLY5": [outage("HLY_5", { mwattLost: 385 })] }),
+    );
   });
 
   it("returns the latest interval's generation against the capacity in service and out for outages", async () => {
@@ -299,24 +536,54 @@ describe("get_current_state", () => {
       asOf: "2026-10-14T22:00:00",
       generation: {
         columns: ["group", "MW", "share_%", "capacity_in_service_MW", "out_for_outages_MW"],
-        rows: [["Gas", 300, 100, 449, 385], ["Coal/Gas", 0, 0, 720, 0], ["Battery", 0, 0, 100, 0]],
+        rows: [
+          ["Gas", 300, 100, 449, 385],
+          ["Coal/Gas", 0, 0, 720, 0],
+          ["Battery", 0, 0, 100, 0],
+        ],
         totalMW: 300,
         renewableSharePercent: 0,
       },
       demandMW: { North: 500, total: 500 },
-      hvdc: { at: "2026-10-14T21:00:00", northMW: 700, southMW: 0, northLimitMW: 1200, southLimitMW: 600 },
-      prices: { OTA2201: 150, BEN2201: 30, lowest: { node: "MAN2201", price: 10 }, highest: { node: "OTA2201", price: 150 } },
+      hvdc: {
+        at: "2026-10-14T21:00:00",
+        northMW: 700,
+        southMW: 0,
+        northLimitMW: 1200,
+        southLimitMW: 600,
+      },
+      prices: {
+        OTA2201: 150,
+        BEN2201: 30,
+        lowest: { node: "MAN2201", price: 10 },
+        highest: { node: "OTA2201", price: 150 },
+      },
     });
   });
 });
 
 describe("get_outages", () => {
   beforeEach(async () => {
-    await env.dispatch_kv.put("latestOutages", JSON.stringify({
-      "HLY2201 HLY5": [outage("HLY_5", { mwattLost: 385 })],
-      "ATI2201 ATI0": [outage("ATI_0", { timeStart: "2026-10-15T08:00:00Z", timeEnd: "2026-10-15T10:00:00Z", mwattLost: 84 })],
-      "BEN2202 BEN0": [outage("BEN_1", { timeStart: "2026-10-10T08:00:00Z", timeEnd: "2026-10-11T08:00:00Z", mwattLost: 95 })],
-    }));
+    await env.dispatch_kv.put(
+      "latestOutages",
+      JSON.stringify({
+        "HLY2201 HLY5": [outage("HLY_5", { mwattLost: 385 })],
+        "ATI2201 ATI0": [
+          outage("ATI_0", {
+            timeStart: "2026-10-15T08:00:00Z",
+            timeEnd: "2026-10-15T10:00:00Z",
+            mwattLost: 84,
+          }),
+        ],
+        "BEN2202 BEN0": [
+          outage("BEN_1", {
+            timeStart: "2026-10-10T08:00:00Z",
+            timeEnd: "2026-10-11T08:00:00Z",
+            mwattLost: 95,
+          }),
+        ],
+      }),
+    );
   });
 
   it("sums the MW out now, and lists the outages going on or coming up", async () => {
@@ -328,14 +595,24 @@ describe("get_outages", () => {
       totalMWOut: 385,
       matchingOutages: 2,
     });
-    expect(result.outages.map(outage => [outage.node, outage.status])).toEqual([["HLY2201 HLY5", "active"], ["ATI2201 ATI0", "upcoming"]]);
+    expect(result.outages.map((outage) => [outage.node, outage.status])).toEqual([
+      ["HLY2201 HLY5", "active"],
+      ["ATI2201 ATI0", "upcoming"],
+    ]);
   });
 
   it("sums the outages at another time, and can list the ended ones", async () => {
-    const result = await getOutages(api, { at: "2026-10-15T08:30:00Z", group_by: "station", include_ended: true });
+    const result = await getOutages(api, {
+      at: "2026-10-15T08:30:00Z",
+      group_by: "station",
+      include_ended: true,
+    });
 
     expect(result).toMatchObject({
-      outAt: [{ group: "Huntly", mwOut: 385 }, { group: "Ātiamuri", mwOut: 84 }],
+      outAt: [
+        { group: "Huntly", mwOut: 385 },
+        { group: "Ātiamuri", mwOut: 84 },
+      ],
       totalMWOut: 469,
       matchingOutages: 3,
     });
@@ -352,8 +629,11 @@ describe("get_outages", () => {
 
   it("rejects times outside the outages it has, as the total would be too low", async () => {
     await expect(getOutages(api, { at: "2026-09-01" })).rejects.toThrow(
-      "There are only outages from 2026-09-30T22:01:00 to 2026-10-17T22:01:00 (14 days ago to 3 days ahead), so there's no total for 2026-09-01T12:00:00");
-    await expect(getOutages(api, { at: "2026-10-20T12:00:00+13:00" })).rejects.toThrow("There are only outages from");
+      "There are only outages from 2026-09-30T22:01:00 to 2026-10-17T22:01:00 (14 days ago to 3 days ahead), so there's no total for 2026-09-01T12:00:00",
+    );
+    await expect(getOutages(api, { at: "2026-10-20T12:00:00+13:00" })).rejects.toThrow(
+      "There are only outages from",
+    );
   });
 });
 
@@ -371,28 +651,56 @@ describe("get_offers", () => {
     await store(env.offers, "offers-20261012", {
       "1": { "ATI2201 ATI0": [{ tranche: 1, megawatts: 10, price: 0 }] },
       "37": {
-        "ATI2201 ATI0": [{ tranche: 1, megawatts: 40, price: 0.01 }, { tranche: 2, megawatts: 20, price: 150 }],
-        "HLY2201 HLY5": [{ tranche: 1, megawatts: 200, price: 90 }, { tranche: 2, megawatts: 200, price: 400 }],
+        "ATI2201 ATI0": [
+          { tranche: 1, megawatts: 40, price: 0.01 },
+          { tranche: 2, megawatts: 20, price: 150 },
+        ],
+        "HLY2201 HLY5": [
+          { tranche: 1, megawatts: 200, price: 90 },
+          { tranche: 2, megawatts: 200, price: 400 },
+        ],
       },
       "38": {
         "ATI2201 ATI0": [{ tranche: 1, megawatts: 60, price: 0.01 }],
         "HLY2201 HLY5": [{ tranche: 1, megawatts: 400, price: 90 }],
       },
     });
-    await store(env.offers, "fogp-20261012", { "37": { "TWH0331 TUK0": 50 }, "38": { "TWH0331 TUK0": 30 } });
+    await store(env.offers, "fogp-20261012", {
+      "37": { "TWH0331 TUK0": 50 },
+      "38": { "TWH0331 TUK0": 30 },
+    });
   });
 
   it("averages the trading periods' offers into a supply curve and by group", async () => {
-    const result = await getOffers(api, { date: "2026-10-12", trading_periods: "37-38", price_bands: [500, 0.01, 100] });
+    const result = await getOffers(api, {
+      date: "2026-10-12",
+      trading_periods: "37-38",
+      price_bands: [500, 0.01, 100],
+    });
 
     expect(result).toMatchObject({
       date: "2026-10-12",
       tradingPeriods: { first: 37, last: 38, count: 2 },
       offeredMW: 460,
-      supplyCurve: [{ atOrBelowPrice: 0.01, mw: 50 }, { atOrBelowPrice: 100, mw: 350 }, { atOrBelowPrice: 500, mw: 460 }],
+      supplyCurve: [
+        { atOrBelowPrice: 0.01, mw: 50 },
+        { atOrBelowPrice: 100, mw: 350 },
+        { atOrBelowPrice: 500, mw: 460 },
+      ],
       groups: {
-        columns: ["group", "offered_MW", "mw_weighted_mean_price", "highest_price", "at_or_below_$0.01", "at_or_below_$100", "at_or_below_$500"],
-        rows: [["Gas", 400, 167.5, 400, 0, 300, 400], ["Hydro", 60, 25.01, 150, 50, 50, 60]],
+        columns: [
+          "group",
+          "offered_MW",
+          "mw_weighted_mean_price",
+          "highest_price",
+          "at_or_below_$0.01",
+          "at_or_below_$100",
+          "at_or_below_$500",
+        ],
+        rows: [
+          ["Gas", 400, 167.5, 400, 0, 300, 400],
+          ["Hydro", 60, 25.01, 150, 50, 50, 60],
+        ],
       },
       generationPotentialForecastMW: { Wind: 40 },
     });
@@ -403,16 +711,25 @@ describe("get_offers", () => {
 
     const result = await getOffers(api, {});
 
-    expect(result).toMatchObject({ date: "2026-10-12", tradingPeriods: { first: 1, last: 38, count: 3 } });
+    expect(result).toMatchObject({
+      date: "2026-10-12",
+      tradingPeriods: { first: 1, last: 38, count: 3 },
+    });
   });
 
   it("rejects trading periods that don't exist", async () => {
-    await expect(getOffers(api, { date: "2026-10-12", trading_periods: "40-60" })).rejects.toThrow('Invalid trading_periods "40-60"');
-    await expect(getOffers(api, { date: "2026-10-12", trading_periods: "49" })).rejects.toThrow("There are no offers in trading period 49 on 2026-10-12");
+    await expect(getOffers(api, { date: "2026-10-12", trading_periods: "40-60" })).rejects.toThrow(
+      'Invalid trading_periods "40-60"',
+    );
+    await expect(getOffers(api, { date: "2026-10-12", trading_periods: "49" })).rejects.toThrow(
+      "There are no offers in trading period 49 on 2026-10-12",
+    );
   });
 
   it("says when offers began, for a day before then", async () => {
-    await expect(getOffers(api, { date: "2019-01-15" })).rejects.toThrow("There are no offers for 2019-01-15. They begin on 2019-10-01");
+    await expect(getOffers(api, { date: "2019-01-15" })).rejects.toThrow(
+      "There are no offers for 2019-01-15. They begin on 2019-10-01",
+    );
   });
 });
 
@@ -428,9 +745,12 @@ describe("search_generators", () => {
       island: "South",
       units: [{ node: "MAN2201 MAN0", fuel: "Hydro", capacityMW: 800, commissioned: "1969-09-14" }],
     });
-    const nodes = (result: ReturnType<typeof searchGenerators>) => result.stations[0].units.map(unit => unit.node);
+    const nodes = (result: ReturnType<typeof searchGenerators>) =>
+      result.stations[0].units.map((unit) => unit.node);
     expect(nodes(huntly)).not.toContain("HLY2201 HLY3");
-    expect(nodes(huntlyWithRetired)).toEqual(expect.arrayContaining(["HLY2201 HLY3", "HLY2201 huntly_1_4"]));
+    expect(nodes(huntlyWithRetired)).toEqual(
+      expect.arrayContaining(["HLY2201 HLY3", "HLY2201 huntly_1_4"]),
+    );
   });
 
   it("says when nothing matches", () => {
@@ -440,7 +760,11 @@ describe("search_generators", () => {
 
 describe("get_generating_capacity", () => {
   it("sums the capacity in service on a date, and what's been commissioned since another", () => {
-    const now = getGeneratingCapacity({ station: ["HLY"], as_of: "2026-10-14", changes_since: "2026" });
+    const now = getGeneratingCapacity({
+      station: ["HLY"],
+      as_of: "2026-10-14",
+      changes_since: "2026",
+    });
     const then = getGeneratingCapacity({ station: ["HLY"], as_of: "2010" });
 
     expect(now).toMatchObject({
@@ -450,13 +774,19 @@ describe("get_generating_capacity", () => {
         { group: "Battery", capacityMW: 100, units: 1, stations: 1 },
       ],
       totalMW: 1269,
-      changes: { since: "2026-01-01", commissioned: [{ unit: "Huntly Battery", date: "2026-07-02", capacityMW: 100 }], retired: [] },
+      changes: {
+        since: "2026-01-01",
+        commissioned: [{ unit: "Huntly Battery", date: "2026-07-02", capacityMW: 100 }],
+        retired: [],
+      },
     });
     expect(then).toMatchObject({ asOf: "2010-12-31", totalMW: 1409 });
   });
 
   it("rejects an operator no unit has", () => {
-    expect(() => getGeneratingCapacity({ operator: ["Narnia Power"] })).toThrow('Nothing matches operator "Narnia Power"');
+    expect(() => getGeneratingCapacity({ operator: ["Narnia Power"] })).toThrow(
+      'Nothing matches operator "Narnia Power"',
+    );
   });
 });
 
@@ -464,10 +794,13 @@ describe("/mcp", () => {
   const rpc = async (method: string, params: unknown = {}) => {
     const { response } = await requestWorker("/mcp", {
       method: "POST",
-      headers: { "Content-Type": "application/json", Accept: "application/json, text/event-stream" },
+      headers: {
+        "Content-Type": "application/json",
+        Accept: "application/json, text/event-stream",
+      },
       body: JSON.stringify({ jsonrpc: "2.0", id: 1, method, params }),
     });
-    return { response, json: await response.json() as any };
+    return { response, json: (await response.json()) as any };
   };
 
   it("initializes with instructions for the agent", async () => {
@@ -486,23 +819,38 @@ describe("/mcp", () => {
     const { json } = await rpc("tools/list");
 
     expect(json.result.tools.map((tool: any) => tool.name)).toEqual([
-      "get_energy", "get_day_profile", "get_prices", "get_current_state", "search_generators", "get_generating_capacity", "get_outages", "get_offers",
+      "get_energy",
+      "get_day_profile",
+      "get_prices",
+      "get_current_state",
+      "search_generators",
+      "get_generating_capacity",
+      "get_outages",
+      "get_offers",
     ]);
   });
 
   it("calls a tool, returning its result as JSON", async () => {
-    const { json } = await rpc("tools/call", { name: "search_generators", arguments: { query: "Manapouri" } });
+    const { json } = await rpc("tools/call", {
+      name: "search_generators",
+      arguments: { query: "Manapouri" },
+    });
 
     expect(json.result.isError).toBeUndefined();
     expect(JSON.parse(json.result.content[0].text).stations[0].station).toBe("Manapōuri");
   });
 
   it("returns a tool's errors for the agent to read", async () => {
-    const { json } = await rpc("tools/call", { name: "get_energy", arguments: { from: "last year" } });
+    const { json } = await rpc("tools/call", {
+      name: "get_energy",
+      arguments: { from: "last year" },
+    });
 
     expect(json.result).toEqual({
       isError: true,
-      content: [{ type: "text", text: 'Invalid date "last year", expected YYYY, YYYY-MM or YYYY-MM-DD' }],
+      content: [
+        { type: "text", text: 'Invalid date "last year", expected YYYY, YYYY-MM or YYYY-MM-DD' },
+      ],
     });
   });
 

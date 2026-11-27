@@ -27,7 +27,11 @@ async function storeOffers(date: string, { withFogp = false } = {}) {
 
 // West Wind's offer in trading period 1, with its forecast
 const forecast = (megawatts: number) =>
-  offer({ PointOfConnection: "WWD1102", Unit: "WWD0", ForecastOfGenerationPotentialMegawatts: String(megawatts) });
+  offer({
+    PointOfConnection: "WWD1102",
+    Unit: "WWD0",
+    ForecastOfGenerationPotentialMegawatts: String(megawatts),
+  });
 
 async function getJson(key: string) {
   return await (await env.offers.get(key))?.json();
@@ -36,7 +40,9 @@ async function getJson(key: string) {
 // the count days (YYYYMMDD) from first
 function daysFrom(first: string, count: number): string[] {
   const start = Date.UTC(+first.slice(0, 4), +first.slice(4, 6) - 1, +first.slice(6, 8));
-  return Array.from({ length: count }, (_, i) => new Date(start + i * 24 * 60 * 60 * 1000).toISOString().slice(0, 10).replace(/-/g, ""));
+  return Array.from({ length: count }, (_, i) =>
+    new Date(start + i * 24 * 60 * 60 * 1000).toISOString().slice(0, 10).replace(/-/g, ""),
+  );
 }
 
 describe("backfillFogp", () => {
@@ -68,7 +74,11 @@ describe("backfillFogp", () => {
     await storeOffers("20191022");
     await storeOffers("20191023");
     await storeOffers("20191024");
-    const requests = mockEmiOffers([{ date: "20191022" }, { date: "20191023" }, { date: "20191024", rows: [forecast(8)] }]);
+    const requests = mockEmiOffers([
+      { date: "20191022" },
+      { date: "20191023" },
+      { date: "20191024", rows: [forecast(8)] },
+    ]);
 
     await backfillFogp();
 
@@ -126,15 +136,18 @@ describe("backfillFogp", () => {
       await storeOffers(date);
     }
     let isFirstDownload = true;
-    const requests = mockEmiOffers(days.map(date => ({ date, rows: [forecast(8)] })), {
-      onDownload: () => {
-        // the first download takes longer than the whole time budget
-        if (isFirstDownload) {
-          isFirstDownload = false;
-          vi.setSystemTime(Date.now() + 11 * 60 * 1000);
-        }
+    const requests = mockEmiOffers(
+      days.map((date) => ({ date, rows: [forecast(8)] })),
+      {
+        onDownload: () => {
+          // the first download takes longer than the whole time budget
+          if (isFirstDownload) {
+            isFirstDownload = false;
+            vi.setSystemTime(Date.now() + 11 * 60 * 1000);
+          }
+        },
       },
-    });
+    );
 
     await backfillFogp();
 
@@ -152,14 +165,20 @@ describe("backfillFogp", () => {
   it("doesn't move the checkpoint past a file that failed to download, and backfills it in the next run", async () => {
     await storeOffers("20191024");
     await storeOffers("20191025");
-    mockEmiOffers([{ date: "20191024", status: 503 }, { date: "20191025", rows: [forecast(8)] }]);
+    mockEmiOffers([
+      { date: "20191024", status: 503 },
+      { date: "20191025", rows: [forecast(8)] },
+    ]);
 
     await expect(backfillFogp()).rejects.toThrow("Failed to download");
 
     expect(await env.offers.get("fogp-20191024")).toBeNull();
     expect(await env.dispatch_kv.get(CHECKPOINT_KEY)).toBeNull();
 
-    mockEmiOffers([{ date: "20191024", rows: [forecast(7)] }, { date: "20191025", rows: [forecast(8)] }]);
+    mockEmiOffers([
+      { date: "20191024", rows: [forecast(7)] },
+      { date: "20191025", rows: [forecast(8)] },
+    ]);
 
     await backfillFogp();
 

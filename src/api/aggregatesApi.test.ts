@@ -6,7 +6,7 @@ import { clearEdgeCache } from "../testing/cloudflareWorkers";
 import { DispatchAggregate } from "../models/dispatchAggregate";
 
 const aggregate = (...froms: string[]): DispatchAggregate => ({
-  data: froms.map(from => ({
+  data: froms.map((from) => ({
     from,
     to: from,
     nodes: {
@@ -21,7 +21,7 @@ const NO_HVDC = { series: [], data: [] };
 
 // the HVDC's MWh each way, stored as if each direction were a node (see HVDC_AGGREGATE_PREFIX)
 const hvdcAggregate = (...froms: string[]): DispatchAggregate => ({
-  data: froms.map(from => ({
+  data: froms.map((from) => ({
     from,
     to: from,
     nodes: { northFlow: { g: 9600, l: 0 }, southFlow: { g: 12.5, l: 0 } },
@@ -34,7 +34,7 @@ async function storeAggregate(key: string, value: DispatchAggregate) {
 
 async function getJson(path: string) {
   const { response } = await requestWorker(path);
-  return { response, json: await response.json() as any };
+  return { response, json: (await response.json()) as any };
 }
 
 describe("aggregates api", () => {
@@ -116,12 +116,25 @@ describe("aggregates api", () => {
 
       const { json } = await getJson("/v1/dispatch/aggregates/2026/10");
 
-      expect(json.hvdc).toEqual({ series: ["northFlow", "southFlow"], data: [["2026-10-01", 9600, 12.5]] });
+      expect(json.hvdc).toEqual({
+        series: ["northFlow", "southFlow"],
+        data: [["2026-10-01", 9600, 12.5]],
+      });
     });
 
     it.each([
-      ["weekly", "/v1/dispatch/aggregates/2026/weekly", "aggregate-weekly-2026", "aggregate-hvdc-weekly-2026"],
-      ["monthly", "/v1/dispatch/aggregates/2026/monthly", "aggregate-monthly-2026", "aggregate-hvdc-monthly-2026"],
+      [
+        "weekly",
+        "/v1/dispatch/aggregates/2026/weekly",
+        "aggregate-weekly-2026",
+        "aggregate-hvdc-weekly-2026",
+      ],
+      [
+        "monthly",
+        "/v1/dispatch/aggregates/2026/monthly",
+        "aggregate-monthly-2026",
+        "aggregate-hvdc-monthly-2026",
+      ],
       ["annual", "/v1/dispatch/aggregates/annual", "aggregate-annual", "aggregate-hvdc-annual"],
     ])("returns its %s totals", async (_, path, key, hvdcKey) => {
       await storeAggregate(key, aggregate("2026-01-01"));
@@ -154,7 +167,10 @@ describe("aggregates api", () => {
   describe("days that haven't been aggregated yet", () => {
     // the live dispatch's net MW for each node at each interval
     async function storeLiveDispatch(data: (string | number)[][]) {
-      await env.dispatch.put("timeseries", JSON.stringify({ series: ["ATI2201 ATI0", "HLY2201 HLY1"], data, pricing: [] }));
+      await env.dispatch.put(
+        "timeseries",
+        JSON.stringify({ series: ["ATI2201 ATI0", "HLY2201 HLY1"], data, pricing: [] }),
+      );
     }
 
     beforeEach(async () => {
@@ -169,7 +185,9 @@ describe("aggregates api", () => {
 
     it("come from the live dispatch, and are cached for 5 minutes", async () => {
       await storeAggregate("aggregate-daily-2026-10", aggregate("2026-10-21", "2026-10-22"));
-      await env.dispatch_kv.put("latestAggregatedDispatchDate", "2026-10-22", { metadata: { updatedAt: Date.now() } });
+      await env.dispatch_kv.put("latestAggregatedDispatchDate", "2026-10-22", {
+        metadata: { updatedAt: Date.now() },
+      });
 
       const { response, json } = await getJson("/v1/dispatch/aggregates/2026/10");
 
@@ -187,18 +205,21 @@ describe("aggregates api", () => {
     });
 
     // the aggregate file can have the day before latestAggregatedDispatchDate does, as KV takes a while to update
-    it.each(["2026-10-23", "2026-10-22"])("are replaced by the aggregated day once it's available (latest date %s)", async (latestDate) => {
-      await storeAggregate("aggregate-daily-2026-10", aggregate("2026-10-22", "2026-10-23"));
-      await env.dispatch_kv.put("latestAggregatedDispatchDate", latestDate);
+    it.each(["2026-10-23", "2026-10-22"])(
+      "are replaced by the aggregated day once it's available (latest date %s)",
+      async (latestDate) => {
+        await storeAggregate("aggregate-daily-2026-10", aggregate("2026-10-22", "2026-10-23"));
+        await env.dispatch_kv.put("latestAggregatedDispatchDate", latestDate);
 
-      const { json } = await getJson("/v1/dispatch/aggregates/2026/10");
+        const { json } = await getJson("/v1/dispatch/aggregates/2026/10");
 
-      expect(json.data).toEqual([
-        ["2026-10-22", 1200, 2399.5, 9000],
-        ["2026-10-23", 1200, 2399.5, 9000],
-        ["2026-10-24", 1200, 0, 0],
-      ]);
-    });
+        expect(json.data).toEqual([
+          ["2026-10-22", 1200, 2399.5, 9000],
+          ["2026-10-23", 1200, 2399.5, 9000],
+          ["2026-10-24", 1200, 0, 0],
+        ]);
+      },
+    );
 
     it("aren't added for days the daily sync has passed without a file", async () => {
       await storeAggregate("aggregate-daily-2026-10", aggregate("2026-10-22"));
@@ -224,7 +245,9 @@ describe("aggregates api", () => {
         data: [["2026-11-01", 8.333]],
         hvdc: NO_HVDC,
       });
-      expect((await getJson("/v1/dispatch/aggregates/2026/10")).json.data).toEqual([["2026-10-31", 1200]]);
+      expect((await getJson("/v1/dispatch/aggregates/2026/10")).json.data).toEqual([
+        ["2026-10-31", 1200],
+      ]);
     });
 
     it("are filtered by node", async () => {
@@ -234,7 +257,10 @@ describe("aggregates api", () => {
 
       expect(json).toEqual({
         series: ["HLY2201 HLY1"],
-        data: [["2026-10-23", -24], ["2026-10-24", 0]],
+        data: [
+          ["2026-10-23", -24],
+          ["2026-10-24", 0],
+        ],
         hvdc: NO_HVDC,
       });
     });
@@ -268,11 +294,19 @@ describe("aggregates api", () => {
 
     // updatedAt is when new days were last aggregated, as stored by syncDispatchAggregates. EMI's HVDC goes up to the
     // same date unless it's given. each call is a new visitor's first request, rather than one the edge cache answers
-    async function getCacheControl(path: string, key: string, latestDate?: string, updatedAt = NOW - 6 * HOUR_MS, latestHvdcDate = latestDate) {
+    async function getCacheControl(
+      path: string,
+      key: string,
+      latestDate?: string,
+      updatedAt = NOW - 6 * HOUR_MS,
+      latestHvdcDate = latestDate,
+    ) {
       clearEdgeCache();
       await storeAggregate(key, aggregate("2026-01-01"));
       if (latestDate) {
-        await env.dispatch_kv.put("latestAggregatedDispatchDate", latestDate, { metadata: { updatedAt } });
+        await env.dispatch_kv.put("latestAggregatedDispatchDate", latestDate, {
+          metadata: { updatedAt },
+        });
       }
       if (latestHvdcDate) {
         await env.dispatch_kv.put("latestMeteredHvdcDate", latestHvdcDate);
@@ -282,35 +316,102 @@ describe("aggregates api", () => {
     }
 
     it("caches complete periods for 30 days", async () => {
-      expect(await getCacheControl("/v1/dispatch/aggregates/2026/9", "aggregate-daily-2026-09", "2026-10-01")).toBe("max-age=2592000");
-      expect(await getCacheControl("/v1/dispatch/aggregates/2025/monthly", "aggregate-monthly-2025", "2026-01-01")).toBe("max-age=2592000");
+      expect(
+        await getCacheControl(
+          "/v1/dispatch/aggregates/2026/9",
+          "aggregate-daily-2026-09",
+          "2026-10-01",
+        ),
+      ).toBe("max-age=2592000");
+      expect(
+        await getCacheControl(
+          "/v1/dispatch/aggregates/2025/monthly",
+          "aggregate-monthly-2025",
+          "2026-01-01",
+        ),
+      ).toBe("max-age=2592000");
     });
 
     // until then its days come from em6
     it("doesn't treat periods as complete until EMI has published the HVDC's flows for all of them", async () => {
       const path = "/v1/dispatch/aggregates/2026/9";
-      expect(await getCacheControl(path, "aggregate-daily-2026-09", "2026-10-12", NOW - 6 * HOUR_MS, "2026-08-31")).toBe("max-age=64800");
-      expect(await getCacheControl(path, "aggregate-daily-2026-09", "2026-10-12", NOW - 6 * HOUR_MS, "2026-09-30")).toBe("max-age=2592000");
+      expect(
+        await getCacheControl(
+          path,
+          "aggregate-daily-2026-09",
+          "2026-10-12",
+          NOW - 6 * HOUR_MS,
+          "2026-08-31",
+        ),
+      ).toBe("max-age=64800");
+      expect(
+        await getCacheControl(
+          path,
+          "aggregate-daily-2026-09",
+          "2026-10-12",
+          NOW - 6 * HOUR_MS,
+          "2026-09-30",
+        ),
+      ).toBe("max-age=2592000");
     });
 
     it("doesn't read the live dispatch for months that have been aggregated while their HVDC is still from em6", async () => {
       const get = vi.spyOn(env.dispatch, "get");
 
-      await getCacheControl("/v1/dispatch/aggregates/2026/9", "aggregate-daily-2026-09", "2026-10-12", NOW - 6 * HOUR_MS, "2026-08-31");
+      await getCacheControl(
+        "/v1/dispatch/aggregates/2026/9",
+        "aggregate-daily-2026-09",
+        "2026-10-12",
+        NOW - 6 * HOUR_MS,
+        "2026-08-31",
+      );
 
       expect(get).not.toHaveBeenCalledWith("timeseries");
     });
 
     it("caches periods that are still receiving data until a day after the last update", async () => {
       // updated 6 hours ago, so the next day is due in 18 hours
-      expect(await getCacheControl("/v1/dispatch/aggregates/2026/10", "aggregate-daily-2026-10", "2026-10-12")).toBe("max-age=64800");
-      expect(await getCacheControl("/v1/dispatch/aggregates/2026/10", "aggregate-daily-2026-10", "2026-10-31")).toBe("max-age=64800");
-      expect(await getCacheControl("/v1/dispatch/aggregates/2026/10", "aggregate-daily-2026-10", "2026-10-14", NOW - 1000)).toBe("max-age=86399");
+      expect(
+        await getCacheControl(
+          "/v1/dispatch/aggregates/2026/10",
+          "aggregate-daily-2026-10",
+          "2026-10-12",
+        ),
+      ).toBe("max-age=64800");
+      expect(
+        await getCacheControl(
+          "/v1/dispatch/aggregates/2026/10",
+          "aggregate-daily-2026-10",
+          "2026-10-31",
+        ),
+      ).toBe("max-age=64800");
+      expect(
+        await getCacheControl(
+          "/v1/dispatch/aggregates/2026/10",
+          "aggregate-daily-2026-10",
+          "2026-10-14",
+          NOW - 1000,
+        ),
+      ).toBe("max-age=86399");
     });
 
     it("caches periods that are still receiving data briefly once the next day is overdue", async () => {
-      expect(await getCacheControl("/v1/dispatch/aggregates/2026/10", "aggregate-daily-2026-10", "2026-10-13", NOW - 24 * HOUR_MS)).toBe("max-age=300");
-      expect(await getCacheControl("/v1/dispatch/aggregates/2026/10", "aggregate-daily-2026-10", "2026-10-12", NOW - 30 * HOUR_MS)).toBe("max-age=300");
+      expect(
+        await getCacheControl(
+          "/v1/dispatch/aggregates/2026/10",
+          "aggregate-daily-2026-10",
+          "2026-10-13",
+          NOW - 24 * HOUR_MS,
+        ),
+      ).toBe("max-age=300");
+      expect(
+        await getCacheControl(
+          "/v1/dispatch/aggregates/2026/10",
+          "aggregate-daily-2026-10",
+          "2026-10-12",
+          NOW - 30 * HOUR_MS,
+        ),
+      ).toBe("max-age=300");
     });
 
     it("caches periods that are still receiving data briefly if the last update time isn't known", async () => {
@@ -325,16 +426,32 @@ describe("aggregates api", () => {
 
     it("treats weeks as incomplete until the last week of the year could have ended", async () => {
       // the last ISO week of 2025 runs until Sunday 4 January 2026
-      expect(await getCacheControl("/v1/dispatch/aggregates/2025/weekly", "aggregate-weekly-2025", "2026-01-03")).toBe("max-age=64800");
-      expect(await getCacheControl("/v1/dispatch/aggregates/2025/weekly", "aggregate-weekly-2025", "2026-01-04")).toBe("max-age=2592000");
+      expect(
+        await getCacheControl(
+          "/v1/dispatch/aggregates/2025/weekly",
+          "aggregate-weekly-2025",
+          "2026-01-03",
+        ),
+      ).toBe("max-age=64800");
+      expect(
+        await getCacheControl(
+          "/v1/dispatch/aggregates/2025/weekly",
+          "aggregate-weekly-2025",
+          "2026-01-04",
+        ),
+      ).toBe("max-age=2592000");
     });
 
     it("treats annual totals as incomplete, as the current year is always included", async () => {
-      expect(await getCacheControl("/v1/dispatch/aggregates/annual", "aggregate-annual", "2030-01-01")).toBe("max-age=64800");
+      expect(
+        await getCacheControl("/v1/dispatch/aggregates/annual", "aggregate-annual", "2030-01-01"),
+      ).toBe("max-age=64800");
     });
 
     it("caches briefly before anything has been aggregated", async () => {
-      expect(await getCacheControl("/v1/dispatch/aggregates/2026/9", "aggregate-daily-2026-09")).toBe("max-age=300");
+      expect(
+        await getCacheControl("/v1/dispatch/aggregates/2026/9", "aggregate-daily-2026-09"),
+      ).toBe("max-age=300");
     });
   });
 });

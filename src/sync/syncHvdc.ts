@@ -1,7 +1,13 @@
 import { env } from "cloudflare:workers";
 import { fetchHvdcFromEm6 } from "../clients/em6Api";
 import { HvdcTimeseries } from "../models/hvdc";
-import { getRecentHvdcDates, mergeHvdc, splitHvdcByDate, toHvdcTimeseries, toRecentHvdc } from "../services/hvdc/hvdc";
+import {
+  getRecentHvdcDates,
+  mergeHvdc,
+  splitHvdcByDate,
+  toHvdcTimeseries,
+  toRecentHvdc,
+} from "../services/hvdc/hvdc";
 
 export const HVDC_KEY = "hvdc";
 
@@ -29,29 +35,44 @@ export async function syncHvdc() {
 }
 
 // each of em6's dates with its latest half hours added, by date (e.g. 2026-10-28), and whether any of them changed
-async function saveEm6Days(timeseries: HvdcTimeseries): Promise<{ latestDays: Map<string, HvdcTimeseries>; changed: boolean }> {
+async function saveEm6Days(
+  timeseries: HvdcTimeseries,
+): Promise<{ latestDays: Map<string, HvdcTimeseries>; changed: boolean }> {
   let changed = false;
-  const latestDays = new Map(await Promise.all([...splitHvdcByDate(timeseries)].map(async ([date, day]) => {
-    const stored = await (await env.dispatch.get(getEm6DayKey(date)))?.text();
-    const merged = mergeHvdc(stored ? JSON.parse(stored) as HvdcTimeseries : null, day);
-    const json = JSON.stringify(merged);
+  const latestDays = new Map(
+    await Promise.all(
+      [...splitHvdcByDate(timeseries)].map(async ([date, day]) => {
+        const stored = await (await env.dispatch.get(getEm6DayKey(date)))?.text();
+        const merged = mergeHvdc(stored ? (JSON.parse(stored) as HvdcTimeseries) : null, day);
+        const json = JSON.stringify(merged);
 
-    // em6 only adds a half hour every half hour, so most syncs don't change anything
-    if (json !== stored) {
-      await env.dispatch.put(getEm6DayKey(date), json);
-      changed = true;
-    }
-    return [date, merged] as const;
-  })));
+        // em6 only adds a half hour every half hour, so most syncs don't change anything
+        if (json !== stored) {
+          await env.dispatch.put(getEm6DayKey(date), json);
+          changed = true;
+        }
+        return [date, merged] as const;
+      }),
+    ),
+  );
   return { latestDays, changed };
 }
 
 // from each day's half hours, as em6 only has the last day
 async function saveRecentHvdc(latestDays: Map<string, HvdcTimeseries>) {
   const dates = getRecentHvdcDates([...latestDays.keys()].at(-1)!);
-  const days = await Promise.all(dates.map(async date =>
-    latestDays.get(date) ?? await (await env.dispatch.get(getEm6DayKey(date)))?.json() as HvdcTimeseries | undefined));
-  await env.dispatch.put(HVDC_KEY, JSON.stringify(toRecentHvdc(days.filter(day => day !== undefined))));
+  const days = await Promise.all(
+    dates.map(
+      async (date) =>
+        latestDays.get(date) ??
+        ((await (await env.dispatch.get(getEm6DayKey(date)))?.json()) as
+          HvdcTimeseries | undefined),
+    ),
+  );
+  await env.dispatch.put(
+    HVDC_KEY,
+    JSON.stringify(toRecentHvdc(days.filter((day) => day !== undefined))),
+  );
 }
 
 // e.g. 2026-10-28 => hvdc-em6-20261028

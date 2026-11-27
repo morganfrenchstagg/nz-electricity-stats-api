@@ -16,17 +16,33 @@ const HUNTLY_1 = "HLY2201 HLY1";
 const HUNTLY_5 = "HLY2201 HLY5";
 const ATIAMURI = "ATI2201 ATI0";
 
-const generators: GeneratorDefinition[] = [{
-  site: "HLY",
-  name: "Huntly",
-  units: [
-    { name: "Huntly Rankine 1", unitCode: "HLY1", node: HUNTLY_1, capacity: 240, fuel: "Coal/Gas", fuelCode: "CLG" },
-    { name: "Huntly Unit 5", unitCode: "HLY5", node: HUNTLY_5, capacity: 403, fuel: "Gas", fuelCode: "GAS" },
-  ],
-  location: { lat: 0, long: 0 },
-  gridZone: "CNI",
-  operator: "Genesis Energy",
-}];
+const generators: GeneratorDefinition[] = [
+  {
+    site: "HLY",
+    name: "Huntly",
+    units: [
+      {
+        name: "Huntly Rankine 1",
+        unitCode: "HLY1",
+        node: HUNTLY_1,
+        capacity: 240,
+        fuel: "Coal/Gas",
+        fuelCode: "CLG",
+      },
+      {
+        name: "Huntly Unit 5",
+        unitCode: "HLY5",
+        node: HUNTLY_5,
+        capacity: 403,
+        fuel: "Gas",
+        fuelCode: "GAS",
+      },
+    ],
+    location: { lat: 0, long: 0 },
+    gridZone: "CNI",
+    operator: "Genesis Energy",
+  },
+];
 
 function record(p: string, g: number): HistoricalDispatchRecord {
   return { p, g: `${g}`, l: "0", c: "100" };
@@ -40,7 +56,12 @@ describe("getGenerationByNode", () => {
       rtd("ALB0331", 0, 20, 100),
     ];
 
-    expect(getGenerationByNode(dispatch)).toEqual(new Map([[HUNTLY_1, 200.1], [HUNTLY_5, 380.2]]));
+    expect(getGenerationByNode(dispatch)).toEqual(
+      new Map([
+        [HUNTLY_1, 200.1],
+        [HUNTLY_5, 380.2],
+      ]),
+    );
   });
 });
 
@@ -68,8 +89,15 @@ describe("findDailyRecords", () => {
 
 describe("mergeRecords", () => {
   it("keeps the higher record for each unit", () => {
-    const a = { [ATIAMURI]: { mw: 84, time: "2024-01-01T12:00:00" }, [HUNTLY_5]: { mw: 390, time: "2024-01-01T18:00:00" } };
-    const b = { [ATIAMURI]: { mw: 84, time: "2026-01-01T12:00:00" }, [HUNTLY_5]: { mw: 403, time: "2026-01-01T18:00:00" }, [HUNTLY_1]: { mw: 240, time: "2026-01-01T00:00:00" } };
+    const a = {
+      [ATIAMURI]: { mw: 84, time: "2024-01-01T12:00:00" },
+      [HUNTLY_5]: { mw: 390, time: "2024-01-01T18:00:00" },
+    };
+    const b = {
+      [ATIAMURI]: { mw: 84, time: "2026-01-01T12:00:00" },
+      [HUNTLY_5]: { mw: 403, time: "2026-01-01T18:00:00" },
+      [HUNTLY_1]: { mw: 240, time: "2026-01-01T00:00:00" },
+    };
 
     expect(mergeRecords(a, b)).toEqual({
       [ATIAMURI]: a[ATIAMURI],
@@ -87,7 +115,10 @@ describe("findNewRecords", () => {
   };
 
   it("alerts for units beating a record from an earlier day", () => {
-    const generation = new Map([[HUNTLY_5, 395], [ATIAMURI, 84]]);
+    const generation = new Map([
+      [HUNTLY_5, 395],
+      [ATIAMURI, 84],
+    ]);
 
     expect(findNewRecords(generation, time, records)).toEqual({
       updated: { [HUNTLY_5]: { mw: 395, time } },
@@ -105,7 +136,16 @@ describe("findNewRecords", () => {
   });
 
   it("alerts for a unit's first generation, but not for units that aren't generating", () => {
-    expect(findNewRecords(new Map([[HUNTLY_1, 40], ["HLY2201 HLY6", 0]]), time, records)).toEqual({
+    expect(
+      findNewRecords(
+        new Map([
+          [HUNTLY_1, 40],
+          ["HLY2201 HLY6", 0],
+        ]),
+        time,
+        records,
+      ),
+    ).toEqual({
       updated: { [HUNTLY_1]: { mw: 40, time } },
       newRecords: [{ node: HUNTLY_1, record: { mw: 40, time } }],
     });
@@ -125,42 +165,79 @@ describe("areRecordsUpToDate", () => {
 
 describe("formatNewRecordsMessage", () => {
   it("lists each new record with the record it beat", () => {
-    const message = formatNewRecordsMessage([
-      { node: HUNTLY_5, record: { mw: 1012.345, time: "2026-10-14T18:00:00" }, previous: { mw: 1000, time: "2024-03-03T18:30:00" } },
-      { node: HUNTLY_1, record: { mw: 240.06, time: "2026-10-14T18:00:00" }, previous: { mw: 240, time: "2023-01-01T00:05:00" } },
-    ], generators);
+    const message = formatNewRecordsMessage(
+      [
+        {
+          node: HUNTLY_5,
+          record: { mw: 1012.345, time: "2026-10-14T18:00:00" },
+          previous: { mw: 1000, time: "2024-03-03T18:30:00" },
+        },
+        {
+          node: HUNTLY_1,
+          record: { mw: 240.06, time: "2026-10-14T18:00:00" },
+          previous: { mw: 240, time: "2023-01-01T00:05:00" },
+        },
+      ],
+      generators,
+    );
 
     expect(message).toBe(
       "🏆 *Huntly Unit 5* (`HLY2201 HLY5`) is generating *1,012.3 MW*, a new record (previously 1,000 MW at 6:30pm on 3 March 2024)\n" +
-      "🏆 *Huntly Rankine 1* (`HLY2201 HLY1`) is generating *240.1 MW*, a new record (previously 240 MW at 12:05am on 1 January 2023)"
+        "🏆 *Huntly Rankine 1* (`HLY2201 HLY1`) is generating *240.1 MW*, a new record (previously 240 MW at 12:05am on 1 January 2023)",
     );
   });
 
   it.each([
     { mw: 19.13, previous: 19.08, expected: "*19.13 MW*, a new record (previously 19.08 MW" },
     { mw: 19.104, previous: 19.1, expected: "*19.104 MW*, a new record (previously 19.1 MW" },
-    { mw: 1012.344, previous: 1012.341, expected: "*1,012.344 MW*, a new record (previously 1,012.341 MW" },
-  ])("shows more decimal places when $mw MW and $previous MW would round to the same", ({ mw, previous, expected }) => {
-    const message = formatNewRecordsMessage([
-      { node: HUNTLY_5, record: { mw, time: "2026-10-14T18:00:00" }, previous: { mw: previous, time: "2024-03-03T18:30:00" } },
-    ], generators);
+    {
+      mw: 1012.344,
+      previous: 1012.341,
+      expected: "*1,012.344 MW*, a new record (previously 1,012.341 MW",
+    },
+  ])(
+    "shows more decimal places when $mw MW and $previous MW would round to the same",
+    ({ mw, previous, expected }) => {
+      const message = formatNewRecordsMessage(
+        [
+          {
+            node: HUNTLY_5,
+            record: { mw, time: "2026-10-14T18:00:00" },
+            previous: { mw: previous, time: "2024-03-03T18:30:00" },
+          },
+        ],
+        generators,
+      );
 
-    expect(message).toContain(expected);
-  });
+      expect(message).toContain(expected);
+    },
+  );
 
   it("uses the node for units that aren't in the generator list", () => {
-    const message = formatNewRecordsMessage([
-      { node: "XYZ2201 XYZ0", record: { mw: 12, time: "2026-10-14T12:00:00" }, previous: { mw: 10, time: "2026-10-13T12:00:00" } },
-    ], generators);
+    const message = formatNewRecordsMessage(
+      [
+        {
+          node: "XYZ2201 XYZ0",
+          record: { mw: 12, time: "2026-10-14T12:00:00" },
+          previous: { mw: 10, time: "2026-10-13T12:00:00" },
+        },
+      ],
+      generators,
+    );
 
-    expect(message).toBe("🏆 `XYZ2201 XYZ0` is generating *12 MW*, a new record (previously 10 MW at 12:00pm on 13 October 2026)");
+    expect(message).toBe(
+      "🏆 `XYZ2201 XYZ0` is generating *12 MW*, a new record (previously 10 MW at 12:00pm on 13 October 2026)",
+    );
   });
 
   it("says when it's a unit's first generation", () => {
-    const message = formatNewRecordsMessage([
-      { node: HUNTLY_1, record: { mw: 8.72, time: "2026-10-14T12:00:00" } },
-    ], generators);
+    const message = formatNewRecordsMessage(
+      [{ node: HUNTLY_1, record: { mw: 8.72, time: "2026-10-14T12:00:00" } }],
+      generators,
+    );
 
-    expect(message).toBe("🆕 *Huntly Rankine 1* (`HLY2201 HLY1`) is generating for the first time on record (*8.7 MW*)");
+    expect(message).toBe(
+      "🆕 *Huntly Rankine 1* (`HLY2201 HLY1`) is generating for the first time on record (*8.7 MW*)",
+    );
   });
 });

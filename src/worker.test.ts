@@ -20,17 +20,17 @@ vi.mock("./sync/syncDailyDispatch", () => ({ syncDailyDispatch: vi.fn() }));
 vi.mock("./sync/syncOffers", () => ({ syncOffers: vi.fn() }));
 vi.mock("./sync/syncMeteredGeneration", () => ({ syncMeteredGeneration: vi.fn() }));
 vi.mock("./sync/syncHvdc", async (importOriginal) => ({
-  ...await importOriginal<typeof import("./sync/syncHvdc")>(),
+  ...(await importOriginal<typeof import("./sync/syncHvdc")>()),
   syncHvdc: vi.fn(),
 }));
 vi.mock("./sync/syncHvdcHistory", async (importOriginal) => ({
-  ...await importOriginal<typeof import("./sync/syncHvdcHistory")>(),
+  ...(await importOriginal<typeof import("./sync/syncHvdcHistory")>()),
   syncHvdcHistory: vi.fn(),
 }));
 vi.mock("./sync/backfillFogp", () => ({ backfillFogp: vi.fn() }));
 vi.mock("./sync/staleDataCheck", () => ({ checkForStaleData: vi.fn() }));
 vi.mock("./sync/syncDispatchAggregates", async (importOriginal) => ({
-  ...await importOriginal<typeof import("./sync/syncDispatchAggregates")>(),
+  ...(await importOriginal<typeof import("./sync/syncDispatchAggregates")>()),
   syncDispatchAggregates: vi.fn(),
 }));
 
@@ -73,13 +73,20 @@ describe("routes", () => {
 
   it("credits each data source and its licence, cached for a day", async () => {
     const { response } = await requestWorker("/v1/attribution");
-    const { sources } = await response.json() as { sources: { endpoints: string[]; credit: string }[] };
+    const { sources } = (await response.json()) as {
+      sources: { endpoints: string[]; credit: string }[];
+    };
 
-    const creditFor = (endpoint: string) => sources.find(s => s.endpoints.includes(endpoint))?.credit;
+    const creditFor = (endpoint: string) =>
+      sources.find((s) => s.endpoints.includes(endpoint))?.credit;
     expect(creditFor("/v1/dispatch")).toBe("© Electricity Authority, licensed under CC BY 4.0");
     expect(creditFor("/v1/offers")).toBe("© Electricity Authority, licensed under CC BY 4.0");
-    expect(creditFor("/v1/transmission-lines")).toBe("© Transpower New Zealand, licensed under CC BY 4.0");
-    expect(creditFor("/v1/outages")).toBe("Outages from Transpower's Planned Outage Coordination Process (POCP)");
+    expect(creditFor("/v1/transmission-lines")).toBe(
+      "© Transpower New Zealand, licensed under CC BY 4.0",
+    );
+    expect(creditFor("/v1/outages")).toBe(
+      "Outages from Transpower's Planned Outage Coordination Process (POCP)",
+    );
     expect(creditFor("/v1/dispatch/recent")).toBe("HVDC flows and transfer limits from em6");
     expect(response.headers.get("Cache-Control")).toBe("max-age=86400");
   });
@@ -129,7 +136,7 @@ describe("scheduled", () => {
   });
 
   function runCron(cron: string) {
-    return worker.scheduled({ cron, scheduledTime: Date.now(), noRetry: () => { } });
+    return worker.scheduled({ cron, scheduledTime: Date.now(), noRetry: () => {} });
   }
 
   it("syncs real time dispatch and the HVDC, and checks for stale data, every 2 minutes", async () => {
@@ -153,8 +160,10 @@ describe("scheduled", () => {
   });
 
   it("syncs the daily dispatch files hourly, and aggregates them once they've finished syncing", async () => {
-    let finishDailySync = () => { };
-    vi.mocked(syncDailyDispatch).mockReturnValue(new Promise(resolve => finishDailySync = resolve));
+    let finishDailySync = () => {};
+    vi.mocked(syncDailyDispatch).mockReturnValue(
+      new Promise((resolve) => (finishDailySync = resolve)),
+    );
 
     const run = runCron("02 * * * *");
 

@@ -8,12 +8,14 @@ import { EMI_RTD_URL, outage, POCP_OUTAGES_URL, rtd } from "../testing/fixtures"
 import { RealTimeDispatch } from "../models/realTimeDispatch";
 import { PocpOutage } from "../models/pocpOutage";
 
-const latestDispatch = [
-  rtd("ATI2201 ATI0", 50, 0, 120.5),
-  rtd("ALB0331", 0, 20, 130),
-];
+const latestDispatch = [rtd("ATI2201 ATI0", 50, 0, 120.5), rtd("ALB0331", 0, 20, 130)];
 
-function mockApis({ dispatch = latestDispatch, dispatchStatus = 200, outages = [outage("ATI_0")] as PocpOutage[], outagesStatus = 200 } = {}) {
+function mockApis({
+  dispatch = latestDispatch,
+  dispatchStatus = 200,
+  outages = [outage("ATI_0")] as PocpOutage[],
+  outagesStatus = 200,
+} = {}) {
   return mockFetch({
     [EMI_RTD_URL]: () => Response.json(dispatch, { status: dispatchStatus }),
     [POCP_OUTAGES_URL]: () => Response.json({ items: outages }, { status: outagesStatus }),
@@ -62,19 +64,28 @@ describe("syncDispatch", () => {
 
   it("appends new intervals to the existing timeseries", async () => {
     await env.dispatch_kv.put("latestDispatchTime", JSON.stringify("2026-10-14T21:55:00"));
-    await env.dispatch.put("timeseries", JSON.stringify({
-      series: ["ATI2201 ATI0", "ALB0331"],
-      data: [["2026-10-14T21:55:00", 45, -18]],
-      pricing: [["2026-10-14T21:55:00", 110, 115]],
-    }));
+    await env.dispatch.put(
+      "timeseries",
+      JSON.stringify({
+        series: ["ATI2201 ATI0", "ALB0331"],
+        data: [["2026-10-14T21:55:00", 45, -18]],
+        pricing: [["2026-10-14T21:55:00", 110, 115]],
+      }),
+    );
     mockApis();
 
     await syncDispatch();
 
     expect(await getJson(env.dispatch, "timeseries")).toEqual({
       series: ["ATI2201 ATI0", "ALB0331"],
-      data: [["2026-10-14T21:55:00", 45, -18], ["2026-10-14T22:00:00", 50, -20]],
-      pricing: [["2026-10-14T21:55:00", 110, 115], ["2026-10-14T22:00:00", 120.5, 130]],
+      data: [
+        ["2026-10-14T21:55:00", 45, -18],
+        ["2026-10-14T22:00:00", 50, -20],
+      ],
+      pricing: [
+        ["2026-10-14T21:55:00", 110, 115],
+        ["2026-10-14T22:00:00", 120.5, 130],
+      ],
     });
   });
 
@@ -95,7 +106,9 @@ describe("syncDispatch", () => {
 
     await syncDispatch();
 
-    const pocpUrl = new URL(requests.find(request => request.url.startsWith(POCP_OUTAGES_URL))!.url);
+    const pocpUrl = new URL(
+      requests.find((request) => request.url.startsWith(POCP_OUTAGES_URL))!.url,
+    );
     expect(pocpUrl.searchParams.getAll("planningStatus")).toEqual(["CONFIRMED", "COMPLETED"]);
     expect(pocpUrl.searchParams.getAll("category")).toEqual(["GENERATION", "EMBEDDED_GENERATION"]);
     expect(JSON.parse((await env.dispatch_kv.get("latestOutages"))!)).toEqual({
@@ -115,7 +128,9 @@ describe("syncDispatch", () => {
 
     expect(await env.dispatch_kv.get("latestOutages")).toBe(cachedOutages);
     // the dispatch is still synced
-    expect(await env.dispatch_kv.get("latestDispatchTime")).toBe(JSON.stringify("2026-10-14T22:00:00"));
+    expect(await env.dispatch_kv.get("latestDispatchTime")).toBe(
+      JSON.stringify("2026-10-14T22:00:00"),
+    );
   });
 
   it("still refreshes outages when the EMI API fails", async () => {
@@ -125,18 +140,22 @@ describe("syncDispatch", () => {
 
     expect(await env.dispatch_kv.get("latestDispatchTime")).toBeNull();
     expect(await env.dispatch.get("timeseries")).toBeNull();
-    expect(JSON.parse((await env.dispatch_kv.get("latestOutages"))!)).toHaveProperty("ATI2201 ATI0");
+    expect(JSON.parse((await env.dispatch_kv.get("latestOutages"))!)).toHaveProperty(
+      "ATI2201 ATI0",
+    );
   });
 
   describe("missing units", () => {
     const unknownUnit = rtd("XYZ2201 XYZ0", 10, 0, 100);
 
     function slackRequests(requests: Request[]) {
-      return requests.filter(request => request.url === env.SLACK_WEBHOOK_URL);
+      return requests.filter((request) => request.url === env.SLACK_WEBHOOK_URL);
     }
 
     async function storeMissingUnitsFor(dispatch: RealTimeDispatch[]) {
-      const missingUnits = await checkForMissingUnits(dispatch.map(item => item.PointOfConnectionCode));
+      const missingUnits = await checkForMissingUnits(
+        dispatch.map((item) => item.PointOfConnectionCode),
+      );
       await env.dispatch_kv.put("missingUnit", JSON.stringify(missingUnits));
     }
 
@@ -158,7 +177,9 @@ describe("syncDispatch", () => {
 
       const [slackRequest] = slackRequests(requests);
       expect(slackRequest.method).toBe("POST");
-      expect((await slackRequest.json() as { text: string }).text).toContain("Missing unit in generator list: `XYZ2201 XYZ0`");
+      expect(((await slackRequest.json()) as { text: string }).text).toContain(
+        "Missing unit in generator list: `XYZ2201 XYZ0`",
+      );
     });
 
     it("doesn't notify Slack when the missing units are unchanged", async () => {
@@ -172,16 +193,21 @@ describe("syncDispatch", () => {
   });
 
   it("notifies Slack when a unit beats its generation record", async () => {
-    await env.dispatch_kv.put("historicalGenerationRecords", JSON.stringify({
-      syncedTo: "20261013",
-      records: { "ATI2201 ATI0": { mw: 45, time: "2024-03-03T18:30:00" } },
-    }));
+    await env.dispatch_kv.put(
+      "historicalGenerationRecords",
+      JSON.stringify({
+        syncedTo: "20261013",
+        records: { "ATI2201 ATI0": { mw: 45, time: "2024-03-03T18:30:00" } },
+      }),
+    );
     const requests = mockApis();
 
     await syncDispatch();
 
-    const [slackRequest] = requests.filter(request => request.url === env.SLACK_WEBHOOK_URL);
-    expect((await slackRequest.json() as { text: string }).text).toContain("*Ātiamuri* (`ATI2201 ATI0`) is generating *50 MW*, a new record");
+    const [slackRequest] = requests.filter((request) => request.url === env.SLACK_WEBHOOK_URL);
+    expect(((await slackRequest.json()) as { text: string }).text).toContain(
+      "*Ātiamuri* (`ATI2201 ATI0`) is generating *50 MW*, a new record",
+    );
   });
 
   describe("units over capacity", () => {
@@ -189,8 +215,10 @@ describe("syncDispatch", () => {
     const overCapacity = [rtd("ATI2201 ATI0", 90, 0, 120.5), rtd("ALB0331", 0, 20, 130)];
 
     async function slackMessages(requests: Request[]) {
-      const slackRequests = requests.filter(request => request.url === env.SLACK_WEBHOOK_URL);
-      return await Promise.all(slackRequests.map(async request => (await request.json() as { text: string }).text));
+      const slackRequests = requests.filter((request) => request.url === env.SLACK_WEBHOOK_URL);
+      return await Promise.all(
+        slackRequests.map(async (request) => ((await request.json()) as { text: string }).text),
+      );
     }
 
     it("notifies Slack when a unit generates more than its capacity", async () => {
@@ -201,7 +229,9 @@ describe("syncDispatch", () => {
       expect(await slackMessages(requests)).toEqual([
         "⚠️ *Ātiamuri* (`ATI2201 ATI0`) is generating *90 MW*, above its capacity of 84 MW in the generator list",
       ]);
-      expect(JSON.parse((await env.dispatch_kv.get("unitsOverCapacity"))!)).toEqual({ "ATI2201 ATI0": 84 });
+      expect(JSON.parse((await env.dispatch_kv.get("unitsOverCapacity"))!)).toEqual({
+        "ATI2201 ATI0": 84,
+      });
     });
 
     it("doesn't notify Slack again for a unit it's already notified about", async () => {
@@ -220,7 +250,9 @@ describe("syncDispatch", () => {
       await syncDispatch();
 
       expect(await slackMessages(requests)).toHaveLength(1);
-      expect(JSON.parse((await env.dispatch_kv.get("unitsOverCapacity"))!)).toEqual({ "ATI2201 ATI0": 84 });
+      expect(JSON.parse((await env.dispatch_kv.get("unitsOverCapacity"))!)).toEqual({
+        "ATI2201 ATI0": 84,
+      });
     });
   });
 });

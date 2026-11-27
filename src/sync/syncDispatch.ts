@@ -9,7 +9,10 @@ import { Timeseries } from "../models/timeseries";
 import { PocpOutage } from "../models/pocpOutage";
 import { sendSlackMessage } from "../clients/slack";
 import { checkForNewGenerationRecords } from "./syncGenerationRecords";
-import { findUnitsOverCapacity, formatUnitsOverCapacityMessage } from "../services/overCapacity/overCapacityChecker";
+import {
+  findUnitsOverCapacity,
+  formatUnitsOverCapacityMessage,
+} from "../services/overCapacity/overCapacityChecker";
 import { RealTimeDispatch } from "../models/realTimeDispatch";
 import { CheckpointMetadata } from "../models/checkpointMetadata";
 
@@ -31,7 +34,7 @@ export async function syncDispatch() {
 
   const response = await fetchDataFromEmiApi();
   if (response.status === 200) {
-    const data = await response.json() as any[];
+    const data = (await response.json()) as any[];
     const lastUpdatedRtd = data[0].FiveMinuteIntervalDatetime;
 
     console.log("Latest dispatch time from EMI RTD API: " + lastUpdatedRtd);
@@ -43,13 +46,15 @@ export async function syncDispatch() {
 
     const existingTimeseries = await env.dispatch.get("timeseries");
 
-    const existingTimeseriesJson = (existingTimeseries ? await existingTimeseries.json() : { series: [], data: [] }) as Timeseries;
+    const existingTimeseriesJson = (
+      existingTimeseries ? await existingTimeseries.json() : { series: [], data: [] }
+    ) as Timeseries;
 
-    const timeseries = await generateTimeseries(existingTimeseriesJson, data);
+    const timeseries = generateTimeseries(existingTimeseriesJson, data);
     await env.dispatch.put("timeseries", JSON.stringify(timeseries));
     const metadata: CheckpointMetadata = { updatedAt: Date.now() };
     await env.dispatch_kv.put("latestDispatchTime", JSON.stringify(lastUpdatedRtd), { metadata });
-    await env.dispatch_kv.put("latestDispatch", JSON.stringify(data))
+    await env.dispatch_kv.put("latestDispatch", JSON.stringify(data));
 
     await checkForMissingUnitsAndNotify(data);
     await checkForNewGenerationRecords(data);
@@ -73,13 +78,15 @@ function getNZDateTime(): Date {
 }
 
 async function checkForMissingUnitsAndNotify(lastDispatch: any[]) {
-  var missingUnitResponse = await checkForMissingUnits(lastDispatch.map(item => item.PointOfConnectionCode) as string[]);
+  const missingUnitResponse = await checkForMissingUnits(
+    lastDispatch.map((item) => item.PointOfConnectionCode) as string[],
+  );
 
   const previousMissingUnitResponse = await env.dispatch_kv.get("missingUnit");
   if (previousMissingUnitResponse) {
     const previousMissingUnitJson = JSON.parse(previousMissingUnitResponse);
     if (!deepEqual(missingUnitResponse, previousMissingUnitJson)) {
-      console.log("Missing units not equal, will notify!")
+      console.log("Missing units not equal, will notify!");
       await sendMissingUnitsToSlack(missingUnitResponse);
     }
   }
@@ -97,9 +104,9 @@ async function checkForUnitsOverCapacityAndNotify(dispatch: RealTimeDispatch[]) 
 
   // node => the capacity it was alerted for
   const previousAlerts = await env.dispatch_kv.get("unitsOverCapacity");
-  const alerted = previousAlerts ? JSON.parse(previousAlerts) as Record<string, number> : {};
+  const alerted = previousAlerts ? (JSON.parse(previousAlerts) as Record<string, number>) : {};
 
-  const newlyOverCapacity = overCapacity.filter(unit => alerted[unit.node] !== unit.capacity);
+  const newlyOverCapacity = overCapacity.filter((unit) => alerted[unit.node] !== unit.capacity);
   if (newlyOverCapacity.length === 0) {
     return;
   }
@@ -109,42 +116,57 @@ async function checkForUnitsOverCapacityAndNotify(dispatch: RealTimeDispatch[]) 
   }
   await env.dispatch_kv.put("unitsOverCapacity", JSON.stringify(alerted));
 
-  console.log("Units over capacity: " + newlyOverCapacity.map(unit => unit.node).join(", "));
+  console.log("Units over capacity: " + newlyOverCapacity.map((unit) => unit.node).join(", "));
   await sendSlackMessage(formatUnitsOverCapacityMessage(newlyOverCapacity));
 }
 
 function deepEqual(a: any, b: any): boolean {
   if (a === b) return true;
-  if (typeof a !== 'object' || typeof b !== 'object' || a === null || b === null) return false;
+  if (typeof a !== "object" || typeof b !== "object" || a === null || b === null) return false;
   const keysA = Object.keys(a);
   const keysB = Object.keys(b);
   if (keysA.length !== keysB.length) return false;
 
-  return keysA.every(key => deepEqual(a[key], b[key]));
+  return keysA.every((key) => deepEqual(a[key], b[key]));
 }
 
 async function sendMissingUnitsToSlack(missingUnitResponse: any) {
-  var slackMessage = "";
-  var sendMessage = false;
+  let slackMessage = "";
+  let sendMessage = false;
   if (missingUnitResponse.substations.notInSubstationList.length > 0) {
-    slackMessage += "Missing unit in substation list: `" + missingUnitResponse.substations.notInSubstationList.join('`, `') + "`" + "\n";
+    slackMessage +=
+      "Missing unit in substation list: `" +
+      missingUnitResponse.substations.notInSubstationList.join("`, `") +
+      "`" +
+      "\n";
     sendMessage = true;
   }
   if (missingUnitResponse.substations.notInDispatchList.length > 0) {
-    slackMessage += "Missing substation in Real Time Dispatch: `" + missingUnitResponse.substations.notInDispatchList.join('`, `') + "`" + "\n";
+    slackMessage +=
+      "Missing substation in Real Time Dispatch: `" +
+      missingUnitResponse.substations.notInDispatchList.join("`, `") +
+      "`" +
+      "\n";
     sendMessage = true;
   }
   if (missingUnitResponse.generation.notInGeneratorList.length > 0) {
-    slackMessage += "Missing unit in generator list: `" + missingUnitResponse.generation.notInGeneratorList.join('`, `') + "`" + "\n";
+    slackMessage +=
+      "Missing unit in generator list: `" +
+      missingUnitResponse.generation.notInGeneratorList.join("`, `") +
+      "`" +
+      "\n";
     sendMessage = true;
   }
   if (missingUnitResponse.generation.notInDispatchList.length > 0) {
-    slackMessage += "Missing generator in Real Time Dispatch: `" + missingUnitResponse.generation.notInDispatchList.join('`, `') + "`";
+    slackMessage +=
+      "Missing generator in Real Time Dispatch: `" +
+      missingUnitResponse.generation.notInDispatchList.join("`, `") +
+      "`";
     sendMessage = true;
   }
 
   if (!sendMessage) {
-    console.log("Not sending to Slack as nothing to talk about")
+    console.log("Not sending to Slack as nothing to talk about");
     return;
   }
   console.log("Sending missing units to Slack");

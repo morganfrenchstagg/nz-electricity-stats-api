@@ -42,17 +42,17 @@ describe("checkForMissingUnits", () => {
             capacity: 0,
             fuel: "",
             fuelCode: "",
-            commissioned: "1899-12-31T12:30:00.000Z"
+            commissioned: "1899-12-31T12:30:00.000Z",
           },
         ],
         site: "",
         name: "",
         location: {
           lat: 0,
-          long: 0
+          long: 0,
         },
         gridZone: "",
-        operator: ""
+        operator: "",
       },
     ]);
     mockedGetSubstations.mockResolvedValue([]);
@@ -81,17 +81,17 @@ describe("checkForMissingUnits", () => {
             capacity: 0,
             fuel: "",
             fuelCode: "",
-            commissioned: "1899-12-31T12:30:00.000Z"
+            commissioned: "1899-12-31T12:30:00.000Z",
           },
         ],
         site: "",
         name: "",
         location: {
           lat: 0,
-          long: 0
+          long: 0,
         },
         gridZone: "",
-        operator: ""
+        operator: "",
       },
     ]);
     mockedGetSubstations.mockResolvedValue([]);
@@ -134,10 +134,10 @@ describe("checkForMissingUnits", () => {
           name: "",
           location: {
             lat: 0,
-            long: 0
+            long: 0,
           },
           gridZone: "",
-          operator: ""
+          operator: "",
         },
       ]);
       mockedGetSubstations.mockResolvedValue([]);
@@ -207,17 +207,17 @@ describe("checkForMissingUnits", () => {
             capacity: 0,
             fuel: "",
             fuelCode: "",
-            commissioned: "1899-12-31T12:30:00.000Z"
+            commissioned: "1899-12-31T12:30:00.000Z",
           },
         ],
         site: "",
         name: "",
         location: {
           lat: 0,
-          long: 0
+          long: 0,
         },
         gridZone: "",
-        operator: ""
+        operator: "",
       },
     ]);
     mockedGetSubstations.mockResolvedValue([]);
@@ -246,25 +246,22 @@ describe("checkForMissingUnits", () => {
             capacity: 0,
             fuel: "",
             fuelCode: "",
-            commissioned: "1899-12-31T12:30:00.000Z"
+            commissioned: "1899-12-31T12:30:00.000Z",
           },
         ],
         site: "",
         name: "",
         location: {
           lat: 0,
-          long: 0
+          long: 0,
         },
         gridZone: "",
-        operator: ""
+        operator: "",
       },
     ]);
     mockedGetSubstations.mockResolvedValue([]);
 
-    const result = await checkForMissingUnits([
-      "1234567890",
-      "1234567890 ABCD",
-    ]);
+    const result = await checkForMissingUnits(["1234567890", "1234567890 ABCD"]);
     expect(result).toEqual({
       generation: {
         notInDispatchList: [],
@@ -359,17 +356,17 @@ describe("checkForMissingUnits", () => {
             capacity: 0,
             fuel: "",
             fuelCode: "",
-            commissioned: "1899-12-31T12:30:00.000Z"
+            commissioned: "1899-12-31T12:30:00.000Z",
           },
         ],
         site: "",
         name: "",
         location: {
           lat: 0,
-          long: 0
+          long: 0,
         },
         gridZone: "",
-        operator: ""
+        operator: "",
       },
     ]);
     mockedGetSubstations.mockResolvedValue([
@@ -384,10 +381,7 @@ describe("checkForMissingUnits", () => {
       },
     ]);
 
-    const result = await checkForMissingUnits([
-      "9876543210 ABCD",
-      "DEF1234",
-    ]);
+    const result = await checkForMissingUnits(["9876543210 ABCD", "DEF1234"]);
     expect(result).toEqual({
       generation: {
         notInDispatchList: ["1234567890 ABCD"],

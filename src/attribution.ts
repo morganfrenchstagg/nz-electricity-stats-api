@@ -9,7 +9,10 @@ export const ATTRIBUTION = {
       data: "Real-time dispatch, nodal prices and volumes, metered generation, load and HVDC flows, and bids and offers",
       endpoints: ["/v1/dispatch", "/v1/offers"],
       source: { name: "Electricity Market Information (EMI)", url: "https://www.emi.ea.govt.nz" },
-      copyright: { holder: "Electricity Authority", url: "https://www.ea.govt.nz/copyright-disclaimer-transparency/" },
+      copyright: {
+        holder: "Electricity Authority",
+        url: "https://www.ea.govt.nz/copyright-disclaimer-transparency/",
+      },
       licence: CC_BY,
       credit: "© Electricity Authority, licensed under CC BY 4.0",
     },
@@ -25,7 +28,10 @@ export const ATTRIBUTION = {
       // POCP doesn't publish licence terms, so this credits the source without claiming one
       data: "Generation outages",
       endpoints: ["/v1/outages"],
-      source: { name: "Transpower's Planned Outage Coordination Process (POCP)", url: "https://customerportal.transpower.co.nz/pocp/outages" },
+      source: {
+        name: "Transpower's Planned Outage Coordination Process (POCP)",
+        url: "https://customerportal.transpower.co.nz/pocp/outages",
+      },
       credit: "Outages from Transpower's Planned Outage Coordination Process (POCP)",
     },
     {
@@ -36,8 +42,9 @@ export const ATTRIBUTION = {
       credit: "HVDC flows and transfer limits from em6",
     },
   ],
-  disclaimer: "This API isn't affiliated with or endorsed by the Electricity Authority, Transpower or any other data provider. "
-    + "Data is provided as is and may be delayed, incomplete or wrong, so don't rely on it for operational, trading or other decisions.",
+  disclaimer:
+    "This API isn't affiliated with or endorsed by the Electricity Authority, Transpower or any other data provider. " +
+    "Data is provided as is and may be delayed, incomplete or wrong, so don't rely on it for operational, trading or other decisions.",
 };
 
 export const ATTRIBUTION_LINK = '</v1/attribution>; rel="license"';

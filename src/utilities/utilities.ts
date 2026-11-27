@@ -2,30 +2,33 @@ export const ONE_HOUR_IN_SECONDS = 60 * 60;
 export const ONE_DAY_IN_SECONDS = ONE_HOUR_IN_SECONDS * 24;
 
 export function getJsonResponseWithMaxAgeHeader(json: any, headers?: Record<string, string>) {
-    headers = {
-        ...headers,
-        "Cache-Control": `max-age=${ONE_DAY_IN_SECONDS}`
-    }
-    return getJsonResponseWithHeaders(json, headers);
+  headers = {
+    ...headers,
+    "Cache-Control": `max-age=${ONE_DAY_IN_SECONDS}`,
+  };
+  return getJsonResponseWithHeaders(json, headers);
 }
 
 export function getJsonResponseWithHeaders(json: any, headers: Record<string, string>) {
-    const headersObj = new Headers();
+  const headersObj = new Headers();
 
-    for (let obj in headers) {
-        headersObj.set(obj, headers[obj]);
-    }
+  for (const obj in headers) {
+    headersObj.set(obj, headers[obj]);
+  }
 
-    const resp = Response.json(json, {
-        headers: headersObj
-    });
+  const resp = Response.json(json, {
+    headers: headersObj,
+  });
 
-    return resp;
+  return resp;
 }
 
 export function getServiceUnavailableResponse(message: string) {
-    return Response.json({ message }, {
-        status: 503,
-        headers: { "Cache-Control": "no-store" }
-    });
+  return Response.json(
+    { message },
+    {
+      status: 503,
+      headers: { "Cache-Control": "no-store" },
+    },
+  );
 }

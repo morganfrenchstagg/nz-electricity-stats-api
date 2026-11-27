@@ -35,20 +35,25 @@ The tools do the grouping and arithmetic, so prefer one call with the right grou
 Credit the data's sources when you present it: generation, prices, HVDC flows and offers are from the Electricity Market Information website (emi.ea.govt.nz), © Electricity Authority, licensed under CC BY 4.0; outages are from Transpower's POCP; recent HVDC flows and limits are from em6. This isn't affiliated with the Electricity Authority or Transpower, and the data is provided as is.`;
 
 export function createMcpServer(fetchApi: FetchApi): McpServer {
-	// ajv, the SDK's default validator, compiles schemas with new Function, which Workers don't allow
-	const server = new McpServer(
-		{ name: "nz-electricity-stats", title: "NZ Electricity Stats", version: "1.0.0", websiteUrl: "https://github.com/morganfrenchstagg/nz-electricity-stats-api" },
-		{ instructions: INSTRUCTIONS, jsonSchemaValidator: new CfWorkerJsonSchemaValidator() },
-	);
-	const api = new ApiClient(fetchApi);
+  // ajv, the SDK's default validator, compiles schemas with new Function, which Workers don't allow
+  const server = new McpServer(
+    {
+      name: "nz-electricity-stats",
+      title: "NZ Electricity Stats",
+      version: "1.0.0",
+      websiteUrl: "https://github.com/morganfrenchstagg/nz-electricity-stats-api",
+    },
+    { instructions: INSTRUCTIONS, jsonSchemaValidator: new CfWorkerJsonSchemaValidator() },
+  );
+  const api = new ApiClient(fetchApi);
 
-	registerEnergyTool(server, api);
-	registerDayProfileTool(server, api);
-	registerPricesTool(server, api);
-	registerLiveTool(server, api);
-	registerGeneratorTools(server);
-	registerOutagesTool(server, api);
-	registerOffersTool(server, api);
+  registerEnergyTool(server, api);
+  registerDayProfileTool(server, api);
+  registerPricesTool(server, api);
+  registerLiveTool(server, api);
+  registerGeneratorTools(server);
+  registerOutagesTool(server, api);
+  registerOffersTool(server, api);
 
-	return server;
+  return server;
 }

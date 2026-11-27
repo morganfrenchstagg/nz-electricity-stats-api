@@ -1,14 +1,21 @@
-
 # Running locally
 
-
 Requirements
-- wrangler
 
+- wrangler
 
 ```
 npm install
 npm run dev
+```
+
+Pull requests must pass the type check, ESLint, Prettier and the tests:
+
+```
+npx tsc
+npm run lint          # npm run lint:fix fixes what it can
+npm run format:check  # npm run format rewrites files in place
+npm test
 ```
 
 ## Data and licensing

@@ -1,16 +1,19 @@
 import { AggregateDataPoint } from "../../models/dispatchAggregate";
 import { Em6HvdcResponse, Em6Time, HvdcTimeseries } from "../../models/hvdc";
-import { getDatesBetween, getTradingPeriodStarts } from "../dispatchAggregation/dispatchAggregation";
+import {
+  getDatesBetween,
+  getTradingPeriodStarts,
+} from "../dispatchAggregation/dispatchAggregation";
 import { getColumn, getTradingDate } from "../meteredGeneration/meteredGeneration";
 import { TIMESERIES_DAYS } from "../timeseries/timeseries";
 
 // em6's key for each series, by the name it's returned as. values are kept as em6 gives them, so the south limit is
 // negative
 const EM6_SERIES: Record<string, string> = {
-	northFlow: "dcn_flow",
-	southFlow: "dcs_flow",
-	northLimit: "north_limit",
-	southLimit: "south_limit",
+  northFlow: "dcn_flow",
+  southFlow: "dcs_flow",
+  northLimit: "north_limit",
+  southLimit: "south_limit",
 };
 
 const HVDC_SERIES = Object.keys(EM6_SERIES);
@@ -24,8 +27,8 @@ const HVDC_SERIES = Object.keys(EM6_SERIES);
  * (BEN3501 and HAY3501), which total the others
  */
 const SENDING_METERS: Record<string, string[]> = {
-	northFlow: ["HVDC_BN", "DCP1_BN", "DCP2_BN", "BEN0161", "BEN2201"],
-	southFlow: ["HVDC_HS", "DCP1_HS", "DCP2_HS", "HAY1101", "HAY2201"],
+  northFlow: ["HVDC_BN", "DCP1_BN", "DCP2_BN", "BEN0161", "BEN2201"],
+  southFlow: ["HVDC_HS", "DCP1_HS", "DCP2_HS", "HAY1101", "HAY2201"],
 };
 
 // the HVDC's energy each way is stored in the HVDC aggregates as if each direction were a node generating what it sent,
@@ -34,53 +37,56 @@ export const HVDC_AGGREGATE_PREFIX = "aggregate-hvdc";
 
 // guards against caching an error body or an empty day, which would leave the recent endpoint without any HVDC
 export function isValidHvdcResponse(json: any): boolean {
-	const series = Object.values(EM6_SERIES).map(key => json?.data?.[key]);
-	return series.every(Array.isArray) && series.some(values => values.length > 0);
+  const series = Object.values(EM6_SERIES).map((key) => json?.data?.[key]);
+  return series.every(Array.isArray) && series.some((values) => values.length > 0);
 }
 
 export function toHvdcTimeseries(response: Em6HvdcResponse): HvdcTimeseries {
-	const series = HVDC_SERIES;
-	const rows = new Map<string, (string | number | null)[]>();
+  const series = HVDC_SERIES;
+  const rows = new Map<string, (string | number | null)[]>();
 
-	series.forEach((name, index) => {
-		for (const [time, value] of response.data[EM6_SERIES[name]]) {
-			const timestamp = formatEm6Time(time);
-			if (!rows.has(timestamp)) {
-				rows.set(timestamp, [timestamp, ...series.map(() => null)]);
-			}
-			rows.get(timestamp)![index + 1] = value;
-		}
-	});
+  series.forEach((name, index) => {
+    for (const [time, value] of response.data[EM6_SERIES[name]]) {
+      const timestamp = formatEm6Time(time);
+      if (!rows.has(timestamp)) {
+        rows.set(timestamp, [timestamp, ...series.map(() => null)]);
+      }
+      rows.get(timestamp)![index + 1] = value;
+    }
+  });
 
-	return { series, data: sortRows([...rows.values()]) };
+  return { series, data: sortRows([...rows.values()]) };
 }
 
 // em6's last day by the NZ date of each half hour (e.g. 2026-10-28), so each date's half hours can be kept
 export function splitHvdcByDate(timeseries: HvdcTimeseries): Map<string, HvdcTimeseries> {
-	const dates = Map.groupBy(timeseries.data, row => (row[0] as string).slice(0, 10));
-	return new Map([...dates].map(([date, data]) => [date, { series: timeseries.series, data }]));
+  const dates = Map.groupBy(timeseries.data, (row) => (row[0] as string).slice(0, 10));
+  return new Map([...dates].map(([date, data]) => [date, { series: timeseries.series, data }]));
 }
 
 // the dates the recent endpoint's HVDC can have half hours on, up to em6's latest (e.g. 2026-10-25 to 2026-10-28)
 export function getRecentHvdcDates(latestDate: string): string[] {
-	return getDatesBetween(subtractDays(`${latestDate}T00:00:00`, TIMESERIES_DAYS).slice(0, 10), latestDate);
+  return getDatesBetween(
+    subtractDays(`${latestDate}T00:00:00`, TIMESERIES_DAYS).slice(0, 10),
+    latestDate,
+  );
 }
 
 // the recent dates' half hours (see getRecentHvdcDates), oldest first, as the recent endpoint returns them: the same last
 // few days as the dispatch, back from the latest half hour (e.g. after 2026-10-25T20:00:00 to 2026-10-28T20:00:00)
 export function toRecentHvdc(days: HvdcTimeseries[]): HvdcTimeseries {
-	const data = days.flatMap(day => day.data);
-	const start = subtractDays(data.at(-1)![0] as string, TIMESERIES_DAYS);
-	return { series: HVDC_SERIES, data: data.filter(([time]) => (time as string) > start) };
+  const data = days.flatMap((day) => day.data);
+  const start = subtractDays(data.at(-1)![0] as string, TIMESERIES_DAYS);
+  return { series: HVDC_SERIES, data: data.filter(([time]) => (time as string) > start) };
 }
 
 // adds the latest half hours to what's stored for a day, replacing any stored at the same times
 export function mergeHvdc(stored: HvdcTimeseries | null, latest: HvdcTimeseries): HvdcTimeseries {
-	const rows = new Map(stored?.data.map(row => [row[0], row]));
-	for (const row of latest.data) {
-		rows.set(row[0], row);
-	}
-	return { series: latest.series, data: sortRows([...rows.values()]) };
+  const rows = new Map(stored?.data.map((row) => [row[0], row]));
+  for (const row of latest.data) {
+    rows.set(row[0], row);
+  }
+  return { series: latest.series, data: sortRows([...rows.values()]) };
 }
 
 /**
@@ -88,43 +94,48 @@ export function mergeHvdc(stored: HvdcTimeseries | null, latest: HvdcTimeseries)
  * each trading period, at the time the period starts. EMI has no transfer limits, so they're null
  */
 export function toMeteredHvdcDays(records: Record<string, string>[]): Map<string, HvdcTimeseries> {
-	// average MW [north, south] by trading date and trading period (1-50, since midnight)
-	const days = new Map<string, Map<number, [number | null, number | null]>>();
+  // average MW [north, south] by trading date and trading period (1-50, since midnight)
+  const days = new Map<string, Map<number, [number | null, number | null]>>();
 
-	for (const record of records) {
-		const flow = getColumn(record, "Flow_Direction") === "X"
-			? HVDC_SERIES.findIndex(series => SENDING_METERS[series]?.includes(getColumn(record, "POC")))
-			: -1;
-		if (flow < 0) {
-			continue;
-		}
+  for (const record of records) {
+    const flow =
+      getColumn(record, "Flow_Direction") === "X"
+        ? HVDC_SERIES.findIndex((series) =>
+            SENDING_METERS[series]?.includes(getColumn(record, "POC")),
+          )
+        : -1;
+    if (flow < 0) {
+      continue;
+    }
 
-		const date = getTradingDate(record);
-		const periods = days.get(date) ?? new Map<number, [number | null, number | null]>();
-		days.set(date, periods);
+    const date = getTradingDate(record);
+    const periods = days.get(date) ?? new Map<number, [number | null, number | null]>();
+    days.set(date, periods);
 
-		for (const column in record) {
-			const period = /^TP(\d+)$/i.exec(column);
-			if (!period || record[column].trim() === "") {
-				continue;
-			}
+    for (const column in record) {
+      const period = /^TP(\d+)$/i.exec(column);
+      if (!period || record[column].trim() === "") {
+        continue;
+      }
 
-			const values = periods.get(+period[1]) ?? [null, null];
-			// kWh over half an hour, as average MW
-			values[flow] = (values[flow] ?? 0) + Number(record[column]) / 500;
-			periods.set(+period[1], values);
-		}
-	}
+      const values = periods.get(+period[1]) ?? [null, null];
+      // kWh over half an hour, as average MW
+      values[flow] = (values[flow] ?? 0) + Number(record[column]) / 500;
+      periods.set(+period[1], values);
+    }
+  }
 
-	return new Map([...days].map(([date, periods]) => {
-		const numbers = [...periods.keys()].sort((a, b) => a - b);
-		const starts = getTradingPeriodStarts(date, Math.max(0, ...numbers));
-		const data = numbers.map(period => {
-			const [north, south] = periods.get(period)!;
-			return [starts[period - 1], roundOrNull(north), roundOrNull(south), null, null];
-		});
-		return [date, { series: HVDC_SERIES, data }];
-	}));
+  return new Map(
+    [...days].map(([date, periods]) => {
+      const numbers = [...periods.keys()].sort((a, b) => a - b);
+      const starts = getTradingPeriodStarts(date, Math.max(0, ...numbers));
+      const data = numbers.map((period) => {
+        const [north, south] = periods.get(period)!;
+        return [starts[period - 1], roundOrNull(north), roundOrNull(south), null, null];
+      });
+      return [date, { series: HVDC_SERIES, data }];
+    }),
+  );
 }
 
 /**
@@ -132,61 +143,71 @@ export function toMeteredHvdcDays(records: Record<string, string>[]): Map<string
  * hours, or em6's half hours until then. Either can be missing, e.g. EMI's last month is about 10 days after it ends,
  * and em6's half hours are only kept from when they were first synced (see syncHvdc)
  */
-export function mergeHvdcDays(metered: HvdcTimeseries | null, em6: HvdcTimeseries | null): HvdcTimeseries {
-	if (!metered) {
-		return em6 ?? { series: [], data: [] };
-	}
+export function mergeHvdcDays(
+  metered: HvdcTimeseries | null,
+  em6: HvdcTimeseries | null,
+): HvdcTimeseries {
+  if (!metered) {
+    return em6 ?? { series: [], data: [] };
+  }
 
-	const limits = new Map(em6?.data.map(([time, , , northLimit, southLimit]) => [time, [northLimit, southLimit]]));
-	return {
-		series: metered.series,
-		data: metered.data.map(([time, north, south]) => [time, north, south, ...limits.get(time) ?? [null, null]]),
-	};
+  const limits = new Map(
+    em6?.data.map(([time, , , northLimit, southLimit]) => [time, [northLimit, southLimit]]),
+  );
+  return {
+    series: metered.series,
+    data: metered.data.map(([time, north, south]) => [
+      time,
+      north,
+      south,
+      ...(limits.get(time) ?? [null, null]),
+    ]),
+  };
 }
 
 // the energy (MWh) the HVDC sent each way over a day, from its average MW in each half hour. em6's south flow is
 // counted whatever its sign, as em6 gives the south limit as negative
 export function calculateHvdcEnergy(date: string, day: HvdcTimeseries): AggregateDataPoint {
-	let north = 0;
-	let south = 0;
-	for (const [, northFlow, southFlow] of day.data) {
-		north += Number(northFlow ?? 0) / 2;
-		south += Math.abs(Number(southFlow ?? 0)) / 2;
-	}
+  let north = 0;
+  let south = 0;
+  for (const [, northFlow, southFlow] of day.data) {
+    north += Number(northFlow ?? 0) / 2;
+    south += Math.abs(Number(southFlow ?? 0)) / 2;
+  }
 
-	return {
-		from: date,
-		to: date,
-		nodes: {
-			northFlow: { g: round(north), l: 0 },
-			southFlow: { g: round(south), l: 0 },
-		},
-	};
+  return {
+    from: date,
+    to: date,
+    nodes: {
+      northFlow: { g: round(north), l: 0 },
+      southFlow: { g: round(south), l: 0 },
+    },
+  };
 }
 
 // timestamps are all NZ times in the same format, so they sort as strings
 function sortRows(rows: (string | number | null)[][]): (string | number | null)[][] {
-	return rows.sort((a, b) => (a[0] as string).localeCompare(b[0] as string));
+  return rows.sort((a, b) => (a[0] as string).localeCompare(b[0] as string));
 }
 
 // in the same format as the dispatch timestamps, e.g. 2026-10-28T20:30:00
 function formatEm6Time(time: Em6Time): string {
-	const pad = (n: number) => String(n).padStart(2, "0");
-	return `${time.year}-${pad(time.month + 1)}-${pad(time.day)}T${pad(time.hour)}:${pad(time.minute)}:00`;
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `${time.year}-${pad(time.month + 1)}-${pad(time.day)}T${pad(time.hour)}:${pad(time.minute)}:00`;
 }
 
 // e.g. 2026-10-28T20:00:00 => 2026-10-25T20:00:00 for 3 days. NZ times are counted as if they were UTC, so it's the same
 // time of day whether or not daylight saving starts or ends in between
 function subtractDays(time: string, days: number): string {
-	const date = new Date(`${time}Z`);
-	date.setUTCDate(date.getUTCDate() - days);
-	return date.toISOString().slice(0, 19);
+  const date = new Date(`${time}Z`);
+  date.setUTCDate(date.getUTCDate() - days);
+  return date.toISOString().slice(0, 19);
 }
 
 function roundOrNull(value: number | null): number | null {
-	return value === null ? null : round(value);
+  return value === null ? null : round(value);
 }
 
 function round(value: number): number {
-	return Math.round(value * 1000) / 1000;
+  return Math.round(value * 1000) / 1000;
 }

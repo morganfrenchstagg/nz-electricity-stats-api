@@ -21,7 +21,10 @@ function record(p: string, g: number, l: number): HistoricalDispatchRecord {
 }
 
 // builds a full day of 5 minute intervals (288 normally)
-function fullDay(date: string, records: (index: number) => HistoricalDispatchRecord[]): Record<string, HistoricalDispatchRecord[]> {
+function fullDay(
+  date: string,
+  records: (index: number) => HistoricalDispatchRecord[],
+): Record<string, HistoricalDispatchRecord[]> {
   const out = {} as Record<string, HistoricalDispatchRecord[]>;
   for (let i = 0; i < 288; i++) {
     const hours = String(Math.floor(i / 12)).padStart(2, "0");
@@ -43,7 +46,7 @@ describe("calculateDailyEnergy", () => {
       to: "2026-10-08",
       nodes: {
         "ARA2201 ARA0": { g: 1728, l: 0 },
-        "ABY0111": { g: 0, l: 60 },
+        ABY0111: { g: 0, l: 60 },
       },
     });
   });
@@ -52,8 +55,8 @@ describe("calculateDailyEnergy", () => {
     const intervals = fullDay("2026-10-08", () => [record("ARA2201 ARA0", 72, 0)]);
     // drop the first half of the day, but output during the second half was 100MW
     const keys = Object.keys(intervals);
-    keys.slice(0, 144).forEach(key => delete intervals[key]);
-    keys.slice(144).forEach(key => intervals[key] = [record("ARA2201 ARA0", 100, 0)]);
+    keys.slice(0, 144).forEach((key) => delete intervals[key]);
+    keys.slice(144).forEach((key) => (intervals[key] = [record("ARA2201 ARA0", 100, 0)]));
 
     expect(calculateDailyEnergy("2026-10-08", intervals).nodes).toEqual({
       "ARA2201 ARA0": { g: 2400, l: 0 },
@@ -67,7 +70,10 @@ describe("calculateDailyEnergy", () => {
       ...(i >= 72 && i < 216 ? [record("KOE1101 KSF0", 20, 0)] : []),
     ]);
 
-    expect(calculateDailyEnergy("2026-10-08", intervals).nodes["KOE1101 KSF0"]).toEqual({ g: 240, l: 0 });
+    expect(calculateDailyEnergy("2026-10-08", intervals).nodes["KOE1101 KSF0"]).toEqual({
+      g: 240,
+      l: 0,
+    });
   });
 
   it("intervals with multiple runs are weighted by the number of runs", () => {
@@ -105,7 +111,10 @@ describe("calculateLiveDailyEnergy", () => {
 
   it("counts complete days over the whole day, and the last day up to the end of its latest interval", () => {
     const times = [...intervalTimes("2026-10-23"), ...intervalTimes("2026-10-24").slice(0, 144)];
-    const timeseries = live(["ARA2201 ARA0", "ABY0111"], times.map(time => [time, 72, -2.5]));
+    const timeseries = live(
+      ["ARA2201 ARA0", "ABY0111"],
+      times.map((time) => [time, 72, -2.5]),
+    );
 
     expect(calculateLiveDailyEnergy(timeseries)).toEqual([
       {
@@ -113,7 +122,7 @@ describe("calculateLiveDailyEnergy", () => {
         to: "2026-10-23",
         nodes: {
           "ARA2201 ARA0": { g: 1728, l: 0 },
-          "ABY0111": { g: 0, l: 60 },
+          ABY0111: { g: 0, l: 60 },
         },
       },
       {
@@ -121,47 +130,73 @@ describe("calculateLiveDailyEnergy", () => {
         to: "2026-10-24",
         nodes: {
           "ARA2201 ARA0": { g: 864, l: 0 },
-          "ABY0111": { g: 0, l: 30 },
+          ABY0111: { g: 0, l: 30 },
         },
       },
     ]);
   });
 
   it("missing intervals are filled by averaging the intervals that are present", () => {
-    const timeseries = live(["ARA2201 ARA0"], [
-      // only the first half of the day, at 100MW
-      ...intervalTimes("2026-10-23").slice(0, 144).map(time => [time, 100]),
-      // the first 6 hours, with only the first and last intervals
-      ["2026-10-24T00:00:00", 10],
-      ["2026-10-24T05:55:00", 20],
-    ]);
+    const timeseries = live(
+      ["ARA2201 ARA0"],
+      [
+        // only the first half of the day, at 100MW
+        ...intervalTimes("2026-10-23")
+          .slice(0, 144)
+          .map((time) => [time, 100]),
+        // the first 6 hours, with only the first and last intervals
+        ["2026-10-24T00:00:00", 10],
+        ["2026-10-24T05:55:00", 20],
+      ],
+    );
 
-    expect(calculateLiveDailyEnergy(timeseries).map(day => day.nodes["ARA2201 ARA0"])).toEqual([
+    expect(calculateLiveDailyEnergy(timeseries).map((day) => day.nodes["ARA2201 ARA0"])).toEqual([
       { g: 2400, l: 0 },
       { g: 90, l: 0 },
     ]);
   });
 
   it("skips the first day unless it starts at midnight, as the timeseries only keeps the last few days", () => {
-    const rows = [["2026-10-23T13:50:00", 50], ["2026-10-24T00:00:00", 50]];
+    const rows = [
+      ["2026-10-23T13:50:00", 50],
+      ["2026-10-24T00:00:00", 50],
+    ];
 
-    expect(calculateLiveDailyEnergy(live(["A"], rows)).map(day => day.from)).toEqual(["2026-10-24"]);
-    expect(calculateLiveDailyEnergy(live(["A"], [["2026-10-23T00:00:00", 50], ...rows])).map(day => day.from)).toEqual(["2026-10-23", "2026-10-24"]);
+    expect(calculateLiveDailyEnergy(live(["A"], rows)).map((day) => day.from)).toEqual([
+      "2026-10-24",
+    ]);
+    expect(
+      calculateLiveDailyEnergy(live(["A"], [["2026-10-23T00:00:00", 50], ...rows])).map(
+        (day) => day.from,
+      ),
+    ).toEqual(["2026-10-23", "2026-10-24"]);
   });
 
   it("counts net MW as generation when positive and load when negative, and leaves out nodes at 0MW all day", () => {
-    const timeseries = live(["BATTERY", "IDLE"], [
-      ["2026-10-24T00:00:00", 10, 0],
-      ["2026-10-24T05:55:00", -10, 0],
-    ]);
+    const timeseries = live(
+      ["BATTERY", "IDLE"],
+      [
+        ["2026-10-24T00:00:00", 10, 0],
+        ["2026-10-24T05:55:00", -10, 0],
+      ],
+    );
 
     expect(calculateLiveDailyEnergy(timeseries)[0].nodes).toEqual({
-      "BATTERY": { g: 30, l: 30 },
+      BATTERY: { g: 30, l: 30 },
     });
   });
 
   it("counts the last day's hours across the daylight saving changes", () => {
-    const lastDay = (date: string, until: string) => calculateLiveDailyEnergy(live(["A"], [[`${date}T00:00:00`, 12], [`${date}T${until}:00`, 12]]))[0].nodes["A"].g;
+    const lastDay = (date: string, until: string) =>
+      calculateLiveDailyEnergy(
+        live(
+          ["A"],
+          [
+            [`${date}T00:00:00`, 12],
+            [`${date}T${until}:00`, 12],
+          ],
+        ),
+      )[0].nodes["A"].g;
 
     // daylight saving starts at 02:00, so 12:00 is 11 hours into the day
     expect(lastDay("2026-09-27", "01:55")).toBe(24);
@@ -180,7 +215,11 @@ describe("getTradingPeriodStarts", () => {
   it("starts a period every half hour from midnight", () => {
     const starts = getTradingPeriodStarts("2026-10-08", 48);
 
-    expect(starts.slice(0, 3)).toEqual(["2026-10-08T00:00:00", "2026-10-08T00:30:00", "2026-10-08T01:00:00"]);
+    expect(starts.slice(0, 3)).toEqual([
+      "2026-10-08T00:00:00",
+      "2026-10-08T00:30:00",
+      "2026-10-08T01:00:00",
+    ]);
     expect(starts[47]).toBe("2026-10-08T23:30:00");
   });
 
@@ -194,7 +233,12 @@ describe("getTradingPeriodStarts", () => {
   it("repeats the hour daylight saving ends", () => {
     const starts = getTradingPeriodStarts("2026-04-05", 50);
 
-    expect(starts.slice(4, 8)).toEqual(["2026-04-05T02:00:00", "2026-04-05T02:30:00", "2026-04-05T02:00:00", "2026-04-05T02:30:00"]);
+    expect(starts.slice(4, 8)).toEqual([
+      "2026-04-05T02:00:00",
+      "2026-04-05T02:30:00",
+      "2026-04-05T02:00:00",
+      "2026-04-05T02:30:00",
+    ]);
     expect(starts[49]).toBe("2026-04-05T23:30:00");
   });
 
@@ -231,7 +275,11 @@ describe("hoursInNzDay", () => {
 
 describe("getIsoWeek", () => {
   it("mid year", () => {
-    expect(getIsoWeek("2026-10-08")).toEqual({ year: "2026", from: "2026-10-05", to: "2026-10-11" });
+    expect(getIsoWeek("2026-10-08")).toEqual({
+      year: "2026",
+      from: "2026-10-05",
+      to: "2026-10-11",
+    });
   });
 
   it("monday and sunday belong to the same week", () => {
@@ -241,11 +289,19 @@ describe("getIsoWeek", () => {
   });
 
   it("late december can belong to the following year", () => {
-    expect(getIsoWeek("2024-12-30")).toEqual({ year: "2025", from: "2024-12-30", to: "2025-01-05" });
+    expect(getIsoWeek("2024-12-30")).toEqual({
+      year: "2025",
+      from: "2024-12-30",
+      to: "2025-01-05",
+    });
   });
 
   it("early january can belong to the previous year", () => {
-    expect(getIsoWeek("2027-01-01")).toEqual({ year: "2026", from: "2026-12-28", to: "2027-01-03" });
+    expect(getIsoWeek("2027-01-01")).toEqual({
+      year: "2026",
+      from: "2026-12-28",
+      to: "2027-01-03",
+    });
   });
 });
 
@@ -258,14 +314,27 @@ describe("getMonthBounds", () => {
 
 describe("getDatesBetween", () => {
   it("is inclusive and crosses month boundaries", () => {
-    expect(getDatesBetween("2026-09-29", "2026-10-02")).toEqual(["2026-09-29", "2026-09-30", "2026-10-01", "2026-10-02"]);
+    expect(getDatesBetween("2026-09-29", "2026-10-02")).toEqual([
+      "2026-09-29",
+      "2026-09-30",
+      "2026-10-01",
+      "2026-10-02",
+    ]);
   });
 });
 
 describe("sumDataPoints", () => {
   it("sums each node", () => {
-    const day1 = { from: "2026-10-05", to: "2026-10-05", nodes: { A: { g: 0.1, l: 1 }, B: { g: 5, l: 0 } } };
-    const day2 = { from: "2026-10-06", to: "2026-10-06", nodes: { A: { g: 0.2, l: 2 }, C: { g: 1, l: 1 } } };
+    const day1 = {
+      from: "2026-10-05",
+      to: "2026-10-05",
+      nodes: { A: { g: 0.1, l: 1 }, B: { g: 5, l: 0 } },
+    };
+    const day2 = {
+      from: "2026-10-06",
+      to: "2026-10-06",
+      nodes: { A: { g: 0.2, l: 2 }, C: { g: 1, l: 1 } },
+    };
 
     expect(sumDataPoints("2026-10-05", "2026-10-11", [day1, day2])).toEqual({
       from: "2026-10-05",
@@ -285,9 +354,12 @@ describe("upsertDataPoint", () => {
   it("replaces an existing data point for the same period and keeps them in order", () => {
     const aggregate = { data: [point("2026-10-01", 1), point("2026-10-03", 3)] };
 
-    const updated = upsertDataPoint(upsertDataPoint(aggregate, point("2026-10-02", 2)), point("2026-10-01", 10));
+    const updated = upsertDataPoint(
+      upsertDataPoint(aggregate, point("2026-10-02", 2)),
+      point("2026-10-01", 10),
+    );
 
-    expect(updated.data.map(item => [item.from, item.nodes.A.g])).toEqual([
+    expect(updated.data.map((item) => [item.from, item.nodes.A.g])).toEqual([
       ["2026-10-01", 10],
       ["2026-10-02", 2],
       ["2026-10-03", 3],
@@ -298,8 +370,20 @@ describe("upsertDataPoint", () => {
 describe("toTimeseries", () => {
   const aggregate: DispatchAggregate = {
     data: [
-      { from: "2026-10-01", to: "2026-10-01", nodes: { "HLY2201 HLY6": { g: 410.154, l: 0 }, "ABY0111": { g: 0, l: 50.5 }, "HLY2201": { g: 1.1, l: 3.3 } } },
-      { from: "2026-10-02", to: "2026-10-02", nodes: { "HLY2201 HLY6": { g: 555.475, l: 0 }, "KOE1101 KSF0": { g: 217.232, l: 0 } } },
+      {
+        from: "2026-10-01",
+        to: "2026-10-01",
+        nodes: {
+          "HLY2201 HLY6": { g: 410.154, l: 0 },
+          ABY0111: { g: 0, l: 50.5 },
+          HLY2201: { g: 1.1, l: 3.3 },
+        },
+      },
+      {
+        from: "2026-10-02",
+        to: "2026-10-02",
+        nodes: { "HLY2201 HLY6": { g: 555.475, l: 0 }, "KOE1101 KSF0": { g: 217.232, l: 0 } },
+      },
     ],
   };
 

@@ -2,24 +2,32 @@ import { env } from "cloudflare:workers";
 import { listEmiDatasetBlobs } from "../clients/emiDatasets";
 import { sendSlackMessage } from "../clients/slack";
 import { csvToJson } from "../services/csvToJson/csvToJson";
-import { DISPATCH_AGGREGATES_START, getMonthBounds } from "../services/dispatchAggregation/dispatchAggregation";
 import {
-    calculateMeteredGeneration,
-    METERED_DAY_PREFIX,
-    METERED_GENERATION_CODES,
-    MeteredDataset,
-    MeteredFile,
-    MeteredGenerationCode
+  DISPATCH_AGGREGATES_START,
+  getMonthBounds,
+} from "../services/dispatchAggregation/dispatchAggregation";
+import {
+  calculateMeteredGeneration,
+  METERED_DAY_PREFIX,
+  METERED_GENERATION_CODES,
+  MeteredDataset,
+  MeteredFile,
+  MeteredGenerationCode,
 } from "../services/meteredGeneration/meteredGeneration";
-import { AggregateStore, recalculateMonth, recalculateWeeks, recalculateYear } from "./aggregateStore";
+import {
+  AggregateStore,
+  recalculateMonth,
+  recalculateWeeks,
+  recalculateYear,
+} from "./aggregateStore";
 
 // where each dataset's monthly files are, e.g. 199708_Generation_MD.csv
 const FOLDERS: Record<MeteredDataset, string> = {
-    Generation_MD: "Datasets/Wholesale/Generation/Generation_MD/",
-    Embedded_generation: "Datasets/Wholesale/Metered_data/Embedded_generation/",
-    Grid_import: "Datasets/Wholesale/Metered_data/Grid_import/",
-    Unit_level_generation: "Datasets/Wholesale/Metered_data/Unit_level_generation_IR/",
-    Grid_export: "Datasets/Wholesale/Metered_data/Grid_export/",
+  Generation_MD: "Datasets/Wholesale/Generation/Generation_MD/",
+  Embedded_generation: "Datasets/Wholesale/Metered_data/Embedded_generation/",
+  Grid_import: "Datasets/Wholesale/Metered_data/Grid_import/",
+  Unit_level_generation: "Datasets/Wholesale/Metered_data/Unit_level_generation_IR/",
+  Grid_export: "Datasets/Wholesale/Metered_data/Grid_export/",
 };
 
 // the datasets every month's files are downloaded from: Generation_MD, and the grid export and import data the load
@@ -30,28 +38,28 @@ const MONTHLY_DATASETS: MeteredDataset[] = ["Generation_MD", "Grid_export", "Gri
 const SYNC_STATE_KEY = "meteredGenerationSync";
 
 type SyncState = {
-    codesVersion: string;
-    months: Record<string, string>; // the version of the files aggregated for each month (see getFilesVersion), by month (e.g. 199708)
-    checkedAt?: number; // epoch ms, when it last found every month aggregated
-}
+  codesVersion: string;
+  months: Record<string, string>; // the version of the files aggregated for each month (see getFilesVersion), by month (e.g. 199708)
+  checkedAt?: number; // epoch ms, when it last found every month aggregated
+};
 
 // EMI's files for these months are only republished occasionally, so once every month is aggregated, its folders are
 // listed once a day rather than every run
 const CHECK_INTERVAL_MS = 24 * 60 * 60 * 1000;
 
 type MeteredGenerationFile = {
-    source: MeteredDataset;
-    month: string; // YYYYMM
-    url: string;
-    lastModified: number;
-}
+  source: MeteredDataset;
+  month: string; // YYYYMM
+  url: string;
+  lastModified: number;
+};
 
 // a month's Generation_MD, grid export and grid import files, and the other datasets' files any of its days are
 // attributed from
 type MonthToAggregate = {
-    month: string; // YYYYMM
-    files: MeteredGenerationFile[];
-}
+  month: string; // YYYYMM
+  files: MeteredGenerationFile[];
+};
 
 // caps how much work a single run does, so the first backfill (about 280 months) is spread over several runs. a month
 // is about 300ms of CPU (most of it the grid export and import files, for the load), so 40 is well within the 30
@@ -76,158 +84,228 @@ const LAST_MONTH = DISPATCH_AGGREGATES_START.slice(0, 7).replace("-", "");
  * A month is aggregated again when EMI republishes any of its files (checked once a day once every month is aggregated),
  * and every month is when the codes change, so a fix to how a generator is attributed reaches all of its history.
  */
-export async function syncMeteredGeneration(codes: MeteredGenerationCode[] = METERED_GENERATION_CODES) {
-    console.log("Syncing metered generation");
-    const startTime = Date.now();
+export async function syncMeteredGeneration(
+  codes: MeteredGenerationCode[] = METERED_GENERATION_CODES,
+) {
+  console.log("Syncing metered generation");
+  const startTime = Date.now();
 
-    const [state, codesVersion] = await Promise.all([getSyncState(), getCodesVersion(codes)]);
+  const [state, codesVersion] = await Promise.all([getSyncState(), getCodesVersion(codes)]);
 
-    if (state?.codesVersion === codesVersion && state.checkedAt && Date.now() - state.checkedAt < CHECK_INTERVAL_MS) {
-        console.log("Metered generation is up to date, last checked at " + new Date(state.checkedAt).toISOString());
-        return;
-    }
-    if (state && state.codesVersion !== codesVersion) {
-        console.log("The metered generation codes have changed, so aggregating every month again");
-    }
-    const aggregated = state?.codesVersion === codesVersion ? state.months : {};
+  if (
+    state?.codesVersion === codesVersion &&
+    state.checkedAt &&
+    Date.now() - state.checkedAt < CHECK_INTERVAL_MS
+  ) {
+    console.log(
+      "Metered generation is up to date, last checked at " +
+        new Date(state.checkedAt).toISOString(),
+    );
+    return;
+  }
+  if (state && state.codesVersion !== codesVersion) {
+    console.log("The metered generation codes have changed, so aggregating every month again");
+  }
+  const aggregated = state?.codesVersion === codesVersion ? state.months : {};
 
-    const monthsToAggregate = getMonths(await getListOfFiles(codes), codes)
-        .filter(({ month, files }) => month <= LAST_MONTH && aggregated[month] !== getFilesVersion(files));
+  const monthsToAggregate = getMonths(await getListOfFiles(codes), codes).filter(
+    ({ month, files }) => month <= LAST_MONTH && aggregated[month] !== getFilesVersion(files),
+  );
 
-    if (monthsToAggregate.length === 0) {
-        console.log("No metered generation to aggregate");
-        await env.dispatch_kv.put(SYNC_STATE_KEY, JSON.stringify({ codesVersion, months: aggregated, checkedAt: Date.now() } satisfies SyncState));
-        return;
-    }
+  if (monthsToAggregate.length === 0) {
+    console.log("No metered generation to aggregate");
+    await env.dispatch_kv.put(
+      SYNC_STATE_KEY,
+      JSON.stringify({
+        codesVersion,
+        months: aggregated,
+        checkedAt: Date.now(),
+      } satisfies SyncState),
+    );
+    return;
+  }
 
-    const store = new AggregateStore();
-    const months = { ...aggregated };
-    const unlisted = new Map<string, { mwh: number; months: string[] }>();
+  const store = new AggregateStore();
+  const months = { ...aggregated };
+  const unlisted = new Map<string, { mwh: number; months: string[] }>();
 
-    for (const [index, { month, files }] of monthsToAggregate.entries()) {
-        if (index >= MAX_MONTHS_PER_RUN || Date.now() - startTime > TIME_BUDGET_MS) {
-            console.log(`Stopping for this run, ${monthsToAggregate.length - index} month(s) left to aggregate`);
-            break;
-        }
-
-        // the files' rows aren't kept, so they can be freed before the days are written (the grid export and import
-        // files' are about 25MB of a month's)
-        const { days, unlisted: monthUnlisted } = calculateMeteredGeneration(await downloadFiles(files), codes);
-
-        const dates = [...days.keys()].filter(date => date < DISPATCH_AGGREGATES_START).sort();
-        await Promise.all(dates.map(date =>
-            env.dispatch.put(METERED_DAY_PREFIX + date.replace(/-/g, ""), JSON.stringify(days.get(date)!.periods))));
-
-        for (const date of dates) {
-            await store.upsert("daily", date.slice(0, 7), { from: date, to: date, nodes: days.get(date)!.energy });
-        }
-
-        // a file only has its own month's trading days
-        const isoMonth = `${month.slice(0, 4)}-${month.slice(4)}`;
-        await recalculateWeeks(store, dates);
-        await recalculateMonth(store, isoMonth);
-        await recalculateYear(store, isoMonth.slice(0, 4));
-        await store.flush();
-
-        months[month] = getFilesVersion(files);
-        await env.dispatch_kv.put(SYNC_STATE_KEY, JSON.stringify({ codesVersion, months } satisfies SyncState));
-
-        for (const [code, mwh] of monthUnlisted) {
-            const existing = unlisted.get(code) ?? { mwh: 0, months: [] };
-            unlisted.set(code, { mwh: existing.mwh + mwh, months: [...existing.months, month] });
-        }
-
-        console.log("Aggregated metered generation for " + month);
+  for (const [index, { month, files }] of monthsToAggregate.entries()) {
+    if (index >= MAX_MONTHS_PER_RUN || Date.now() - startTime > TIME_BUDGET_MS) {
+      console.log(
+        `Stopping for this run, ${monthsToAggregate.length - index} month(s) left to aggregate`,
+      );
+      break;
     }
 
-    // their generation is left out until they're listed, which aggregates every month again
-    if (unlisted.size > 0) {
-        console.warn("Metered generation codes that aren't listed: " + [...unlisted.keys()].join(", "));
-        await sendSlackMessage(formatUnlistedCodesMessage(unlisted));
+    // the files' rows aren't kept, so they can be freed before the days are written (the grid export and import
+    // files' are about 25MB of a month's)
+    const { days, unlisted: monthUnlisted } = calculateMeteredGeneration(
+      await downloadFiles(files),
+      codes,
+    );
+
+    const dates = [...days.keys()].filter((date) => date < DISPATCH_AGGREGATES_START).sort();
+    await Promise.all(
+      dates.map((date) =>
+        env.dispatch.put(
+          METERED_DAY_PREFIX + date.replace(/-/g, ""),
+          JSON.stringify(days.get(date)!.periods),
+        ),
+      ),
+    );
+
+    for (const date of dates) {
+      await store.upsert("daily", date.slice(0, 7), {
+        from: date,
+        to: date,
+        nodes: days.get(date)!.energy,
+      });
     }
 
-    console.log("Finished syncing metered generation");
+    // a file only has its own month's trading days
+    const isoMonth = `${month.slice(0, 4)}-${month.slice(4)}`;
+    await recalculateWeeks(store, dates);
+    await recalculateMonth(store, isoMonth);
+    await recalculateYear(store, isoMonth.slice(0, 4));
+    await store.flush();
+
+    months[month] = getFilesVersion(files);
+    await env.dispatch_kv.put(
+      SYNC_STATE_KEY,
+      JSON.stringify({ codesVersion, months } satisfies SyncState),
+    );
+
+    for (const [code, mwh] of monthUnlisted) {
+      const existing = unlisted.get(code) ?? { mwh: 0, months: [] };
+      unlisted.set(code, { mwh: existing.mwh + mwh, months: [...existing.months, month] });
+    }
+
+    console.log("Aggregated metered generation for " + month);
+  }
+
+  // their generation is left out until they're listed, which aggregates every month again
+  if (unlisted.size > 0) {
+    console.warn("Metered generation codes that aren't listed: " + [...unlisted.keys()].join(", "));
+    await sendSlackMessage(formatUnlistedCodesMessage(unlisted));
+  }
+
+  console.log("Finished syncing metered generation");
 }
 
-export function formatUnlistedCodesMessage(unlisted: Map<string, { mwh: number; months: string[] }>): string {
-    const lines = [...unlisted].map(([code, { mwh, months }]) => {
-        const gwh = (mwh / 1000).toLocaleString("en-NZ", { maximumFractionDigits: 1 });
-        const period = months.length === 1 ? months[0] : `${months[0]}-${months[months.length - 1]}`;
-        return `• \`${code}\`: ${gwh} GWh (${period})`;
-    });
+export function formatUnlistedCodesMessage(
+  unlisted: Map<string, { mwh: number; months: string[] }>,
+): string {
+  const lines = [...unlisted].map(([code, { mwh, months }]) => {
+    const gwh = (mwh / 1000).toLocaleString("en-NZ", { maximumFractionDigits: 1 });
+    const period = months.length === 1 ? months[0] : `${months[0]}-${months[months.length - 1]}`;
+    return `• \`${code}\`: ${gwh} GWh (${period})`;
+  });
 
-    return "⚠️ EMI's metered generation has generators that aren't in meteredGenerationCodes.json, so their generation "
-        + "is left out of the aggregates. Add each one with the unit it belongs to (or why it's excluded):\n"
-        + lines.join("\n");
+  return (
+    "⚠️ EMI's metered generation has generators that aren't in meteredGenerationCodes.json, so their generation " +
+    "is left out of the aggregates. Add each one with the unit it belongs to (or why it's excluded):\n" +
+    lines.join("\n")
+  );
 }
 
 // the monthly files of Generation_MD and the grid export and import data, and of any other dataset a code is from
 async function getListOfFiles(codes: MeteredGenerationCode[]): Promise<MeteredGenerationFile[]> {
-    const sources = new Set<MeteredDataset>([...MONTHLY_DATASETS, ...codes.map(code => code.source ?? "Generation_MD")]);
+  const sources = new Set<MeteredDataset>([
+    ...MONTHLY_DATASETS,
+    ...codes.map((code) => code.source ?? "Generation_MD"),
+  ]);
 
-    const listings = await Promise.all([...sources].map(async source => {
-        const folder = FOLDERS[source];
-        const name = new RegExp(`^\\d{6}_${source}\\.csv$`);
+  const listings = await Promise.all(
+    [...sources].map(async (source) => {
+      const folder = FOLDERS[source];
+      const name = new RegExp(`^\\d{6}_${source}\\.csv$`);
 
-        return (await listEmiDatasetBlobs(folder))
-            .filter(blob => name.test(blob.name.slice(folder.length)))
-            .map(blob => ({
-                source,
-                month: blob.name.slice(folder.length, folder.length + 6),
-                url: blob.url,
-                lastModified: blob.lastModified,
-            }));
-    }));
+      return (await listEmiDatasetBlobs(folder))
+        .filter((blob) => name.test(blob.name.slice(folder.length)))
+        .map((blob) => ({
+          source,
+          month: blob.name.slice(folder.length, folder.length + 6),
+          url: blob.url,
+          lastModified: blob.lastModified,
+        }));
+    }),
+  );
 
-    return listings.flat();
+  return listings.flat();
 }
 
 // each month with a Generation_MD file, oldest first, with its grid export and import files, and the other datasets'
 // files for the month that any of its days are attributed from, so they're only downloaded for the months that need them
-function getMonths(files: MeteredGenerationFile[], codes: MeteredGenerationCode[]): MonthToAggregate[] {
-    return [...Map.groupBy(files, file => file.month)]
-        .filter(([, files]) => files.some(file => file.source === "Generation_MD"))
-        .map(([month, files]) => ({
-            month,
-            files: files.filter(file => MONTHLY_DATASETS.includes(file.source) || isAttributedFrom(file.source, month, codes)),
-        }))
-        .sort((a, b) => a.month.localeCompare(b.month));
+function getMonths(
+  files: MeteredGenerationFile[],
+  codes: MeteredGenerationCode[],
+): MonthToAggregate[] {
+  return [...Map.groupBy(files, (file) => file.month)]
+    .filter(([, files]) => files.some((file) => file.source === "Generation_MD"))
+    .map(([month, files]) => ({
+      month,
+      files: files.filter(
+        (file) =>
+          MONTHLY_DATASETS.includes(file.source) || isAttributedFrom(file.source, month, codes),
+      ),
+    }))
+    .sort((a, b) => a.month.localeCompare(b.month));
 }
 
 // whether a code from the dataset attributes any of the month's (e.g. 201502) days to a unit
-function isAttributedFrom(source: MeteredDataset, month: string, codes: MeteredGenerationCode[]): boolean {
-    const { from, to } = getMonthBounds(`${month.slice(0, 4)}-${month.slice(4)}`);
-    return codes.some(code => code.source === source && code.node && (code.from ?? "") <= to && from <= (code.to ?? "9999"));
+function isAttributedFrom(
+  source: MeteredDataset,
+  month: string,
+  codes: MeteredGenerationCode[],
+): boolean {
+  const { from, to } = getMonthBounds(`${month.slice(0, 4)}-${month.slice(4)}`);
+  return codes.some(
+    (code) =>
+      code.source === source && code.node && (code.from ?? "") <= to && from <= (code.to ?? "9999"),
+  );
 }
 
 // when EMI last published each of a month's files, so the month is aggregated again when any of them changes
 function getFilesVersion(files: MeteredGenerationFile[]): string {
-    return files.map(file => `${file.source} ${file.lastModified}`).sort().join(", ");
+  return files
+    .map((file) => `${file.source} ${file.lastModified}`)
+    .sort()
+    .join(", ");
 }
 
 function downloadFiles(files: MeteredGenerationFile[]): Promise<MeteredFile[]> {
-    return Promise.all(files.map(async ({ source, url }) => ({ source, records: await downloadFile(url) })));
+  return Promise.all(
+    files.map(async ({ source, url }) => ({ source, records: await downloadFile(url) })),
+  );
 }
 
 async function downloadFile(url: string): Promise<Record<string, string>[]> {
-    const response = await fetch(url);
-    if (!response.ok) {
-        throw new Error(`Failed to download ${url}: ${response.status}`);
-    }
+  const response = await fetch(url);
+  if (!response.ok) {
+    throw new Error(`Failed to download ${url}: ${response.status}`);
+  }
 
-    // some files (e.g. late 2014 to mid 2016) pad their empty trading periods with null characters
-    return csvToJson((await response.text()).replaceAll("\0", ""));
+  // some files (e.g. late 2014 to mid 2016) pad their empty trading periods with null characters
+  return csvToJson((await response.text()).replaceAll("\0", ""));
 }
 
 async function getSyncState(): Promise<SyncState | null> {
-    const state = await env.dispatch_kv.get(SYNC_STATE_KEY);
-    return state ? JSON.parse(state) as SyncState : null;
+  const state = await env.dispatch_kv.get(SYNC_STATE_KEY);
+  return state ? (JSON.parse(state) as SyncState) : null;
 }
 
 // only what changes how generation is attributed, so editing a code's note doesn't aggregate everything again
 async function getCodesVersion(codes: MeteredGenerationCode[]): Promise<string> {
-    const attribution = codes.map(({ code, source, node, from, to }) =>
-        [code, source ?? "Generation_MD", node ?? null, from ?? null, to ?? null]);
-    const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(JSON.stringify(attribution)));
-    return [...new Uint8Array(digest)].map(byte => byte.toString(16).padStart(2, "0")).join("");
+  const attribution = codes.map(({ code, source, node, from, to }) => [
+    code,
+    source ?? "Generation_MD",
+    node ?? null,
+    from ?? null,
+    to ?? null,
+  ]);
+  const digest = await crypto.subtle.digest(
+    "SHA-256",
+    new TextEncoder().encode(JSON.stringify(attribution)),
+  );
+  return [...new Uint8Array(digest)].map((byte) => byte.toString(16).padStart(2, "0")).join("");
 }
