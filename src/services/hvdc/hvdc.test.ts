@@ -12,7 +12,7 @@ import {
   toRecentHvdc,
 } from "./hvdc";
 import { em6Hvdc, HVDC_TIMESERIES } from "../../testing/fixtures";
-import { Em6HvdcResponse } from "../../models/hvdc";
+import { Em6HvdcResponse, HvdcRow, HvdcTimeseries } from "../../models/hvdc";
 
 const SERIES = HVDC_TIMESERIES.series;
 
@@ -180,7 +180,7 @@ describe("toMeteredHvdcDays", () => {
 
 describe("splitHvdcByDate", () => {
   it("splits em6's last day into each date's half hours", () => {
-    const timeseries = {
+    const timeseries: HvdcTimeseries = {
       series: SERIES,
       data: [
         ["2026-10-28T23:30:00", 600, 0, 1200, -650],
@@ -209,7 +209,7 @@ describe("getRecentHvdcDates", () => {
 });
 
 describe("toRecentHvdc", () => {
-  const row = (time: string) => [time, 600, 0, 1200, -650];
+  const row = (time: string): HvdcRow => [time, 600, 0, 1200, -650];
 
   it("keeps the 3 days of half hours back from the latest, like the dispatch", () => {
     const days = [
@@ -244,14 +244,14 @@ describe("toRecentHvdc", () => {
 
 describe("mergeHvdc", () => {
   it("keeps the stored half hours, replacing any at the same times as the latest", () => {
-    const stored = {
+    const stored: HvdcTimeseries = {
       series: SERIES,
       data: [
         ["2026-10-28T20:00:00", 600, 0, 1200, -650],
         ["2026-10-28T20:30:00", null, 0, 1200, -650],
       ],
     };
-    const latest = {
+    const latest: HvdcTimeseries = {
       series: SERIES,
       data: [
         ["2026-10-28T21:00:00", 620, 0, 1200, -650],
@@ -272,7 +272,7 @@ describe("mergeHvdc", () => {
 });
 
 describe("mergeHvdcDays", () => {
-  const metered = {
+  const metered: HvdcTimeseries = {
     series: SERIES,
     data: [
       ["2026-10-12T00:00:00", 650, 0, null, null],
@@ -281,7 +281,10 @@ describe("mergeHvdcDays", () => {
   };
 
   it("leaves the limits null in the half hours em6 doesn't have", () => {
-    const em6 = { series: SERIES, data: [["2026-10-12T00:30:00", 630, 0, 1200, -650]] };
+    const em6: HvdcTimeseries = {
+      series: SERIES,
+      data: [["2026-10-12T00:30:00", 630, 0, 1200, -650]],
+    };
 
     expect(mergeHvdcDays(metered, em6).data).toEqual([
       ["2026-10-12T00:00:00", 650, 0, null, null],
@@ -296,7 +299,7 @@ describe("mergeHvdcDays", () => {
 
 describe("calculateHvdcEnergy", () => {
   it("totals the MWh sent each way, counting em6's south flow whatever its sign", () => {
-    const day = {
+    const day: HvdcTimeseries = {
       series: SERIES,
       data: [
         ["2026-10-12T00:00:00", 600, 0, 1200, -650],

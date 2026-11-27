@@ -19,5 +19,5 @@ export type DispatchAggregate = {
 // the api response, in the same shape as the other dispatch timeseries (e.g. /v1/dispatch/recent)
 export type DispatchAggregateTimeseries = {
   series: string[]; // nodes
-  data: (string | number)[][]; // [first date of the period, ...net MWh (generation - load) for each node in series]
+  data: [string, ...number[]][]; // [first date of the period, ...net MWh (generation - load) for each node in series]
 };

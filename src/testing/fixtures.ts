@@ -1,6 +1,6 @@
 import { RealTimeDispatch } from "../models/realTimeDispatch";
 import { PocpOutage } from "../models/pocpOutage";
-import { Em6HvdcResponse } from "../models/hvdc";
+import { Em6HvdcResponse, HvdcTimeseries } from "../models/hvdc";
 import { OfferRecord } from "../models/offerRecord";
 import { mockFetch, streamedResponse } from "./fetchMock";
 
@@ -94,7 +94,7 @@ export function em6Hvdc(): Em6HvdcResponse {
 }
 
 // em6Hvdc() as it's stored and returned
-export const HVDC_TIMESERIES = {
+export const HVDC_TIMESERIES: HvdcTimeseries = {
   series: ["northFlow", "southFlow", "northLimit", "southLimit"],
   data: [
     ["2026-10-28T20:00:00", 675, 0, 1200, -648],

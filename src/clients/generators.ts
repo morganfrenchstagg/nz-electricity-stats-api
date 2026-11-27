@@ -10,6 +10,7 @@ export type GeneratorDefinition = {
   units: UnitDefinition[];
   location: LocationDefinition;
   gridZone: string;
+  island: string; // NI or SI
   operator: string;
   scheme?: string;
   alias?: string;

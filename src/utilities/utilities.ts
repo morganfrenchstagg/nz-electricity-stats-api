@@ -1,34 +1,8 @@
+import { Context } from "hono";
+
 export const ONE_HOUR_IN_SECONDS = 60 * 60;
 export const ONE_DAY_IN_SECONDS = ONE_HOUR_IN_SECONDS * 24;
 
-export function getJsonResponseWithMaxAgeHeader(json: any, headers?: Record<string, string>) {
-  headers = {
-    ...headers,
-    "Cache-Control": `max-age=${ONE_DAY_IN_SECONDS}`,
-  };
-  return getJsonResponseWithHeaders(json, headers);
-}
-
-export function getJsonResponseWithHeaders(json: any, headers: Record<string, string>) {
-  const headersObj = new Headers();
-
-  for (const obj in headers) {
-    headersObj.set(obj, headers[obj]);
-  }
-
-  const resp = Response.json(json, {
-    headers: headersObj,
-  });
-
-  return resp;
-}
-
-export function getServiceUnavailableResponse(message: string) {
-  return Response.json(
-    { message },
-    {
-      status: 503,
-      headers: { "Cache-Control": "no-store" },
-    },
-  );
+export function getServiceUnavailableResponse(c: Context, message: string) {
+  return c.json({ message }, 503, { "Cache-Control": "no-store" });
 }

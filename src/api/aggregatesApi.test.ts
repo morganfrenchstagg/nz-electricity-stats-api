@@ -71,12 +71,22 @@ describe("aggregates api", () => {
     expect(response.status).toBe(200);
   });
 
-  it("rejects invalid months", async () => {
-    const { response, json } = await getJson("/v1/dispatch/aggregates/2026/13");
+  it.each(["13", "0", "oct", "1.5"])("rejects the month %s", async (month) => {
+    const { response, json } = await getJson(`/v1/dispatch/aggregates/2026/${month}`);
 
     expect(response.status).toBe(400);
     expect(json).toEqual({ message: "Invalid month, expected 1-12" });
   });
+
+  it.each(["/v1/dispatch/aggregates/26/weekly", "/v1/dispatch/aggregates/202a/10"])(
+    "rejects the year in %s",
+    async (path) => {
+      const { response, json } = await getJson(path);
+
+      expect(response.status).toBe(400);
+      expect(json).toEqual({ message: "Invalid year, expected one like 2026" });
+    },
+  );
 
   it.each([
     ["weekly", "/v1/dispatch/aggregates/2026/weekly", "aggregate-weekly-2026"],

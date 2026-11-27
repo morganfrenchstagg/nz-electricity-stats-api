@@ -18,6 +18,12 @@ npm run format:check  # npm run format rewrites files in place
 npm test
 ```
 
+## API docs
+
+`/openapi.json` describes the `/v1` routes in OpenAPI 3.1, and `/docs` renders it with Swagger UI, whose "Try it out" requests whichever deployment (or `npm run dev`) is serving it.
+
+The document is generated from the routes, which are [`@hono/zod-openapi`](https://github.com/honojs/middleware/tree/main/packages/zod-openapi) routes: each is declared with `createRoute`, with zod schemas for its params, query and responses (the shared ones are in `src/api/schemas.ts`), and added with `app.openapi` rather than `app.get`. The params and query are validated against the schemas, with a 400 and the schema's message when they don't match, and the compiler checks what each handler returns against its response schemas. Much of the data is read from R2, KV or JSON files without a type it can check, though, so `src/openapi.test.ts` checks the responses it can build against the document too, and fails if a route isn't in it.
+
 ## Data and licensing
 
 The API republishes data from:

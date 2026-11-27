@@ -18,5 +18,7 @@ export type Em6HvdcResponse = {
 // missed one, or the limits for EMI's metered flows)
 export type HvdcTimeseries = {
   series: string[];
-  data: (string | number | null)[][];
+  data: HvdcRow[];
 };
+
+export type HvdcRow = [string, ...(number | null)[]];

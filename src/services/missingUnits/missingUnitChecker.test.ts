@@ -52,6 +52,7 @@ describe("checkForMissingUnits", () => {
           long: 0,
         },
         gridZone: "",
+        island: "",
         operator: "",
       },
     ]);
@@ -91,6 +92,7 @@ describe("checkForMissingUnits", () => {
           long: 0,
         },
         gridZone: "",
+        island: "",
         operator: "",
       },
     ]);
@@ -137,6 +139,7 @@ describe("checkForMissingUnits", () => {
             long: 0,
           },
           gridZone: "",
+          island: "",
           operator: "",
         },
       ]);
@@ -217,6 +220,7 @@ describe("checkForMissingUnits", () => {
           long: 0,
         },
         gridZone: "",
+        island: "",
         operator: "",
       },
     ]);
@@ -256,6 +260,7 @@ describe("checkForMissingUnits", () => {
           long: 0,
         },
         gridZone: "",
+        island: "",
         operator: "",
       },
     ]);
@@ -366,6 +371,7 @@ describe("checkForMissingUnits", () => {
           long: 0,
         },
         gridZone: "",
+        island: "",
         operator: "",
       },
     ]);
