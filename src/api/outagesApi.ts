@@ -38,7 +38,7 @@ function toResponse(outagesByUnit: Record<string, PocpOutage[]>) {
     return output;
 }
 
-app.get("", async (c) => {
+app.get("", async () => {
     const outagesByUnit = await getOutageListFromCache();
     return getJsonResponseWithHeaders(toResponse(outagesByUnit), { "Cache-Control": `max-age=${ONE_HOUR_IN_SECONDS}` })
 })

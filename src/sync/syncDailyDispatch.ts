@@ -85,7 +85,7 @@ async function downloadFileAndParse(url: string) {
         throw new Error(`Failed to download ${url}: ${response.status}`);
     }
 
-    let out = {} as Record<string, HistoricalDispatchRecord[]>;
+    const out = {} as Record<string, HistoricalDispatchRecord[]>;
 
     // rows are converted as the file downloads, rather than holding the whole file in memory
     const parser = new CsvRecordParser((item) => {

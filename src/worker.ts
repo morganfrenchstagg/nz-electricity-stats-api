@@ -46,11 +46,11 @@ app.get('ping', async (c) => {
   return c.text("pong");
 });
 
-app.get('/v1/attribution', async (c) => {
+app.get('/v1/attribution', async () => {
   return getJsonResponseWithMaxAgeHeader(ATTRIBUTION);
 });
 
-app.get('/v1/definitions', async (c) => {
+app.get('/v1/definitions', async () => {
   const generators = await getGenerators();
   const substations = await getSubstations();
 
@@ -62,11 +62,11 @@ app.get('/v1/definitions', async (c) => {
   return getJsonResponseWithMaxAgeHeader(output);
 })
 
-app.get('/v1/generators', async (c) => {
+app.get('/v1/generators', async () => {
   return getJsonResponseWithMaxAgeHeader(await getGenerators());
 });
 
-app.get('/v1/substations', async (c) => {
+app.get('/v1/substations', async () => {
   return getJsonResponseWithMaxAgeHeader(await getSubstations());
 });
 

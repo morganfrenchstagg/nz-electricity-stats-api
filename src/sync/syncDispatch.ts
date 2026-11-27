@@ -45,7 +45,7 @@ export async function syncDispatch() {
 
     const existingTimeseriesJson = (existingTimeseries ? await existingTimeseries.json() : { series: [], data: [] }) as Timeseries;
 
-    const timeseries = await generateTimeseries(existingTimeseriesJson, data);
+    const timeseries = generateTimeseries(existingTimeseriesJson, data);
     await env.dispatch.put("timeseries", JSON.stringify(timeseries));
     const metadata: CheckpointMetadata = { updatedAt: Date.now() };
     await env.dispatch_kv.put("latestDispatchTime", JSON.stringify(lastUpdatedRtd), { metadata });
@@ -73,7 +73,7 @@ function getNZDateTime(): Date {
 }
 
 async function checkForMissingUnitsAndNotify(lastDispatch: any[]) {
-  var missingUnitResponse = await checkForMissingUnits(lastDispatch.map(item => item.PointOfConnectionCode) as string[]);
+  const missingUnitResponse = await checkForMissingUnits(lastDispatch.map(item => item.PointOfConnectionCode) as string[]);
 
   const previousMissingUnitResponse = await env.dispatch_kv.get("missingUnit");
   if (previousMissingUnitResponse) {
@@ -124,8 +124,8 @@ function deepEqual(a: any, b: any): boolean {
 }
 
 async function sendMissingUnitsToSlack(missingUnitResponse: any) {
-  var slackMessage = "";
-  var sendMessage = false;
+  let slackMessage = "";
+  let sendMessage = false;
   if (missingUnitResponse.substations.notInSubstationList.length > 0) {
     slackMessage += "Missing unit in substation list: `" + missingUnitResponse.substations.notInSubstationList.join('`, `') + "`" + "\n";
     sendMessage = true;

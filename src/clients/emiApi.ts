@@ -10,7 +10,7 @@ export async function fetchCachedDataFromEmiApi(): Promise<RealTimeDispatch[] | 
 
 export async function fetchDataFromEmiApi() {
   console.log("Fetching from EMI RTD API");
-  var response = await fetch(emiApiUrl, {
+  const response = await fetch(emiApiUrl, {
     headers: {
       "Ocp-Apim-Subscription-Key": env.EMI_API_KEY,
     },

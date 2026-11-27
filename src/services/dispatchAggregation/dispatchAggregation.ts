@@ -226,7 +226,6 @@ export function getIsoWeek(date: string): { year: string; from: string; to: stri
     const monday = day - daysSinceMonday * ONE_DAY_IN_MS;
     const thursday = monday + 3 * ONE_DAY_IN_MS;
     const year = new Date(thursday).getUTCFullYear();
-    const week = Math.floor((thursday - Date.UTC(year, 0, 1)) / ONE_DAY_IN_MS / 7) + 1;
 
     return {
         year: `${year}`,

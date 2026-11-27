@@ -1,6 +1,6 @@
 
 export async function csvToJson(csv: string): Promise<Record<string, string>[]> {
-	let records = [] as Record<string, string>[];
+	const records = [] as Record<string, string>[];
 
 	const parser = new CsvRecordParser((record) => records.push(record));
 	parser.write(csv);

@@ -12,7 +12,7 @@ export function getJsonResponseWithMaxAgeHeader(json: any, headers?: Record<stri
 export function getJsonResponseWithHeaders(json: any, headers: Record<string, string>) {
     const headersObj = new Headers();
 
-    for (let obj in headers) {
+    for (const obj in headers) {
         headersObj.set(obj, headers[obj]);
     }
 
