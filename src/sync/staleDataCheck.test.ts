@@ -17,7 +17,9 @@ function mockSlack() {
 }
 
 async function slackMessages(requests: Request[]) {
-  return await Promise.all(requests.map(async request => (await request.json() as { text: string }).text));
+  return await Promise.all(
+    requests.map(async (request) => ((await request.json()) as { text: string }).text),
+  );
 }
 
 describe("checkForStaleData", () => {
@@ -35,7 +37,9 @@ describe("checkForStaleData", () => {
     await storeCheckpoint("latestDispatchTime", 61 * ONE_MINUTE);
     await checkForStaleData();
 
-    expect(await slackMessages(requests)).toEqual(["⏰ No new *real time dispatch data* for 1 hour"]);
+    expect(await slackMessages(requests)).toEqual([
+      "⏰ No new *real time dispatch data* for 1 hour",
+    ]);
     expect(JSON.parse((await env.dispatch_kv.get("staleDataAlerts"))!)).toEqual(["rtd"]);
   });
 

@@ -4,11 +4,11 @@ import { env } from "cloudflare:workers";
 export async function sendSlackMessage(text: string) {
   try {
     const response = await fetch(env.SLACK_WEBHOOK_URL, {
-      method: 'POST',
+      method: "POST",
       headers: {
-        'Content-Type': 'application/json'
+        "Content-Type": "application/json",
       },
-      body: JSON.stringify({ text })
+      body: JSON.stringify({ text }),
     });
     if (!response.ok) {
       console.error(`Failed to send Slack message: ${response.status}`);

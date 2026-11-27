@@ -4,14 +4,16 @@ import { requestWorker } from "../testing/requestWorker";
 import { mockFetch } from "../testing/fetchMock";
 import { edgeCacheStorage } from "../testing/cloudflareWorkers";
 
-const ARCGIS_URL = "https://services3.arcgis.com/AkUq3zcWf7TVqyR9/arcgis/rest/services/TransmissionLines/FeatureServer/0/query";
+const ARCGIS_URL =
+  "https://services3.arcgis.com/AkUq3zcWf7TVqyR9/arcgis/rest/services/TransmissionLines/FeatureServer/0/query";
 const NOW = new Date("2026-10-14T09:00:00Z").getTime();
 const ONE_HOUR_MS = 60 * 60 * 1000;
 
-const lines = (name: string) => JSON.stringify({
-  type: "FeatureCollection",
-  features: [{ type: "Feature", properties: { name }, geometry: null }],
-});
+const lines = (name: string) =>
+  JSON.stringify({
+    type: "FeatureCollection",
+    features: [{ type: "Feature", properties: { name }, geometry: null }],
+  });
 
 describe("transmission lines api", () => {
   beforeEach(() => {
@@ -67,7 +69,10 @@ describe("transmission lines api", () => {
         return response;
       }
       const withNoStore = new Response(response.body, response);
-      withNoStore.headers.set("Cache-Control", `${response.headers.get("Cache-Control")}, no-store`);
+      withNoStore.headers.set(
+        "Cache-Control",
+        `${response.headers.get("Cache-Control")}, no-store`,
+      );
       return withNoStore;
     });
 
@@ -92,14 +97,19 @@ describe("transmission lines api", () => {
 
   it("returns 502 when ArcGIS fails, without keeping it in the edge cache", async () => {
     let ok = false;
-    mockFetch({ [ARCGIS_URL]: () => ok ? new Response(lines("new")) : new Response("Service unavailable", { status: 503 }) });
+    mockFetch({
+      [ARCGIS_URL]: () =>
+        ok ? new Response(lines("new")) : new Response("Service unavailable", { status: 503 }),
+    });
 
     const failed = await requestWorker("/v1/transmission-lines");
     await failed.finishBackgroundWork();
 
     expect(failed.response.status).toBe(502);
     expect(failed.response.headers.get("Cache-Control")).toBe("no-store");
-    expect(await failed.response.json()).toEqual({ error: "Transmission lines are temporarily unavailable" });
+    expect(await failed.response.json()).toEqual({
+      error: "Transmission lines are temporarily unavailable",
+    });
 
     ok = true;
     const { response } = await requestWorker("/v1/transmission-lines");
@@ -109,7 +119,8 @@ describe("transmission lines api", () => {
 
   it("returns 502 for an incomplete response from ArcGIS", async () => {
     mockFetch({
-      [ARCGIS_URL]: () => Response.json({ ...JSON.parse(lines("partial")), exceededTransferLimit: true }),
+      [ARCGIS_URL]: () =>
+        Response.json({ ...JSON.parse(lines("partial")), exceededTransferLimit: true }),
     });
 
     const { response } = await requestWorker("/v1/transmission-lines");

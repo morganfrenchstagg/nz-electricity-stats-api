@@ -33,62 +33,70 @@ app.onError((err, c) => {
 });
 
 // every data response points to where its sources and licences are credited (see attribution.ts)
-app.use('/v1/*', async (c, next) => {
+app.use("/v1/*", async (c, next) => {
   await next();
   c.header("Link", ATTRIBUTION_LINK, { append: true });
 });
 
-app.get('/', async (c) => {
+app.get("/", async (c) => {
   return c.body(null, 200);
 });
 
-app.get('ping', async (c) => {
+app.get("ping", async (c) => {
   return c.text("pong");
 });
 
-app.get('/v1/attribution', async () => {
+app.get("/v1/attribution", async () => {
   return getJsonResponseWithMaxAgeHeader(ATTRIBUTION);
 });
 
-app.get('/v1/definitions', async () => {
+app.get("/v1/definitions", async () => {
   const generators = await getGenerators();
   const substations = await getSubstations();
 
   const output = {
     generators,
-    substations
-  }
+    substations,
+  };
 
   return getJsonResponseWithMaxAgeHeader(output);
-})
+});
 
-app.get('/v1/generators', async () => {
+app.get("/v1/generators", async () => {
   return getJsonResponseWithMaxAgeHeader(await getGenerators());
 });
 
-app.get('/v1/substations', async () => {
+app.get("/v1/substations", async () => {
   return getJsonResponseWithMaxAgeHeader(await getSubstations());
 });
 
-app.route('/v1/dispatch', dispatchApi);
-app.route('/v1/offers', offersApi);
-app.route('/v1/outages', outagesApi)
-app.route('/v1/transmission-lines', transmissionLinesApi);
+app.route("/v1/dispatch", dispatchApi);
+app.route("/v1/offers", offersApi);
+app.route("/v1/outages", outagesApi);
+app.route("/v1/transmission-lines", transmissionLinesApi);
 
 // an MCP server whose tools answer agents' questions from the routes above, requesting them from the worker itself
 // rather than over the network. it's stateless, so each request gets a server of its own
-app.post('/mcp', async (c) => {
-  const server = createMcpServer(async (path) => app.fetch(new Request(new URL(path, c.req.url)), c.env, c.executionCtx));
-  const transport = new WebStandardStreamableHTTPServerTransport({ sessionIdGenerator: undefined, enableJsonResponse: true });
+app.post("/mcp", async (c) => {
+  const server = createMcpServer(async (path) =>
+    app.fetch(new Request(new URL(path, c.req.url)), c.env, c.executionCtx),
+  );
+  const transport = new WebStandardStreamableHTTPServerTransport({
+    sessionIdGenerator: undefined,
+    enableJsonResponse: true,
+  });
   await server.connect(transport);
   return transport.handleRequest(c.req.raw);
 });
 
 // a stateless server has no stream for the client to open, or session for it to end
-app.on(['GET', 'DELETE'], '/mcp', async (c) => {
-  return c.json({ jsonrpc: "2.0", error: { code: -32000, message: "Method not allowed" }, id: null }, 405, { Allow: "POST" });
+app.on(["GET", "DELETE"], "/mcp", async (c) => {
+  return c.json(
+    { jsonrpc: "2.0", error: { code: -32000, message: "Method not allowed" }, id: null },
+    405,
+    { Allow: "POST" },
+  );
 });
-
 
 async function scheduled(controller: ScheduledController) {
   switch (controller.cron) {
@@ -131,4 +139,4 @@ async function scheduled(controller: ScheduledController) {
 export default {
   fetch: app.fetch,
   scheduled: scheduled,
-}
+};

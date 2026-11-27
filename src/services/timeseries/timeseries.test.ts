@@ -26,14 +26,11 @@ describe("generateTimeseries", () => {
       },
     ];
 
-    const timeseries = generateTimeseries(
-      { series: [], data: [], pricing: [] },
-      exampleRtdData,
-    );
+    const timeseries = generateTimeseries({ series: [], data: [], pricing: [] }, exampleRtdData);
     expect(timeseries).toEqual({
       series: ["ABY0111", "ARA2201 ARA0"],
       data: [["2026-05-29T13:30:00", -2.576, 72]],
-      pricing: [["2026-05-29T13:30:00", 94.08, 100.27]]
+      pricing: [["2026-05-29T13:30:00", 94.08, 100.27]],
     });
   });
 
@@ -41,7 +38,7 @@ describe("generateTimeseries", () => {
     const existingTimeseries = {
       series: ["ABY0111", "ARA2201 ARA0"],
       data: [["2026-05-29T13:30:00", -2.576, 72]],
-      pricing: [["2026-05-29T13:30:00", 5, 10]]
+      pricing: [["2026-05-29T13:30:00", 5, 10]],
     };
 
     const exampleRtdData = [
@@ -74,8 +71,8 @@ describe("generateTimeseries", () => {
       ],
       pricing: [
         ["2026-05-29T13:30:00", 5, 10],
-        ["2026-05-29T13:35:00", 94.08, 100.27]
-      ]
+        ["2026-05-29T13:35:00", 94.08, 100.27],
+      ],
     });
   });
 
@@ -83,7 +80,7 @@ describe("generateTimeseries", () => {
     const existingTimeseries = {
       series: ["ABY0111", "ARA2201 ARA0"],
       data: [["2026-05-29T13:30:00", -2.576, 72]],
-      pricing: [["2026-05-29T13:30:00", 5, 10]]
+      pricing: [["2026-05-29T13:30:00", 5, 10]],
     };
 
     const exampleRtdData = [
@@ -125,8 +122,8 @@ describe("generateTimeseries", () => {
       ],
       pricing: [
         ["2026-05-29T13:30:00", 5, 10, 0],
-        ["2026-05-29T13:35:00", 94.08, 100.27, 111.5]
-      ]
+        ["2026-05-29T13:35:00", 94.08, 100.27, 111.5],
+      ],
     });
   });
 
@@ -186,7 +183,7 @@ describe("generateTimeseries", () => {
     const existingTimeseries = {
       series: ["ABY0111", "ARA2201 ARA0"],
       data: [["2026-05-29T13:30:00", -2.576, 72]],
-      pricing: []
+      pricing: [],
     };
 
     const exampleRtdData = [
@@ -213,10 +210,8 @@ describe("generateTimeseries", () => {
     const timeseries = generateTimeseries(existingTimeseries, exampleRtdData);
     expect(timeseries).toEqual({
       series: ["ABY0111", "ARA2201 ARA0"],
-      data: [
-        ["2026-05-29T13:30:00", -2.576, 72],
-      ],
-      pricing: []
+      data: [["2026-05-29T13:30:00", -2.576, 72]],
+      pricing: [],
     });
   });
 
@@ -232,10 +227,8 @@ describe("generateTimeseries", () => {
     const timeseries = generateTimeseries(existingTimeseries, exampleRtdData);
     expect(timeseries).toEqual({
       series: ["ABY0111", "ARA2201 ARA0"],
-      data: [
-        ["2026-05-29T13:30:00", -2.576, 72],
-      ],
-      pricing: []
+      data: [["2026-05-29T13:30:00", -2.576, 72]],
+      pricing: [],
     });
   });
 
@@ -243,7 +236,7 @@ describe("generateTimeseries", () => {
     const existingTimeseries = {
       series: ["ABY0111", "ARA2201 ARA0", "BRB0331 RUK99"],
       data: [["2026-05-29T13:30:00", -2.576, 72, -8.82]],
-      pricing: []
+      pricing: [],
     };
 
     const exampleRtdData = [
@@ -277,15 +270,23 @@ describe("generateTimeseries", () => {
       pricing: [
         ["2026-05-29T13:30:00", 0, 0, 0],
         ["2026-05-29T13:35:00", 94.08, 100.27, 0],
-      ]
+      ],
     });
   });
 
   it("should drop off oldest timestamp if there are more than 864 entries (3 days worth of 5 min interval data)", () => {
     const existingTimeseries = {
       series: ["ABY0111", "ARA2201 ARA0"],
-      data: Array.from({ length: 864 }, (_, i) => [`2026-05-29T${String(Math.floor(i / 12)).padStart(2, "0")}:${String((i % 12) * 5).padStart(2, "0")}:00`, -2.576, 72]),
-      pricing: Array.from({ length: 864 }, (_, i) => [`2026-05-29T${String(Math.floor(i / 12)).padStart(2, "0")}:${String((i % 12) * 5).padStart(2, "0")}:00`, i, i]),
+      data: Array.from({ length: 864 }, (_, i) => [
+        `2026-05-29T${String(Math.floor(i / 12)).padStart(2, "0")}:${String((i % 12) * 5).padStart(2, "0")}:00`,
+        -2.576,
+        72,
+      ]),
+      pricing: Array.from({ length: 864 }, (_, i) => [
+        `2026-05-29T${String(Math.floor(i / 12)).padStart(2, "0")}:${String((i % 12) * 5).padStart(2, "0")}:00`,
+        i,
+        i,
+      ]),
     };
 
     expect(existingTimeseries.data[0][0]).toBe("2026-05-29T00:00:00");
@@ -299,41 +300,37 @@ describe("generateTimeseries", () => {
         SPDLoadMegawatt: 3,
         SPDGenerationMegawatt: 0,
         DollarsPerMegawattHour: 94.08,
-      }];
+      },
+    ];
 
     const timeseries = generateTimeseries(existingTimeseries, exampleRtdData);
     expect(timeseries.data.length).toBe(864);
     expect(timeseries.data[0][0]).toBe("2026-05-29T00:05:00");
     expect(timeseries.data[863][0]).toBe("2026-07-01T13:30:00");
 
-    expect(timeseries.pricing[862]).toStrictEqual([
-      "2026-05-29T71:55:00",
-      863,
-      863
-    ])
+    expect(timeseries.pricing[862]).toStrictEqual(["2026-05-29T71:55:00", 863, 863]);
 
-    expect(timeseries.pricing[863]).toStrictEqual([
-      "2026-07-01T13:30:00",
-      94.08,
-      0
-    ])
+    expect(timeseries.pricing[863]).toStrictEqual(["2026-07-01T13:30:00", 94.08, 0]);
   });
 
   it("drops as many of the oldest timestamps as it takes to get back to 864 entries", () => {
-    const timestamp = (i: number) => `2026-05-29T${String(Math.floor(i / 12)).padStart(2, "0")}:${String((i % 12) * 5).padStart(2, "0")}:00`;
+    const timestamp = (i: number) =>
+      `2026-05-29T${String(Math.floor(i / 12)).padStart(2, "0")}:${String((i % 12) * 5).padStart(2, "0")}:00`;
     const existingTimeseries = {
       series: ["ABY0111"],
       data: Array.from({ length: 870 }, (_, i) => [timestamp(i), i]),
       pricing: Array.from({ length: 870 }, (_, i) => [timestamp(i), i]),
     };
 
-    const timeseries = generateTimeseries(existingTimeseries, [{
-      PointOfConnectionCode: "ABY0111",
-      FiveMinuteIntervalDatetime: "2026-07-01T13:30:00",
-      SPDLoadMegawatt: 0,
-      SPDGenerationMegawatt: 3,
-      DollarsPerMegawattHour: 94.08,
-    }]);
+    const timeseries = generateTimeseries(existingTimeseries, [
+      {
+        PointOfConnectionCode: "ABY0111",
+        FiveMinuteIntervalDatetime: "2026-07-01T13:30:00",
+        SPDLoadMegawatt: 0,
+        SPDGenerationMegawatt: 3,
+        DollarsPerMegawattHour: 94.08,
+      },
+    ]);
 
     expect(timeseries.data.length).toBe(864);
     expect(timeseries.pricing.length).toBe(864);
@@ -347,7 +344,7 @@ describe("generateTimeseries", () => {
     const existingTimeseries = {
       series: ["ABY0111", "ARA2201 ARA0"],
       data: [["2026-05-29T13:30:00", -2.576, 72]],
-      pricing: []
+      pricing: [],
     };
 
     const exampleRtdData = [
@@ -389,10 +386,10 @@ describe("generateTimeseries", () => {
       ],
       pricing: [
         ["2026-05-29T13:30:00", 0, 0, 0],
-        ["2026-05-29T13:35:00", 94.08, 100.27, 111.5]
-      ]
+        ["2026-05-29T13:35:00", 94.08, 100.27, 111.5],
+      ],
     });
-  })
+  });
 });
 
 describe("filterTimeseriesSince", () => {

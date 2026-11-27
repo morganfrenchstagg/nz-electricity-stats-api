@@ -5,7 +5,7 @@ const emiApiUrl = "https://emi.azure-api.net/real-time-dispatch/";
 // null until the dispatch sync has stored its first response
 export async function fetchCachedDataFromEmiApi(): Promise<RealTimeDispatch[] | null> {
   const cachedData = await env.dispatch_kv.get("latestDispatch");
-  return cachedData ? JSON.parse(cachedData) as RealTimeDispatch[] : null;
+  return cachedData ? (JSON.parse(cachedData) as RealTimeDispatch[]) : null;
 }
 
 export async function fetchDataFromEmiApi() {
@@ -16,8 +16,8 @@ export async function fetchDataFromEmiApi() {
     },
     cf: {
       cacheEverything: true,
-      cacheTtl: 60
-    }
+      cacheTtl: 60,
+    },
   });
   console.log("Response: " + response.status);
   return response;

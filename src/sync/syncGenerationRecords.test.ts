@@ -9,10 +9,12 @@ const ATIAMURI = "ATI2201 ATI0";
 
 // stores a daily dispatch file with Ātiamuri at the given output in each interval (e.g. 18:00 => 80)
 async function storeDailyFile(date: string, outputByTime: Record<string, number>) {
-  const intervals = Object.fromEntries(Object.entries(outputByTime).map(([time, mw]) => [
-    `${date}T${time}:00`,
-    [{ p: ATIAMURI, g: `${mw}`, l: "0", c: "100" }],
-  ]));
+  const intervals = Object.fromEntries(
+    Object.entries(outputByTime).map(([time, mw]) => [
+      `${date}T${time}:00`,
+      [{ p: ATIAMURI, g: `${mw}`, l: "0", c: "100" }],
+    ]),
+  );
   await env.dispatch.put("dispatch-" + date.replace(/-/g, ""), JSON.stringify(intervals));
 }
 
@@ -67,10 +69,13 @@ describe("checkForNewGenerationRecords", () => {
   const time = "2026-10-14T22:00:00";
 
   async function storeHistoricalRecords(syncedTo: string, mw: number) {
-    await env.dispatch_kv.put("historicalGenerationRecords", JSON.stringify({
-      syncedTo,
-      records: { [ATIAMURI]: { mw, time: "2024-03-03T18:30:00" } },
-    }));
+    await env.dispatch_kv.put(
+      "historicalGenerationRecords",
+      JSON.stringify({
+        syncedTo,
+        records: { [ATIAMURI]: { mw, time: "2024-03-03T18:30:00" } },
+      }),
+    );
   }
 
   function mockSlack() {
@@ -78,7 +83,9 @@ describe("checkForNewGenerationRecords", () => {
   }
 
   async function slackMessages(requests: Request[]) {
-    return await Promise.all(requests.map(async request => (await request.json() as { text: string }).text));
+    return await Promise.all(
+      requests.map(async (request) => ((await request.json()) as { text: string }).text),
+    );
   }
 
   it("posts units beating their record to Slack, and keeps the new records", async () => {
@@ -115,7 +122,9 @@ describe("checkForNewGenerationRecords", () => {
       "🏆 *Ātiamuri* (`ATI2201 ATI0`) is generating *81 MW*, a new record (previously 80 MW at 6:30pm on 3 March 2024)",
       "🏆 *Ātiamuri* (`ATI2201 ATI0`) is generating *83 MW*, a new record (previously 82 MW at 12:05pm on 14 October 2026)",
     ]);
-    expect(await getKvJson("liveGenerationRecords")).toEqual({ [ATIAMURI]: { mw: 83, time: "2026-10-15T12:00:00" } });
+    expect(await getKvJson("liveGenerationRecords")).toEqual({
+      [ATIAMURI]: { mw: 83, time: "2026-10-15T12:00:00" },
+    });
   });
 
   it("posts a unit's first generation, then only records it climbing the rest of the day", async () => {
@@ -128,11 +137,16 @@ describe("checkForNewGenerationRecords", () => {
     expect(await slackMessages(requests)).toEqual([
       "🆕 *Kōwhai Park* (`ISL0661 KPS0`) is generating for the first time on record (*3 MW*)",
     ]);
-    expect(await getKvJson("liveGenerationRecords")).toEqual({ "ISL0661 KPS0": { mw: 8.7, time: "2026-10-14T09:05:00" } });
+    expect(await getKvJson("liveGenerationRecords")).toEqual({
+      "ISL0661 KPS0": { mw: 8.7, time: "2026-10-14T09:05:00" },
+    });
   });
 
   it("compares against the records from the daily files when they've since gone higher", async () => {
-    await env.dispatch_kv.put("liveGenerationRecords", JSON.stringify({ [ATIAMURI]: { mw: 81, time: "2026-10-10T12:00:00" } }));
+    await env.dispatch_kv.put(
+      "liveGenerationRecords",
+      JSON.stringify({ [ATIAMURI]: { mw: 81, time: "2026-10-10T12:00:00" } }),
+    );
     await storeHistoricalRecords("20261013", 83);
     const requests = mockSlack();
 
@@ -144,17 +158,20 @@ describe("checkForNewGenerationRecords", () => {
   it.each([
     { problem: "haven't been found yet", syncedTo: null },
     { problem: "are more than a week behind", syncedTo: "20261006" },
-  ])("doesn't check for new records while the records from the daily files $problem", async ({ syncedTo }) => {
-    if (syncedTo) {
-      await storeHistoricalRecords(syncedTo, 80);
-    }
-    const requests = mockSlack();
+  ])(
+    "doesn't check for new records while the records from the daily files $problem",
+    async ({ syncedTo }) => {
+      if (syncedTo) {
+        await storeHistoricalRecords(syncedTo, 80);
+      }
+      const requests = mockSlack();
 
-    await checkForNewGenerationRecords([rtd(ATIAMURI, 83, 0, 100, time)]);
+      await checkForNewGenerationRecords([rtd(ATIAMURI, 83, 0, 100, time)]);
 
-    expect(requests).toEqual([]);
-    expect(await env.dispatch_kv.get("liveGenerationRecords")).toBeNull();
-  });
+      expect(requests).toEqual([]);
+      expect(await env.dispatch_kv.get("liveGenerationRecords")).toBeNull();
+    },
+  );
 
   it("keeps the new records when Slack is down", async () => {
     await storeHistoricalRecords("20261013", 80);

@@ -26,33 +26,41 @@ export async function backfillFogp() {
   console.log("Backfilling FOGP");
   const startTime = Date.now();
 
-  const checkpoint = await env.dispatch_kv.get(CHECKPOINT_KEY) ?? LAST_DATE_WITHOUT_FOGP;
-  const [offerDates, fogpDates] = await Promise.all([listDatesAfter("offers-", checkpoint), listDatesAfter("fogp-", checkpoint)]);
+  const checkpoint = (await env.dispatch_kv.get(CHECKPOINT_KEY)) ?? LAST_DATE_WITHOUT_FOGP;
+  const [offerDates, fogpDates] = await Promise.all([
+    listDatesAfter("offers-", checkpoint),
+    listDatesAfter("fogp-", checkpoint),
+  ]);
   if (offerDates.length === 0) {
     console.log("No new offers to check for FOGP");
     return;
   }
 
   const hasFogp = new Set(fogpDates);
-  const missing = new Set(offerDates.filter(date => !hasFogp.has(date)));
+  const missing = new Set(offerDates.filter((date) => !hasFogp.has(date)));
   // EMI's listing is oldest first, so the checkpoint only moves past days that have been backfilled
-  const filesToDownload = missing.size > 0 ? (await getListOfEmiFiles()).filter(file => missing.has(file.date)) : [];
+  const filesToDownload =
+    missing.size > 0 ? (await getListOfEmiFiles()).filter((file) => missing.has(file.date)) : [];
 
   for (let i = 0; i < filesToDownload.length; i += MAX_CONCURRENT_DOWNLOADS) {
     if (i >= MAX_FILES_PER_RUN || Date.now() - startTime > TIME_BUDGET_MS) {
-      console.log(`Stopping for this run, ${filesToDownload.length - i} day(s) of FOGP left to backfill`);
+      console.log(
+        `Stopping for this run, ${filesToDownload.length - i} day(s) of FOGP left to backfill`,
+      );
       return;
     }
 
     const batch = filesToDownload.slice(i, i + MAX_CONCURRENT_DOWNLOADS);
 
-    await Promise.all(batch.map(async (file) => {
-      const { forecasts } = await downloadFileAndParse(file.url);
-      await env.offers.put("fogp-" + file.date, JSON.stringify(forecasts));
-    }));
+    await Promise.all(
+      batch.map(async (file) => {
+        const { forecasts } = await downloadFileAndParse(file.url);
+        await env.offers.put("fogp-" + file.date, JSON.stringify(forecasts));
+      }),
+    );
 
     await env.dispatch_kv.put(CHECKPOINT_KEY, batch[batch.length - 1].date);
-    console.log("Backfilled FOGP for " + batch.map(file => file.date).join(", "));
+    console.log("Backfilled FOGP for " + batch.map((file) => file.date).join(", "));
   }
 
   // every day with an offers file now has a fogp file (or EMI no longer has its offers), so the next run starts after them
@@ -67,7 +75,7 @@ async function listDatesAfter(prefix: string, date: string): Promise<string[]> {
 
   do {
     const listing = await env.offers.list({ prefix, startAfter: prefix + date, cursor });
-    dates.push(...listing.objects.map(object => object.key.slice(prefix.length)));
+    dates.push(...listing.objects.map((object) => object.key.slice(prefix.length)));
     cursor = listing.truncated ? listing.cursor : undefined;
   } while (cursor);
 

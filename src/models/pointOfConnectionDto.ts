@@ -1,5 +1,5 @@
 export type PointOfConnectionDto = {
-    load: number;
-    generation: number;
-    price: number;
-}
+  load: number;
+  generation: number;
+  price: number;
+};

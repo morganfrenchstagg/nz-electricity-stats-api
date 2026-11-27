@@ -7,14 +7,11 @@ import { EMI_RTD_URL, HVDC_TIMESERIES, outage, rtd } from "../testing/fixtures";
 import { getSubstations } from "../clients/substations";
 import { getGenerators } from "../clients/generators";
 
-const latestDispatch = [
-  rtd("ATI2201 ATI0", 50, 0, 120.5),
-  rtd("ALB0331", 0, 20, 130),
-];
+const latestDispatch = [rtd("ATI2201 ATI0", 50, 0, 120.5), rtd("ALB0331", 0, 20, 130)];
 
 async function getJson(path: string) {
   const { response } = await requestWorker(path);
-  return { response, json: await response.json() as any };
+  return { response, json: (await response.json()) as any };
 }
 
 describe("dispatch api", () => {
@@ -24,18 +21,24 @@ describe("dispatch api", () => {
     vi.setSystemTime(new Date("2026-10-14T09:01:00Z"));
   });
 
-  it.each(["/v1/dispatch/latest", "/v1/dispatch/delta"])("%s returns 503 before the live dispatch has been synced", async (path) => {
-    const { response, json } = await getJson(path);
+  it.each(["/v1/dispatch/latest", "/v1/dispatch/delta"])(
+    "%s returns 503 before the live dispatch has been synced",
+    async (path) => {
+      const { response, json } = await getJson(path);
 
-    expect(response.status).toBe(503);
-    expect(response.headers.get("Cache-Control")).toBe("no-store");
-    expect(json).toEqual({ message: "Live dispatch data is temporarily unavailable" });
-  });
+      expect(response.status).toBe(503);
+      expect(response.headers.get("Cache-Control")).toBe("no-store");
+      expect(json).toEqual({ message: "Live dispatch data is temporarily unavailable" });
+    },
+  );
 
   describe("GET /v1/dispatch/latest", () => {
     beforeEach(async () => {
       await env.dispatch_kv.put("latestDispatch", JSON.stringify(latestDispatch));
-      await env.dispatch_kv.put("latestOutages", JSON.stringify({ "ATI2201 ATI0": [outage("ATI_0")] }));
+      await env.dispatch_kv.put(
+        "latestOutages",
+        JSON.stringify({ "ATI2201 ATI0": [outage("ATI_0")] }),
+      );
     });
 
     it("returns each substation with its points of connection", async () => {
@@ -44,8 +47,10 @@ describe("dispatch api", () => {
       expect(json.lastUpdated).toBe("2026-10-14T22:00:00");
       expect(json.substations).toHaveLength((await getSubstations()).length);
       expect(json.substations.find((substation: any) => substation.siteId === "ALB")).toEqual({
-        ...(await getSubstations()).find(substation => substation.siteId === "ALB"),
-        pointsOfConnection: [{ pointOfConnectionCode: "ALB0331", load: 20, generation: 0, price: 130 }],
+        ...(await getSubstations()).find((substation) => substation.siteId === "ALB"),
+        pointsOfConnection: [
+          { pointOfConnectionCode: "ALB0331", load: 20, generation: 0, price: 130 },
+        ],
       });
     });
 
@@ -53,23 +58,27 @@ describe("dispatch api", () => {
       const { json } = await getJson("/v1/dispatch/latest");
 
       expect(json.generators).toHaveLength((await getGenerators()).length);
-      expect(json.generators.find((generator: any) => generator.site === "ATI").units).toEqual([{
-        name: "Ātiamuri",
-        unitCode: "ATI0",
-        node: "ATI2201 ATI0",
-        capacity: 84,
-        fuel: "Hydro",
-        fuelCode: "HYD",
-        commissioned: "1958-11-16T12:00:00.000Z",
-        dispatch: { load: 0, generation: 50, price: 120.5 },
-        outages: [{
-          outageBlock: "ATI_0",
-          mwLost: 84,
-          mwRemain: 0,
-          from: "2026-10-14T08:00:00Z",
-          until: "2026-10-16T05:00:00Z",
-        }],
-      }]);
+      expect(json.generators.find((generator: any) => generator.site === "ATI").units).toEqual([
+        {
+          name: "Ātiamuri",
+          unitCode: "ATI0",
+          node: "ATI2201 ATI0",
+          capacity: 84,
+          fuel: "Hydro",
+          fuelCode: "HYD",
+          commissioned: "1958-11-16T12:00:00.000Z",
+          dispatch: { load: 0, generation: 50, price: 120.5 },
+          outages: [
+            {
+              outageBlock: "ATI_0",
+              mwLost: 84,
+              mwRemain: 0,
+              from: "2026-10-14T08:00:00Z",
+              until: "2026-10-16T05:00:00Z",
+            },
+          ],
+        },
+      ]);
     });
 
     it("leaves out dispatch for units that aren't in the latest dispatch", async () => {
@@ -83,7 +92,10 @@ describe("dispatch api", () => {
 
   describe("GET /v1/dispatch/delta", () => {
     it("lists units missing from the definitions or the latest dispatch", async () => {
-      await env.dispatch_kv.put("latestDispatch", JSON.stringify([...latestDispatch, rtd("XYZ2201 XYZ0", 10, 0, 100)]));
+      await env.dispatch_kv.put(
+        "latestDispatch",
+        JSON.stringify([...latestDispatch, rtd("XYZ2201 XYZ0", 10, 0, 100)]),
+      );
 
       const { json } = await getJson("/v1/dispatch/delta");
 
@@ -107,8 +119,14 @@ describe("dispatch api", () => {
   describe("GET /v1/dispatch/recent", () => {
     const timeseries = (latest: string) => ({
       series: ["ATI2201 ATI0"],
-      data: [["2026-10-14T21:45:00", 48], [latest, 50]],
-      pricing: [["2026-10-14T21:45:00", 110], [latest, 120.5]],
+      data: [
+        ["2026-10-14T21:45:00", 48],
+        [latest, 50],
+      ],
+      pricing: [
+        ["2026-10-14T21:45:00", 110],
+        [latest, 120.5],
+      ],
     });
 
     it("returns the recent timeseries, cached until the next interval should be available", async () => {
@@ -116,7 +134,10 @@ describe("dispatch api", () => {
 
       const { response, json } = await getJson("/v1/dispatch/recent");
 
-      expect(json).toEqual({ ...timeseries("2026-10-14T22:00:00"), hvdc: { series: [], data: [] } });
+      expect(json).toEqual({
+        ...timeseries("2026-10-14T22:00:00"),
+        hvdc: { series: [], data: [] },
+      });
       // the next interval is expected by 22:06, 5 minutes from now
       expect(response.headers.get("Cache-Control")).toBe("max-age=300");
     });
@@ -131,7 +152,9 @@ describe("dispatch api", () => {
 
     it("answers later requests from the edge cache until the next interval should be available", async () => {
       await env.dispatch.put("timeseries", JSON.stringify(timeseries("2026-10-14T22:00:00")));
-      await (await requestWorker("/v1/dispatch/recent?since=2026-10-14T21:45:00")).finishBackgroundWork();
+      await (
+        await requestWorker("/v1/dispatch/recent?since=2026-10-14T21:45:00")
+      ).finishBackgroundWork();
       await env.dispatch.put("timeseries", JSON.stringify(timeseries("2026-10-14T22:05:00")));
 
       // 22:05, a minute before the next interval is expected
@@ -190,7 +213,12 @@ describe("dispatch api", () => {
       it("returns no intervals, cached until the next one should be available, when there's nothing newer", async () => {
         const { response, json } = await getJson("/v1/dispatch/recent?since=2026-10-14T22:00:00");
 
-        expect(json).toEqual({ series: ["ATI2201 ATI0"], data: [], pricing: [], hvdc: { series: [], data: [] } });
+        expect(json).toEqual({
+          series: ["ATI2201 ATI0"],
+          data: [],
+          pricing: [],
+          hvdc: { series: [], data: [] },
+        });
         expect(response.headers.get("Cache-Control")).toBe("max-age=300");
       });
 
@@ -202,26 +230,34 @@ describe("dispatch api", () => {
         expect(json.hvdc).toEqual(HVDC_TIMESERIES);
       });
 
-      it.each(["2026-10-14", "2026-10-14T22:00:00Z", "yesterday", ""])("returns 400 for since=%s", async (since) => {
-        const { response, json } = await getJson(`/v1/dispatch/recent?since=${encodeURIComponent(since)}`);
+      it.each(["2026-10-14", "2026-10-14T22:00:00Z", "yesterday", ""])(
+        "returns 400 for since=%s",
+        async (since) => {
+          const { response, json } = await getJson(
+            `/v1/dispatch/recent?since=${encodeURIComponent(since)}`,
+          );
 
-        expect(response.status).toBe(400);
-        expect(json).toEqual({ message: "Invalid since, expected an NZ time like 2026-10-14T21:55:00" });
-      });
+          expect(response.status).toBe(400);
+          expect(json).toEqual({
+            message: "Invalid since, expected an NZ time like 2026-10-14T21:55:00",
+          });
+        },
+      );
     });
   });
 
   describe("GET /v1/dispatch/:date", () => {
     beforeEach(async () => {
-      await env.dispatch.put("dispatch-20261012", JSON.stringify({
-        "2026-10-12T00:00:00": [
-          { p: "ATI2201 ATI0", g: "50", l: "0", c: "120.5" },
-          { p: "ALB0331", g: "0", l: "20", c: "130" },
-        ],
-        "2026-10-12T00:05:00": [
-          { p: "ATI2201 ATI0", g: "52", l: "0", c: "118" },
-        ],
-      }));
+      await env.dispatch.put(
+        "dispatch-20261012",
+        JSON.stringify({
+          "2026-10-12T00:00:00": [
+            { p: "ATI2201 ATI0", g: "50", l: "0", c: "120.5" },
+            { p: "ALB0331", g: "0", l: "20", c: "130" },
+          ],
+          "2026-10-12T00:05:00": [{ p: "ATI2201 ATI0", g: "52", l: "0", c: "118" }],
+        }),
+      );
     });
 
     it("returns the day's dispatch as a timeseries, with nodes missing from an interval at 0MW", async () => {
@@ -243,10 +279,20 @@ describe("dispatch api", () => {
     });
 
     it("returns a day's metered generation and load by trading period before the daily dispatch files begin, without prices", async () => {
-      await env.dispatch.put("metered-19970801", JSON.stringify({
-        "1997-08-01T00:00:00": [{ p: "ATI2201 ATI0", g: 50, l: 0 }, { p: "HLY2201 huntly_1_4", g: 700.5, l: 0 }, { p: "ABY0111", g: 0, l: 2.2 }],
-        "1997-08-01T00:30:00": [{ p: "ATI2201 ATI0", g: 0, l: 0.4 }, { p: "ABY0111", g: 0, l: 2.4 }],
-      }));
+      await env.dispatch.put(
+        "metered-19970801",
+        JSON.stringify({
+          "1997-08-01T00:00:00": [
+            { p: "ATI2201 ATI0", g: 50, l: 0 },
+            { p: "HLY2201 huntly_1_4", g: 700.5, l: 0 },
+            { p: "ABY0111", g: 0, l: 2.2 },
+          ],
+          "1997-08-01T00:30:00": [
+            { p: "ATI2201 ATI0", g: 0, l: 0.4 },
+            { p: "ABY0111", g: 0, l: 2.4 },
+          ],
+        }),
+      );
 
       const { response, json } = await getJson("/v1/dispatch/1997-08-01");
 
@@ -266,7 +312,10 @@ describe("dispatch api", () => {
     });
 
     it("prefers a day's dispatch to its metered generation once the dispatch aggregates start", async () => {
-      await env.dispatch.put("metered-20261012", JSON.stringify({ "2026-10-12T00:00:00": [{ p: "ATI2201 ATI0", g: 1, l: 0 }] }));
+      await env.dispatch.put(
+        "metered-20261012",
+        JSON.stringify({ "2026-10-12T00:00:00": [{ p: "ATI2201 ATI0", g: 1, l: 0 }] }),
+      );
 
       const { json } = await getJson("/v1/dispatch/2026-10-12");
 
@@ -274,7 +323,9 @@ describe("dispatch api", () => {
     });
 
     describe("the first, partial, day of dispatch files", () => {
-      const dispatch = { "2020-09-10T09:35:00": [{ p: "ATI2201 ATI0", g: "50", l: "0", c: "100" }] };
+      const dispatch = {
+        "2020-09-10T09:35:00": [{ p: "ATI2201 ATI0", g: "50", l: "0", c: "100" }],
+      };
       const metered = { "2020-09-10T00:00:00": [{ p: "ATI2201 ATI0", g: 40, l: 0 }] };
 
       it("uses its metered generation, as its aggregates do", async () => {
@@ -309,9 +360,15 @@ describe("dispatch api", () => {
     });
 
     it("reads days with numbers stored as numbers, as the daily sync now writes them", async () => {
-      await env.dispatch.put("dispatch-20261011", JSON.stringify({
-        "2026-10-11T00:00:00": [{ p: "ATI2201 ATI0", g: 50, l: 0, c: 120.5 }, { p: "ALB0331", g: 0, l: 20, c: 130 }],
-      }));
+      await env.dispatch.put(
+        "dispatch-20261011",
+        JSON.stringify({
+          "2026-10-11T00:00:00": [
+            { p: "ATI2201 ATI0", g: 50, l: 0, c: 120.5 },
+            { p: "ALB0331", g: 0, l: 20, c: 130 },
+          ],
+        }),
+      );
 
       const { json } = await getJson("/v1/dispatch/2026-10-11");
 
@@ -340,7 +397,10 @@ describe("dispatch api", () => {
 
       it("keeps each day for its max-age", async () => {
         await (await requestWorker("/v1/dispatch/2026-10-12")).finishBackgroundWork();
-        await env.dispatch.put("dispatch-20261012", JSON.stringify({ "2026-10-12T00:00:00": [{ p: "ATI2201 ATI0", g: 1, l: 0, c: 1 }] }));
+        await env.dispatch.put(
+          "dispatch-20261012",
+          JSON.stringify({ "2026-10-12T00:00:00": [{ p: "ATI2201 ATI0", g: 1, l: 0, c: 1 }] }),
+        );
         vi.setSystemTime(new Date("2026-10-15T09:01:00Z"));
 
         const { response, json } = await getJson("/v1/dispatch/2026-10-12");
@@ -351,7 +411,10 @@ describe("dispatch api", () => {
 
       it("doesn't keep days that haven't been synced yet", async () => {
         await (await requestWorker("/v1/dispatch/2026-10-13")).finishBackgroundWork();
-        await env.dispatch.put("dispatch-20261013", JSON.stringify({ "2026-10-13T00:00:00": [{ p: "ATI2201 ATI0", g: 5, l: 0, c: 1 }] }));
+        await env.dispatch.put(
+          "dispatch-20261013",
+          JSON.stringify({ "2026-10-13T00:00:00": [{ p: "ATI2201 ATI0", g: 5, l: 0, c: 1 }] }),
+        );
 
         const { response } = await getJson("/v1/dispatch/2026-10-13");
 
@@ -361,8 +424,20 @@ describe("dispatch api", () => {
 
     describe("the HVDC", () => {
       const SERIES = ["northFlow", "southFlow", "northLimit", "southLimit"];
-      const metered = { series: SERIES, data: [["2026-10-12T00:00:00", 650.5, 0, null, null], ["2026-10-12T00:30:00", 0, 20, null, null]] };
-      const em6 = { series: SERIES, data: [["2026-10-12T00:00:00", 640, 0, 1200, -650], ["2026-10-12T00:30:00", 0, -18, 1150, -640]] };
+      const metered = {
+        series: SERIES,
+        data: [
+          ["2026-10-12T00:00:00", 650.5, 0, null, null],
+          ["2026-10-12T00:30:00", 0, 20, null, null],
+        ],
+      };
+      const em6 = {
+        series: SERIES,
+        data: [
+          ["2026-10-12T00:00:00", 640, 0, 1200, -650],
+          ["2026-10-12T00:30:00", 0, -18, 1150, -640],
+        ],
+      };
 
       it("returns EMI's metered flows in each half hour, with em6's limits", async () => {
         await env.dispatch.put("hvdc-metered-20261012", JSON.stringify(metered));
@@ -372,7 +447,10 @@ describe("dispatch api", () => {
 
         expect(json.hvdc).toEqual({
           series: SERIES,
-          data: [["2026-10-12T00:00:00", 650.5, 0, 1200, -650], ["2026-10-12T00:30:00", 0, 20, 1150, -640]],
+          data: [
+            ["2026-10-12T00:00:00", 650.5, 0, 1200, -650],
+            ["2026-10-12T00:30:00", 0, 20, 1150, -640],
+          ],
         });
       });
 

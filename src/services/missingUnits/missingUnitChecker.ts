@@ -4,7 +4,8 @@ import { getSubstations } from "../../clients/substations";
 // A unit is expected in dispatch from its commissioning until its decommissioning. One without a commissioning date
 // is still being commissioned, so isn't expected yet.
 const isInService = (unit: UnitDefinition) =>
-  unit.commissioned !== undefined && Date.parse(unit.commissioned) <= Date.now() &&
+  unit.commissioned !== undefined &&
+  Date.parse(unit.commissioned) <= Date.now() &&
   (unit.decomissioned === undefined || Date.parse(unit.decomissioned) > Date.now());
 
 export const checkForMissingUnits = async (dispatchList: string[]) => {
@@ -19,10 +20,7 @@ export const checkForMissingUnits = async (dispatchList: string[]) => {
   for (const generator of generators) {
     for (const unit of generator.units) {
       if (unitsNotInGeneratorList.includes(unit.node)) {
-        unitsNotInGeneratorList.splice(
-          unitsNotInGeneratorList.indexOf(unit.node),
-          1,
-        );
+        unitsNotInGeneratorList.splice(unitsNotInGeneratorList.indexOf(unit.node), 1);
       } else if (isInService(unit)) {
         unitsNotInDispatchList.push(unit.node);
       }
@@ -30,10 +28,14 @@ export const checkForMissingUnits = async (dispatchList: string[]) => {
   }
 
   const substationUnitsNotInDispatchList = [];
-  const unitsNotInSubstationList = dispatchList.filter((unit) => (unit as string).split(" ").length === 1);
+  const unitsNotInSubstationList = dispatchList.filter(
+    (unit) => (unit as string).split(" ").length === 1,
+  );
 
   for (const substation of substations) {
-    const units = unitsNotInSubstationList.filter((unit) => unit.substring(0, 3) === substation.siteId);
+    const units = unitsNotInSubstationList.filter(
+      (unit) => unit.substring(0, 3) === substation.siteId,
+    );
     for (const unit of units) {
       unitsNotInSubstationList.splice(unitsNotInSubstationList.indexOf(unit), 1);
     }

@@ -7,12 +7,19 @@ const NODE = "ATI2201 ATI0";
 
 // stores a daily dispatch file with the node at a constant output, so it generates mw x 24 MWh that day
 async function storeDailyFile(date: string, mw: number) {
-  await env.dispatch.put("dispatch-" + date.replace(/-/g, ""), JSON.stringify({
-    [`${date}T00:00:00`]: [{ p: NODE, g: `${mw}`, l: "0", c: "100" }],
-  }));
+  await env.dispatch.put(
+    "dispatch-" + date.replace(/-/g, ""),
+    JSON.stringify({
+      [`${date}T00:00:00`]: [{ p: NODE, g: `${mw}`, l: "0", c: "100" }],
+    }),
+  );
 }
 
-const dataPoint = (from: string, to: string, mwh: number) => ({ from, to, nodes: { [NODE]: { g: mwh, l: 0 } } });
+const dataPoint = (from: string, to: string, mwh: number) => ({
+  from,
+  to,
+  nodes: { [NODE]: { g: mwh, l: 0 } },
+});
 const day = (date: string, mwh: number) => dataPoint(date, date, mwh);
 
 async function getAggregate(key: string) {
@@ -41,7 +48,10 @@ describe("syncDispatchAggregates", () => {
       data: [day("2026-10-05", 240), day("2026-10-06", 480), day("2026-10-12", 120)],
     });
     expect(await getAggregate("aggregate-weekly-2026")).toEqual({
-      data: [dataPoint("2026-10-05", "2026-10-11", 720), dataPoint("2026-10-12", "2026-10-18", 120)],
+      data: [
+        dataPoint("2026-10-05", "2026-10-11", 720),
+        dataPoint("2026-10-12", "2026-10-18", 120),
+      ],
     });
     expect(await getAggregate("aggregate-monthly-2026")).toEqual({
       data: [dataPoint("2026-10-01", "2026-10-31", 840)],
@@ -59,7 +69,9 @@ describe("syncDispatchAggregates", () => {
 
     await syncDispatchAggregates();
 
-    expect(await getAggregate("aggregate-daily-2026-10")).toEqual({ data: [day("2026-10-05", 240)] });
+    expect(await getAggregate("aggregate-daily-2026-10")).toEqual({
+      data: [day("2026-10-05", 240)],
+    });
     expect(await env.dispatch_kv.get("latestAggregatedDispatchDate")).toBe("2026-10-05");
   });
 
@@ -94,13 +106,20 @@ describe("syncDispatchAggregates", () => {
     await env.dispatch_kv.put("latestDailySyncDate", "20261001");
     await syncDispatchAggregates();
 
-    expect(await getAggregate("aggregate-daily-2026-09")).toEqual({ data: [day("2026-09-30", 240)] });
-    expect(await getAggregate("aggregate-daily-2026-10")).toEqual({ data: [day("2026-10-01", 480)] });
+    expect(await getAggregate("aggregate-daily-2026-09")).toEqual({
+      data: [day("2026-09-30", 240)],
+    });
+    expect(await getAggregate("aggregate-daily-2026-10")).toEqual({
+      data: [day("2026-10-01", 480)],
+    });
     expect(await getAggregate("aggregate-weekly-2026")).toEqual({
       data: [dataPoint("2026-09-28", "2026-10-04", 720)],
     });
     expect(await getAggregate("aggregate-monthly-2026")).toEqual({
-      data: [dataPoint("2026-09-01", "2026-09-30", 240), dataPoint("2026-10-01", "2026-10-31", 480)],
+      data: [
+        dataPoint("2026-09-01", "2026-09-30", 240),
+        dataPoint("2026-10-01", "2026-10-31", 480),
+      ],
     });
     expect(await getAggregate("aggregate-annual")).toEqual({
       data: [dataPoint("2026-01-01", "2026-12-31", 720)],
@@ -166,7 +185,9 @@ describe("syncDispatchAggregates", () => {
 
     await syncDispatchAggregates();
 
-    expect(await getAggregate("aggregate-daily-2020-09")).toEqual({ data: [day("2020-09-11", 480)] });
+    expect(await getAggregate("aggregate-daily-2020-09")).toEqual({
+      data: [day("2020-09-11", 480)],
+    });
     expect(await env.dispatch_kv.get("latestAggregatedDispatchDate")).toBe("2020-09-11");
   });
 
@@ -178,7 +199,9 @@ describe("syncDispatchAggregates", () => {
 
     await syncDispatchAggregates();
 
-    expect(await getAggregate("aggregate-daily-2026-10")).toEqual({ data: [day("2026-10-06", 480)] });
+    expect(await getAggregate("aggregate-daily-2026-10")).toEqual({
+      data: [day("2026-10-06", 480)],
+    });
     expect(await env.dispatch_kv.get("dispatchDatesToReaggregate")).toBe("[]");
   });
 });
@@ -203,7 +226,9 @@ describe("queueForReaggregation", () => {
 
     await queueForReaggregation(["20200910", "20200911"]);
 
-    expect(await env.dispatch_kv.get("dispatchDatesToReaggregate")).toBe(JSON.stringify(["2020-09-11"]));
+    expect(await env.dispatch_kv.get("dispatchDatesToReaggregate")).toBe(
+      JSON.stringify(["2020-09-11"]),
+    );
   });
 
   it("adds aggregated days to the queue, in date order without duplicates", async () => {
@@ -212,6 +237,8 @@ describe("queueForReaggregation", () => {
 
     await queueForReaggregation(["20261005", "20261003", "20261007"]);
 
-    expect(await env.dispatch_kv.get("dispatchDatesToReaggregate")).toBe(JSON.stringify(["2026-10-03", "2026-10-05"]));
+    expect(await env.dispatch_kv.get("dispatchDatesToReaggregate")).toBe(
+      JSON.stringify(["2026-10-03", "2026-10-05"]),
+    );
   });
 });
