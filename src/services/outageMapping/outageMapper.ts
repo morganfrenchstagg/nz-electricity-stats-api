@@ -68,3 +68,14 @@ export function mapOutagesByUnit(
   }
   return unitOutages;
 }
+
+// a unit's outages as the API returns them alongside its dispatch (e.g. /v1/dispatch/latest)
+export function toUnitOutages(outages: PocpOutage[] | undefined) {
+  return (outages ?? []).map((outage) => ({
+    outageBlock: outage.outageBlock,
+    mwLost: outage.mwattLost,
+    mwRemain: outage.mwattRemaining,
+    from: outage.timeStart,
+    until: outage.timeEnd,
+  }));
+}

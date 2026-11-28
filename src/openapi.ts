@@ -26,6 +26,11 @@ export const DOCUMENT_CONFIG = {
       description: "Stations, substations, transmission lines and where the data comes from",
     },
     { name: "Dispatch", description: "Each node's generation, load and price, by interval" },
+    {
+      name: "Generators",
+      description:
+        "A station's units' generation, prices and outages on a day, with the station itself",
+    },
     { name: "Aggregates", description: "Each node's energy by day, week, month or year" },
     { name: "Offers", description: "Generators' energy offers" },
     { name: "Outages", description: "Generation outages from Transpower's POCP" },

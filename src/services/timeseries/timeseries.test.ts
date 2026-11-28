@@ -1,6 +1,6 @@
 import { it, describe, expect } from "vitest";
 
-import { filterTimeseriesSince, generateTimeseries } from "./timeseries";
+import { filterTimeseriesSince, generateTimeseries, selectNodesOnDate } from "./timeseries";
 import { RealTimeDispatch } from "../../models/realTimeDispatch";
 
 describe("generateTimeseries", () => {
@@ -426,6 +426,36 @@ describe("filterTimeseriesSince", () => {
       series: ["ABY0111", "ARA2201 ARA0"],
       data: [],
       pricing: [],
+    });
+  });
+});
+
+describe("selectNodesOnDate", () => {
+  const timeseries = {
+    series: ["ABY0111", "ARA2201 ARA0", "ATI2201 ATI0"],
+    data: [
+      ["2026-10-13T23:55:00", -2, 70, 50],
+      ["2026-10-14T00:00:00", -3, 72, 51],
+    ],
+    pricing: [
+      ["2026-10-13T23:55:00", 90, 91, 92],
+      ["2026-10-14T00:00:00", 93, 94, 95],
+    ],
+  };
+
+  it("keeps the nodes' columns in the order they're given, and the rows on the date", () => {
+    expect(selectNodesOnDate(timeseries, ["ATI2201 ATI0", "ARA2201 ARA0"], "2026-10-14")).toEqual({
+      series: ["ATI2201 ATI0", "ARA2201 ARA0"],
+      data: [["2026-10-14T00:00:00", 51, 72]],
+      pricing: [["2026-10-14T00:00:00", 95, 94]],
+    });
+  });
+
+  it("has a node the timeseries doesn't have at 0, with no price", () => {
+    expect(selectNodesOnDate(timeseries, ["XYZ2201 XYZ0", "ABY0111"], "2026-10-14")).toEqual({
+      series: ["XYZ2201 XYZ0", "ABY0111"],
+      data: [["2026-10-14T00:00:00", 0, -3]],
+      pricing: [["2026-10-14T00:00:00", null, 93]],
     });
   });
 });

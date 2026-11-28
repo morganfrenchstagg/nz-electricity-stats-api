@@ -8,21 +8,18 @@ import { getSubstations } from "../clients/substations";
 import { mapBySiteCode } from "../services/rtdMapping/mapBySiteCode";
 import { getGenerators } from "../clients/generators";
 import { mapByPointOfConnectionCode } from "../services/rtdMapping/mapByPointOfConnectionCode";
-import { filterTimeseriesSince } from "../services/timeseries/timeseries";
+import { calculateMaxAgeHeader, filterTimeseriesSince } from "../services/timeseries/timeseries";
 import { getOutageListFromCache } from "../clients/pocpApi";
-import { HistoricalDispatchRecord } from "../models/historicalDispatchRecord";
+import { toUnitOutages } from "../services/outageMapping/outageMapper";
 import { getServiceUnavailableResponse, ONE_DAY_IN_SECONDS } from "../utilities/utilities";
 import { RealTimeDispatch } from "../models/realTimeDispatch";
-import { getNZDateTime } from "../services/nzDateTime";
 import { Timeseries } from "../models/timeseries";
-import { MeteredGenerationRecord } from "../models/meteredGenerationRecord";
-import { METERED_DAY_PREFIX } from "../services/meteredGeneration/meteredGeneration";
-import { DISPATCH_AGGREGATES_START } from "../services/dispatchAggregation/dispatchAggregation";
 import { HvdcTimeseries } from "../models/hvdc";
 import { EM6_HVDC_DAY_PREFIX, HVDC_KEY } from "../sync/syncHvdc";
 import { METERED_HVDC_DAY_PREFIX } from "../sync/syncHvdcHistory";
 import { mergeHvdcDays } from "../services/hvdc/hvdc";
 import { edgeCache } from "../utilities/edgeCache";
+import { readDispatchDay } from "../services/dispatchDay/dispatchDay";
 import { createApi, json, message } from "../openapi";
 import {
   GeneratorSchema,
@@ -32,6 +29,7 @@ import {
   nzTime,
   SubstationSchema,
   timeseriesRow,
+  UnitOutageSchema,
   UnitSchema,
 } from "./schemas";
 
@@ -213,19 +211,6 @@ app.openapi(recentRoute, async (c) => {
   );
 });
 
-const DEFAULT_MAX_AGE = 30;
-
-function calculateMaxAgeHeader(timeseries: Timeseries): number {
-  const latestTimestamp = timeseries.data[timeseries.data.length - 1][0];
-
-  const latestDate = new Date(latestTimestamp);
-  const nextDate = new Date(latestDate.setTime(latestDate.getTime() + 6 * 1000 * 60)); // 6 minutes later (5 min + 1)
-  const now = getNZDateTime();
-
-  const cachableTimeInSeconds = (nextDate.getTime() - now.getTime()) / 1000;
-  return cachableTimeInSeconds > 0 ? cachableTimeInSeconds : DEFAULT_MAX_AGE;
-}
-
 const mw = z.number().openapi({ description: "MW" });
 const price = z.number().openapi({ description: "$/MWh" });
 
@@ -267,15 +252,7 @@ const latestRoute = createRoute({
                     .object({ load: mw, generation: mw, price })
                     .optional()
                     .openapi({ description: "Absent when the unit isn't in the dispatch" }),
-                  outages: z.array(
-                    z.object({
-                      outageBlock: z.string(),
-                      mwLost: z.number(),
-                      mwRemain: z.number(),
-                      from: z.string().openapi({ format: "date-time" }),
-                      until: z.string().openapi({ format: "date-time" }),
-                    }),
-                  ),
+                  outages: z.array(UnitOutageSchema),
                 }),
               ),
             }),
@@ -314,14 +291,7 @@ app.openapi(latestRoute, async (c) => {
         units: generator.units.map((unit) => ({
           ...unit,
           dispatch: pointOfConnectionCodeMap.get(unit.node),
-          outages:
-            outages[unit.node]?.map((o) => ({
-              outageBlock: o.outageBlock,
-              mwLost: o.mwattLost,
-              mwRemain: o.mwattRemaining,
-              from: o.timeStart,
-              until: o.timeEnd,
-            })) || [],
+          outages: toUnitOutages(outages[unit.node]),
         })),
       })),
     },
@@ -329,9 +299,8 @@ app.openapi(latestRoute, async (c) => {
   );
 });
 
-// a day's dispatch by interval, or its metered generation and load by trading period for the days the aggregates take
-// from metered data (including the first, partial, day of dispatch files). each falls back to the other, e.g. while
-// the metered data is still being backfilled. the HVDC's half hours are returned with it as hvdc
+// a day's dispatch, or its metered generation and load before the dispatch data (see readDispatchDay), with the HVDC's
+// half hours as hvdc
 const dayRoute = createRoute({
   method: "get",
   path: "/{date}",
@@ -376,24 +345,13 @@ const dayRoute = createRoute({
 
 app.openapi(dayRoute, async (c) => {
   const date = c.req.valid("param").date.replace(/-/g, "");
-  const keys =
-    date < DISPATCH_AGGREGATES_START.replace(/-/g, "")
-      ? [METERED_DAY_PREFIX + date, `dispatch-${date}`]
-      : [`dispatch-${date}`, METERED_DAY_PREFIX + date];
-  const [file, hvdc] = await Promise.all([
-    env.dispatch.get(keys[0]).then((file) => file ?? env.dispatch.get(keys[1])),
-    getHvdcDay(date),
-  ]);
+  const [day, hvdc] = await Promise.all([readDispatchDay(date), getHvdcDay(date)]);
 
-  if (!file) {
+  if (!day) {
     return c.json({ message: "No data for this date" }, 404);
   }
 
-  const intervals = (await file.json()) as Record<
-    string,
-    (HistoricalDispatchRecord | MeteredGenerationRecord)[]
-  >;
-  return c.json({ ...toDayTimeseries(intervals), hvdc }, 200, {
+  return c.json({ ...day, hvdc }, 200, {
     "Cache-Control": `max-age=${ONE_DAY_IN_SECONDS}`,
   });
 });
@@ -407,36 +365,6 @@ async function getHvdcDay(date: string): Promise<HvdcTimeseries> {
     }),
   );
   return mergeHvdcDays(metered, em6);
-}
-
-// the daily files leave out most nodes while they're at 0MW generation and load, so a node missing from an interval
-// is 0 rather than unknown. intervals missing from the file entirely are still left out. metered data has no prices,
-// so its prices are all null
-function toDayTimeseries(
-  intervals: Record<string, (HistoricalDispatchRecord | MeteredGenerationRecord)[]>,
-): Timeseries {
-  const series = [
-    ...new Set(Object.values(intervals).flatMap((records) => records.map((record) => record.p))),
-  ];
-  const columns = new Map(series.map((node, index) => [node, index + 1]));
-
-  const data = [] as (string | number)[][];
-  const pricing = [] as (string | number | null)[][];
-
-  for (const timestamp in intervals) {
-    const dataRow: (string | number)[] = [timestamp, ...series.map(() => 0)];
-    const priceRow: (string | number | null)[] = [timestamp, ...series.map(() => null)];
-
-    for (const record of intervals[timestamp]) {
-      dataRow[columns.get(record.p)!] = +record.g - +record.l;
-      priceRow[columns.get(record.p)!] = "c" in record ? +record.c : null;
-    }
-
-    data.push(dataRow);
-    pricing.push(priceRow);
-  }
-
-  return { series, data, pricing };
 }
 
 export default app;

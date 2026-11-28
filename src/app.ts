@@ -2,6 +2,7 @@ import { createRoute, z } from "@hono/zod-openapi";
 import { cors } from "hono/cors";
 import { swaggerUI } from "@hono/swagger-ui";
 import dispatchApi from "./api/dispatchApi";
+import generatorsApi from "./api/generatorsApi";
 import { getGenerators } from "./clients/generators";
 import { getSubstations } from "./clients/substations";
 import offersApi from "./api/offersApi";
@@ -130,22 +131,6 @@ app.openapi(
 app.openapi(
   createRoute({
     method: "get",
-    path: "/v1/generators",
-    tags: ["Reference"],
-    operationId: "listGenerators",
-    summary: "Generating stations and their units",
-    description:
-      "Every station, including decommissioned ones, with each unit's node in the dispatch data, capacity and fuel.",
-    responses: { 200: json("The stations", z.array(GeneratorSchema)) },
-  }),
-  async (c) => {
-    return c.json(await getGenerators(), 200, CACHED_FOR_A_DAY);
-  },
-);
-
-app.openapi(
-  createRoute({
-    method: "get",
     path: "/v1/substations",
     tags: ["Reference"],
     operationId: "listSubstations",
@@ -157,6 +142,7 @@ app.openapi(
   },
 );
 
+app.route("/v1/generators", generatorsApi);
 app.route("/v1/dispatch", dispatchApi);
 app.route("/v1/offers", offersApi);
 app.route("/v1/outages", outagesApi);
