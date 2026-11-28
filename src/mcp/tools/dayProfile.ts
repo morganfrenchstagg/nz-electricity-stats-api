@@ -2,7 +2,7 @@ import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
 import { ApiClient, round, runTool, ToolInputError } from "../api";
 import { parseStart, todayInNz } from "../dates";
-import { DispatchDays, getIntervalMinutes, resolvePriceNode, toBucket } from "../dispatchDay";
+import { getDispatchDay, getIntervalMinutes, resolvePriceNode, toBucket } from "../dispatchDay";
 import { groupNodes, Metric, validateGroupBy } from "../grouping";
 import {
   DEMAND_GROUPS,
@@ -86,7 +86,7 @@ export async function getDayProfile(api: ApiClient, args: DayProfileArgs) {
   const groupBy = args.group_by ?? (metric === "demand" ? "island" : "fuel");
   validateGroupBy(metric, groupBy, args);
 
-  const day = await new DispatchDays(api, date).get(date);
+  const day = await getDispatchDay(api, date);
   if (!day) {
     throw new ToolInputError(
       `There's no dispatch for ${date}. The data begins on 1997-08-01 and EMI publishes each day the day after`,

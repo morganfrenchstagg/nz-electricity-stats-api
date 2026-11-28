@@ -8,7 +8,8 @@ import { getSubstations } from "../clients/substations";
 import { mapBySiteCode } from "../services/rtdMapping/mapBySiteCode";
 import { getGenerators } from "../clients/generators";
 import { mapByPointOfConnectionCode } from "../services/rtdMapping/mapByPointOfConnectionCode";
-import { filterTimeseriesSince } from "../services/timeseries/timeseries";
+import { filterTimeseriesSince, TIMESERIES_DAYS } from "../services/timeseries/timeseries";
+import { addDays, todayInNz } from "../mcp/dates";
 import { getOutageListFromCache } from "../clients/pocpApi";
 import { HistoricalDispatchRecord } from "../models/historicalDispatchRecord";
 import { getServiceUnavailableResponse, ONE_DAY_IN_SECONDS } from "../utilities/utilities";
@@ -331,7 +332,8 @@ app.openapi(latestRoute, async (c) => {
 
 // a day's dispatch by interval, or its metered generation and load by trading period for the days the aggregates take
 // from metered data (including the first, partial, day of dispatch files). each falls back to the other, e.g. while
-// the metered data is still being backfilled. the HVDC's half hours are returned with it as hvdc
+// the metered data is still being backfilled. days EMI hasn't published yet are the live dispatch's intervals so far.
+// the HVDC's half hours are returned with it as hvdc
 const dayRoute = createRoute({
   method: "get",
   path: "/{date}",
@@ -341,8 +343,10 @@ const dayRoute = createRoute({
   summary: "A day's dispatch",
   description:
     "Each node's generation less load and price in each 5-minute interval of an NZ day, from EMI's daily dispatch " +
-    "files, and the HVDC's half hours. Before 11 September 2020 (back to August 1997) it's each unit's average metered " +
-    "generation and each point of connection's load in each half-hour trading period instead, without prices.",
+    "files, and the HVDC's half hours. EMI publishes each day's file the day after, so until then it's the intervals " +
+    "so far from the real-time dispatch, as in `/v1/dispatch/recent`. Before 11 September 2020 (back to August 1997) " +
+    "it's each unit's average metered generation and each point of connection's load in each half-hour trading " +
+    "period instead, without prices.",
   request: {
     params: z.object({
       date: z
@@ -367,6 +371,11 @@ const dayRoute = createRoute({
               "metered data before 11 September 2020)",
           }),
           hvdc: HvdcTimeseriesSchema,
+          live: z.boolean().openapi({
+            description:
+              "Whether it's the live dispatch's intervals so far, as EMI hasn't published the day's file yet (today, " +
+              "and yesterday until it does). Those are cached until the next interval is due, rather than for a day",
+          }),
         })
         .openapi("DayDispatch"),
     ),
@@ -385,18 +394,50 @@ app.openapi(dayRoute, async (c) => {
     getHvdcDay(date),
   ]);
 
-  if (!file) {
-    return c.json({ message: "No data for this date" }, 404);
+  if (file) {
+    const intervals = (await file.json()) as Record<
+      string,
+      (HistoricalDispatchRecord | MeteredGenerationRecord)[]
+    >;
+    return c.json({ ...toDayTimeseries(intervals), hvdc, live: false }, 200, {
+      "Cache-Control": `max-age=${ONE_DAY_IN_SECONDS}`,
+    });
   }
 
-  const intervals = (await file.json()) as Record<
-    string,
-    (HistoricalDispatchRecord | MeteredGenerationRecord)[]
-  >;
-  return c.json({ ...toDayTimeseries(intervals), hvdc }, 200, {
-    "Cache-Control": `max-age=${ONE_DAY_IN_SECONDS}`,
+  const live = await getLiveDay(date);
+  if (!live) {
+    return c.json({ message: "No data for this date" }, 404);
+  }
+  // the day is still being added to (or EMI's file for it is due), so it's only cached until the next interval is
+  return c.json({ ...live.day, hvdc, live: true }, 200, {
+    "Cache-Control": `max-age=${live.maxAge}`,
   });
 });
+
+// the intervals so far on a day EMI hasn't published its file for yet (today, and yesterday until EMI does), from the
+// live dispatch, which only keeps the last few days, so it isn't read for days before them. date is like 20261008
+async function getLiveDay(date: string): Promise<{ day: Timeseries; maxAge: number } | null> {
+  const day = `${date.slice(0, 4)}-${date.slice(4, 6)}-${date.slice(6, 8)}`;
+  const today = todayInNz();
+  if (day > today || day < addDays(today, -TIMESERIES_DAYS)) {
+    return null;
+  }
+
+  const file = await env.dispatch.get("timeseries");
+  if (!file) {
+    return null;
+  }
+  const timeseries = (await file.json()) as Timeseries;
+  const onDay = (rows: any[]) => rows.filter((row) => (row[0] as string).startsWith(day));
+  const data = onDay(timeseries.data);
+  if (data.length === 0) {
+    return null;
+  }
+  return {
+    day: { series: timeseries.series, data, pricing: onDay(timeseries.pricing) },
+    maxAge: calculateMaxAgeHeader(timeseries),
+  };
+}
 
 // date is in the format 20261008
 async function getHvdcDay(date: string): Promise<HvdcTimeseries> {

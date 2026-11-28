@@ -1,5 +1,4 @@
 import { ApiClient } from "./api";
-import { addDays, todayInNz } from "./dates";
 import { getAllSubstations, isUnitNode, normaliseName } from "./nodes";
 import { HvdcTimeseries } from "../models/hvdc";
 import { DISPATCH_AGGREGATES_START } from "../services/dispatchAggregation/dispatchAggregation";
@@ -15,46 +14,10 @@ export type DispatchDay = {
   live: boolean;
 };
 
-// how many days the live dispatch (/v1/dispatch/recent) keeps
-const LIVE_DAYS = 3;
-
-// each day's dispatch, or for the days before the dispatch data began, its half-hourly metered generation. EMI publishes
-// each day's dispatch the day after, so until then it's the live dispatch's 5-minute intervals so far
-export class DispatchDays {
-  private recent?: Promise<DispatchDay | null>;
-
-  // from is the first day that'll be requested, so the live dispatch is only requested once, from then
-  constructor(
-    private api: ApiClient,
-    private from: string,
-  ) {}
-
-  async get(date: string): Promise<DispatchDay | null> {
-    const day = await this.api.get<Omit<DispatchDay, "live">>(`/v1/dispatch/${date}`);
-    if (day) {
-      return { ...day, live: false };
-    }
-    if (date < addDays(todayInNz(), -LIVE_DAYS)) {
-      return null;
-    }
-
-    this.recent ??= this.api.get<DispatchDay>(
-      `/v1/dispatch/recent?since=${addDays(this.from, -1)}T23:55:00`,
-    );
-    const live = await this.recent;
-    const onDate = <T extends unknown[]>(rows: T[]) =>
-      rows.filter((row) => (row[0] as string).startsWith(date));
-    const data = live ? onDate(live.data) : [];
-    return data.length === 0
-      ? null
-      : {
-          series: live!.series,
-          data,
-          pricing: onDate(live!.pricing),
-          hvdc: { series: live!.hvdc.series, data: onDate(live!.hvdc.data) },
-          live: true,
-        };
-  }
+// a day's dispatch, or for the days before the dispatch data began, its half-hourly metered generation. EMI publishes
+// each day's dispatch the day after, so until then the API returns the live dispatch's 5-minute intervals so far
+export function getDispatchDay(api: ApiClient, date: string): Promise<DispatchDay | null> {
+  return api.get<DispatchDay>(`/v1/dispatch/${date}`);
 }
 
 // the minutes between a day's rows: 5 for the dispatch, 30 for the metered generation the API has before it. it's from the

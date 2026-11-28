@@ -2,7 +2,7 @@ import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
 import { ApiClient, mapWithConcurrency, round, runTool, ToolInputError } from "../api";
 import { parseEnd, parseStart, todayInNz } from "../dates";
-import { DispatchDays, resolvePriceNode, toBucket } from "../dispatchDay";
+import { getDispatchDay, resolvePriceNode, toBucket } from "../dispatchDay";
 import { getGxp } from "../nodes";
 import { checkSize } from "../table";
 import {
@@ -92,10 +92,9 @@ export async function getPrices(api: ApiClient, args: PricesArgs) {
   const samples = new Map(requested.map((request) => [request, [] as Sample[]]));
   const missingDates = [] as string[];
   const liveDates = [] as string[];
-  const days = new DispatchDays(api, from);
 
   await mapWithConcurrency(dates, 3, async (date) => {
-    const day = await days.get(date);
+    const day = await getDispatchDay(api, date);
     if (!day) {
       missingDates.push(date);
       return;
