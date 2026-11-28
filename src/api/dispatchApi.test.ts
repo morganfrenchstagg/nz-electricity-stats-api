@@ -274,6 +274,7 @@ describe("dispatch api", () => {
           ["2026-10-12T00:05:00", 118, null],
         ],
         hvdc: { series: [], data: [] },
+        live: false,
       });
       expect(response.headers.get("Cache-Control")).toBe("max-age=86400");
     });
@@ -307,6 +308,7 @@ describe("dispatch api", () => {
           ["1997-08-01T00:30:00", null, null, null],
         ],
         hvdc: { series: [], data: [] },
+        live: false,
       });
       expect(response.headers.get("Cache-Control")).toBe("max-age=86400");
     });
@@ -350,6 +352,112 @@ describe("dispatch api", () => {
       const { json } = await getJson("/v1/dispatch/20261012");
 
       expect(json.series).toEqual(["ATI2201 ATI0", "ALB0331"]);
+    });
+
+    describe("the days EMI hasn't published yet", () => {
+      // the live dispatch, to 22:00 today
+      const live = {
+        series: ["ATI2201 ATI0", "ALB0331"],
+        data: [
+          ["2026-10-13T23:55:00", 40, -15],
+          ["2026-10-14T00:00:00", 48, -18],
+          ["2026-10-14T22:00:00", 50, -20],
+        ],
+        pricing: [
+          ["2026-10-13T23:55:00", 100, 105],
+          ["2026-10-14T00:00:00", 110, 115],
+          ["2026-10-14T22:00:00", 120.5, 130],
+        ],
+      };
+
+      beforeEach(async () => {
+        await env.dispatch.put("timeseries", JSON.stringify(live));
+      });
+
+      it("returns today's intervals so far from the live dispatch, cached until the next interval should be available", async () => {
+        await env.dispatch.put(
+          "hvdc-em6-20261014",
+          JSON.stringify({ series: ["northFlow"], data: [["2026-10-14T00:00:00", 640]] }),
+        );
+
+        const { response, json } = await getJson("/v1/dispatch/2026-10-14");
+
+        expect(json).toEqual({
+          series: ["ATI2201 ATI0", "ALB0331"],
+          data: [
+            ["2026-10-14T00:00:00", 48, -18],
+            ["2026-10-14T22:00:00", 50, -20],
+          ],
+          pricing: [
+            ["2026-10-14T00:00:00", 110, 115],
+            ["2026-10-14T22:00:00", 120.5, 130],
+          ],
+          hvdc: { series: ["northFlow"], data: [["2026-10-14T00:00:00", 640]] },
+          live: true,
+        });
+        // the next interval is expected by 22:06, 5 minutes from now
+        expect(response.headers.get("Cache-Control")).toBe("max-age=300");
+      });
+
+      it("returns yesterday's from the live dispatch until EMI publishes it", async () => {
+        const { json } = await getJson("/v1/dispatch/20261013");
+
+        expect(json.data).toEqual([["2026-10-13T23:55:00", 40, -15]]);
+        expect(json.live).toBe(true);
+      });
+
+      it("prefers EMI's file once it's published", async () => {
+        await env.dispatch.put(
+          "dispatch-20261013",
+          JSON.stringify({ "2026-10-13T00:00:00": [{ p: "ATI2201 ATI0", g: 5, l: 0, c: 1 }] }),
+        );
+
+        const { response, json } = await getJson("/v1/dispatch/2026-10-13");
+
+        expect(json.data).toEqual([["2026-10-13T00:00:00", 5]]);
+        expect(json.live).toBe(false);
+        expect(response.headers.get("Cache-Control")).toBe("max-age=86400");
+      });
+
+      it("returns 404 for a day in the live dispatch's last few days without any intervals in it", async () => {
+        const { response } = await getJson("/v1/dispatch/2026-10-11");
+
+        expect(response.status).toBe(404);
+      });
+
+      it.each(["2026-10-10", "2026-10-15"])(
+        "doesn't read the live dispatch for %s, which it doesn't keep",
+        async (date) => {
+          const get = vi.spyOn(env.dispatch, "get");
+
+          const { response } = await getJson(`/v1/dispatch/${date}`);
+
+          expect(response.status).toBe(404);
+          expect(get).not.toHaveBeenCalledWith("timeseries");
+        },
+      );
+
+      it("doesn't keep today in the edge cache past the next interval", async () => {
+        await (await requestWorker("/v1/dispatch/2026-10-14")).finishBackgroundWork();
+        await env.dispatch.put(
+          "timeseries",
+          JSON.stringify({
+            ...live,
+            data: [...live.data, ["2026-10-14T22:05:00", 52, -21]],
+            pricing: [...live.pricing, ["2026-10-14T22:05:00", 118, 125]],
+          }),
+        );
+
+        // 22:05, a minute before the next interval is expected
+        vi.setSystemTime(new Date("2026-10-14T09:05:00Z"));
+        const cached = await getJson("/v1/dispatch/2026-10-14");
+        expect(cached.json.data).toHaveLength(2);
+
+        // 22:06
+        vi.setSystemTime(new Date("2026-10-14T09:06:00Z"));
+        const { json } = await getJson("/v1/dispatch/2026-10-14");
+        expect(json.data.at(-1)).toEqual(["2026-10-14T22:05:00", 52, -21]);
+      });
     });
 
     it("returns 404 for a day that hasn't been synced", async () => {
