@@ -166,6 +166,19 @@ describe("documented responses", () => {
     await expectDocumentedResponse("/v1/dispatch/2010-01-01", "/v1/dispatch/{date}");
   });
 
+  it("/v1/dispatch/{date} from the live dispatch, before EMI has published it", async () => {
+    await env.dispatch.put(
+      "timeseries",
+      JSON.stringify({
+        series: ["ATI2201 ATI0", "ALB0331"],
+        data: [["2026-10-14T22:00:00", 50, -20]],
+        pricing: [["2026-10-14T22:00:00", 120.5, 130]],
+      }),
+    );
+
+    await expectDocumentedResponse("/v1/dispatch/2026-10-14", "/v1/dispatch/{date}");
+  });
+
   it("/v1/dispatch/{date} with no data", async () => {
     await expectDocumentedResponse("/v1/dispatch/2026-10-12", "/v1/dispatch/{date}", 404);
   });

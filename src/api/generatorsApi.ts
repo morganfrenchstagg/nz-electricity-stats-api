@@ -13,7 +13,11 @@ import {
 import { readDispatchDay } from "../services/dispatchDay/dispatchDay";
 import { getStationNodes, summariseDay } from "../services/generatorDay/generatorDay";
 import { toUnitOutages } from "../services/outageMapping/outageMapper";
-import { calculateMaxAgeHeader, selectNodesOnDate } from "../services/timeseries/timeseries";
+import {
+  calculateMaxAgeHeader,
+  selectNodesOnDate,
+  TIMESERIES_DAYS,
+} from "../services/timeseries/timeseries";
 import { edgeCache } from "../utilities/edgeCache";
 import {
   getServiceUnavailableResponse,
@@ -246,13 +250,17 @@ type DaySource =
   | { timeseries: Timeseries; live: true; lastUpdated: string };
 
 // a day's dispatch: EMI's daily file (or the metered data, before the dispatch data began) once it's published, and
-// until then the live dispatch's rows on the day, which it keeps for the last few days. today is always the live
-// dispatch's, even before its first interval, so it's only unavailable when the live dispatch hasn't been synced
+// until then the live dispatch's rows on the day, which it keeps for the last few days, so it isn't read for days
+// outside them. today is always the live dispatch's, even before its first interval, so it's only unavailable when the
+// live dispatch hasn't been synced
 async function readDay(date: string, today: string): Promise<DaySource | "notSynced" | "noData"> {
   if (date !== today) {
     const published = await readDispatchDay(date.replace(/-/g, ""));
     if (published) {
       return { timeseries: published, live: false };
+    }
+    if (date > today || date < addDays(today, -TIMESERIES_DAYS)) {
+      return "noData";
     }
   }
 

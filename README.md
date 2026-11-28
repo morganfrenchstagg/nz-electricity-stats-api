@@ -114,7 +114,7 @@ or in Claude.ai as a custom connector with the same URL. It has no authenticatio
 Its tools request the `/v1` routes from the worker itself, rather than over the network, and return what they need summed up rather than the API's per-node timeseries (a day's dispatch is about 1MB), so an agent can answer in a call or two:
 
 - `get_energy`: GWh generated, taken from the grid or sent over the HVDC by year, month, ISO week or day, grouped by fuel, island, operator, station and so on, with the renewable share (from `/v1/dispatch/aggregates`)
-- `get_day_profile`: a day's MW through the day, with each group's peak, and optionally the HVDC and prices (from `/v1/dispatch/:date`, or `/v1/dispatch/recent` for the days EMI hasn't published)
+- `get_day_profile`: a day's MW through the day, with each group's peak, and optionally the HVDC and prices (from `/v1/dispatch/:date`, which has the live dispatch so far for the days EMI hasn't published)
 - `get_prices`: prices at up to 10 nodes over up to 31 days, with each node's mean, percentiles and highest and lowest prices
 - `get_current_state`: the latest interval's generation against the capacity in service and out for outages, demand, the HVDC and prices
 - `search_generators` and `get_generating_capacity`: stations and units, and the capacity in service on a date (from `generators.json`)
