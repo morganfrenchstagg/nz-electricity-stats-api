@@ -28,7 +28,7 @@ The document is generated from the routes, which are [`@hono/zod-openapi`](https
 
 The API republishes data from:
 
-- [Electricity Market Information (EMI)](https://www.emi.ea.govt.nz): real-time dispatch, nodal prices and volumes, metered generation, load and HVDC flows, and bids and offers (`/v1/dispatch`, `/v1/offers`). Dispatch before 11 September 2020 comes from metered generation and load (see below). © [Electricity Authority](https://www.ea.govt.nz/copyright-disclaimer-transparency/), licensed under [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/).
+- [Electricity Market Information (EMI)](https://www.emi.ea.govt.nz): real-time dispatch, nodal prices and volumes, metered generation, load and HVDC flows, and bids and offers (`/v1/dispatch`, `/v1/offers`, `/v1/generators/:site`). Dispatch before 11 September 2020 comes from metered generation and load (see below). © [Electricity Authority](https://www.ea.govt.nz/copyright-disclaimer-transparency/), licensed under [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/).
 - [Transpower open data](https://data-transpower.opendata.arcgis.com/): transmission lines (`/v1/transmission-lines`). © [Transpower New Zealand](https://www.transpower.co.nz), licensed under [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/).
 - Transpower's [Planned Outage Coordination Process (POCP)](https://customerportal.transpower.co.nz/pocp/outages): generation outages (`/v1/outages` and `/v1/outages/:date`).
 - [em6](https://www.em6.co.nz): the HVDC's flows and transfer limits in each half hour (`hvdc` in `/v1/dispatch/recent`, `/v1/dispatch/:date` and `/v1/dispatch/aggregates`, see below).
@@ -78,6 +78,14 @@ For `/v1/dispatch/:date`, the flows come from EMI's metered [HVDC flows](https:/
 EMI's meters have changed over the years (each pole, the link as a whole, then each converter station's AC connections), and only the end the HVDC sends from is metered the whole time. So each way's flow is what was sent into the link: at Benmore going north, and at Haywards going south. It's a few percent more than what arrives at the other end, after losses. Since Pole 3 (2013) the HVDC often runs both ways within a half hour at low power, as its flow reverses, so north and south can both be above 0.
 
 The aggregates (`/v1/dispatch/aggregates`) have the MWh the HVDC sent north and south in each period as `hvdc`, a timeseries with `northFlow` and `southFlow` (the `nodes` filter doesn't apply to it). The days since EMI's latest month come from em6 until EMI publishes them, so a period isn't cached as complete until it has. `/v1/dispatch/aggregates` itself returns the last day EMI has published as `latestHvdcDate`, alongside the last day aggregated (`latestDate`).
+
+## Generators
+
+`/v1/generators/:site` (e.g. `/v1/generators/HLY`, or by alias, e.g. `TCC` for Stratford) has a station from `/v1/generators` with its units' dispatch today: each unit's MW and price in each 5-minute interval as `dispatch` (in the same shape as `/v1/dispatch/recent`, with only its units' columns), and its energy, peak and latest interval as `summary`, with the station's total. `/v1/generators/:site/:date` has any day back to August 1997 in the same shape.
+
+A day is from EMI's daily dispatch file once it's published (the day after), and until then from the live dispatch, which keeps the last 3 days, so today is always from the live dispatch (`live` is `true`). The units in service that day each have a column even while the dispatch leaves them out (at 0MW), so a day has the same columns whichever it's from. Before 11 September 2020 it's each unit's metered generation by half-hour trading period, without prices, and only the units the metered data has, as it combines some (e.g. Huntly's Rankine units before 2000).
+
+Energy is the mean MW over the day's intervals times the hours it covers (so far, for today), so an interval missing from the data isn't counted as 0. Each unit's `outages` are the ones going on at any time in the day, from the last 14 days the sync keeps, so they're left out of older days (`/v1/outages/:date` has those).
 
 ## Outages
 

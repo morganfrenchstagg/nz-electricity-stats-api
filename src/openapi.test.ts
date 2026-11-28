@@ -183,6 +183,66 @@ describe("documented responses", () => {
     await expectDocumentedResponse("/v1/dispatch/2026-10-12", "/v1/dispatch/{date}", 404);
   });
 
+  it("/v1/generators/{site}", async () => {
+    await env.dispatch.put(
+      "timeseries",
+      JSON.stringify({
+        series: ["HLY2201 HLY5", "HLY2201 HLY91"],
+        data: [["2026-10-14T22:00:00", 371, -50]],
+        pricing: [["2026-10-14T22:00:00", 182.4, 182.4]],
+      }),
+    );
+    await env.dispatch_kv.put(
+      "latestOutages",
+      JSON.stringify({ "HLY2201 HLY5": [outage("HLY_5")] }),
+    );
+
+    await expectDocumentedResponse("/v1/generators/HLY", "/v1/generators/{site}");
+  });
+
+  it("/v1/generators/{site} for a site no station has", async () => {
+    await expectDocumentedResponse("/v1/generators/XYZ", "/v1/generators/{site}", 404);
+  });
+
+  it("/v1/generators/{site}/{date} from a daily file", async () => {
+    await env.dispatch.put(
+      "dispatch-20261012",
+      JSON.stringify({
+        "2026-10-12T00:00:00": [
+          { p: "HLY2201 HLY5", g: 300, l: 0, c: 120.5 },
+          { p: "HLY2201 HLY91", g: 0, l: 40, c: 120.5 },
+        ],
+      }),
+    );
+
+    await expectDocumentedResponse("/v1/generators/HLY/2026-10-12", "/v1/generators/{site}/{date}");
+  });
+
+  it("/v1/generators/{site}/{date} from metered data, without prices", async () => {
+    await env.dispatch.put(
+      `${METERED_DAY_PREFIX}19980601`,
+      JSON.stringify({ "1998-06-01T00:00:00": [{ p: "HLY2201 huntly_1_4", g: 500, l: 0 }] }),
+    );
+
+    await expectDocumentedResponse("/v1/generators/HLY/1998-06-01", "/v1/generators/{site}/{date}");
+  });
+
+  it("/v1/generators/{site}/{date} with no data", async () => {
+    await expectDocumentedResponse(
+      "/v1/generators/HLY/2026-10-12",
+      "/v1/generators/{site}/{date}",
+      404,
+    );
+  });
+
+  it("/v1/generators/{site}/{date} with an invalid date", async () => {
+    await expectDocumentedResponse(
+      "/v1/generators/HLY/2026-02-30",
+      "/v1/generators/{site}/{date}",
+      400,
+    );
+  });
+
   it("/v1/dispatch/aggregates", async () => {
     await env.dispatch_kv.put(LATEST_AGGREGATED_DATE_KEY, "2026-10-12");
 

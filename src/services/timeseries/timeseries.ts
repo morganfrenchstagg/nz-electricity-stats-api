@@ -1,5 +1,6 @@
 import { RealTimeDispatch } from "../../models/realTimeDispatch";
 import { Timeseries } from "../../models/timeseries";
+import { getNZDateTime } from "../nzDateTime";
 
 // the recent endpoint's last few days of dispatch, which the HVDC returned with it covers too (see toRecentHvdc)
 export const TIMESERIES_DAYS = 3;
@@ -75,4 +76,39 @@ export function filterTimeseriesSince(timeseries: Timeseries, since: string): Ti
     data: timeseries.data.filter((row: any[]) => row[0] > since),
     pricing: timeseries.pricing.filter((row: any[]) => row[0] > since),
   };
+}
+
+// the given nodes' columns, in the order they're given, and only the rows on an NZ date (e.g. 2026-10-14). a node the
+// timeseries has no column for is 0, as the dispatch leaves out nodes at 0MW, with no price
+export function selectNodesOnDate(
+  timeseries: Timeseries,
+  nodes: string[],
+  date: string,
+): Timeseries {
+  const columns = nodes.map((node) => timeseries.series.indexOf(node) + 1);
+  const select = (rows: any[][], missing: number | null) =>
+    rows
+      .filter((row) => row[0].startsWith(date))
+      .map((row) => [row[0], ...columns.map((column) => (column > 0 ? row[column] : missing))]);
+
+  return {
+    series: nodes,
+    data: select(timeseries.data, 0),
+    pricing: select(timeseries.pricing, null),
+  };
+}
+
+const DEFAULT_MAX_AGE = 30;
+
+// the seconds until the interval after the timeseries' latest one is due (a minute after it ends), or a short while if
+// it's already overdue
+export function calculateMaxAgeHeader(timeseries: Timeseries): number {
+  const latestTimestamp = timeseries.data[timeseries.data.length - 1][0];
+
+  const latestDate = new Date(latestTimestamp);
+  const nextDate = new Date(latestDate.setTime(latestDate.getTime() + 6 * 1000 * 60)); // 6 minutes later (5 min + 1)
+  const now = getNZDateTime();
+
+  const cachableTimeInSeconds = (nextDate.getTime() - now.getTime()) / 1000;
+  return cachableTimeInSeconds > 0 ? cachableTimeInSeconds : DEFAULT_MAX_AGE;
 }

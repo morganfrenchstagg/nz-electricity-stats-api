@@ -94,6 +94,16 @@ export const UnitSchema = z
   })
   .openapi("Unit");
 
+export const UnitOutageSchema = z
+  .object({
+    outageBlock: z.string(),
+    mwLost: z.number(),
+    mwRemain: z.number(),
+    from: z.string().openapi({ format: "date-time" }),
+    until: z.string().openapi({ format: "date-time" }),
+  })
+  .openapi("UnitOutage", { description: "A generation outage from POCP" });
+
 export const GeneratorSchema = z
   .object({
     site: z.string().openapi({ description: "Site code", example: "ATI" }),

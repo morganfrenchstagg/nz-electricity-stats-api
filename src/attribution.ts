@@ -7,7 +7,7 @@ export const ATTRIBUTION = {
   sources: [
     {
       data: "Real-time dispatch, nodal prices and volumes, metered generation, load and HVDC flows, and bids and offers",
-      endpoints: ["/v1/dispatch", "/v1/offers"],
+      endpoints: ["/v1/dispatch", "/v1/offers", "/v1/generators/:site"],
       source: { name: "Electricity Market Information (EMI)", url: "https://www.emi.ea.govt.nz" },
       copyright: {
         holder: "Electricity Authority",
@@ -27,7 +27,7 @@ export const ATTRIBUTION = {
     {
       // POCP doesn't publish licence terms, so this credits the source without claiming one
       data: "Generation outages",
-      endpoints: ["/v1/outages"],
+      endpoints: ["/v1/outages", "/v1/generators/:site"],
       source: {
         name: "Transpower's Planned Outage Coordination Process (POCP)",
         url: "https://customerportal.transpower.co.nz/pocp/outages",
